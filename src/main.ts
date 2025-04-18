@@ -22,7 +22,7 @@ async function bootstrap() {
     // origin: clientUrl,
     origin: true,
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'cache-control'],
     exposedHeaders: ['Set-Cookie'],
   });
   console.log('CORS ALLOWED ORIGIN:', clientUrl);
