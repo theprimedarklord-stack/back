@@ -8,17 +8,11 @@ async function bootstrap() {
 
   // Настройка CORS
   app.enableCors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: process.env.CLIENT_URL,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'Cache-Control', // Добавляем разрешённые заголовки
-      'Pragma'
-    ],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma'],
+    exposedHeaders: ['Set-Cookie'], // Добавьте это
     credentials: true,
-    preflightContinue: false,
-    optionsSuccessStatus: 204
   });
 
   app.use(cookieParser());
