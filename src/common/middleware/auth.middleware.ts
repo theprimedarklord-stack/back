@@ -34,12 +34,13 @@ export class AuthMiddleware implements NestMiddleware {
         } else {
           req['user'] = data.user;
         }
-        
+        next();
       } catch (err) {
         console.error('Auth middleware error:', err);
         req['user'] = null;
+        next(err);
       }
     });
-    next();
+    
   }
 }
