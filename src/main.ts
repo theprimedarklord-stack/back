@@ -19,11 +19,13 @@ async function bootstrap() {
 
   // Включаем CORS, разрешая куки и заголовок Set-Cookie
   app.enableCors({
-    origin: clientUrl,
+    // origin: clientUrl,
+    origin: true,
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Set-Cookie'],
   });
+  console.log('CORS ALLOWED ORIGIN:', clientUrl);
 
   // Подключаем парсер куки
   app.use(cookieParser());
