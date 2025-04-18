@@ -50,39 +50,38 @@ export class AuthController {
     return { success: true };
   }
 
-  @Get('profile')
-  async getProfile(@Req() req) {
-    const user = req['user'];
-    
-    if (!user) {
-      return {
-        success: false,
-        error: 'Не авторизован'
-      };
-    }
-    
-    // Теперь можем использовать this.supabaseService
-    const supabase = this.supabaseService.getClient();
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
-      
-    if (userError) {
-      return {
-        success: false,
-        error: 'Ошибка получения данных пользователя'
-      };
-    }
-    
-    return {
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        ...userData
-      }
-    };
+// В AuthController
+@Get('profile')
+async getProfile(@Req() req) {
+  const user = req['user'];
+  if (!user) {
+    return { success: false, error: 'Не авторизован' };
   }
+  
+  // Добавить обработку отсутствия данных
+  const supabase = this.supabaseService.getClient();
+  const { data: userData, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('user_id', user.id)
+    .single();
+
+  if (error) {
+    console.error('Supabase error:', error);
+    return { success: false, error: 'Ошибка базы данных' };
+  }
+
+  if (!userData) {
+    return { success: false, error: 'Профиль не найден' };
+  }
+
+  return {
+    success: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      ...userData
+    }
+  };
+}
 }

@@ -9,36 +9,37 @@ export class AuthMiddleware implements NestMiddleware {
   constructor(private configService: ConfigService) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
-    try {
-      const token = req.cookies['access_token'];
-      
-      if (!token) {
+    cookieParser()(req, res, async () => {
+      try {
+        const token = req.cookies['access_token'];
+        
+        if (!token) {
+          req['user'] = null;
+          return next();
+        }
+        
+        const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
+        const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+        
+        if (!supabaseUrl || !supabaseKey) {
+          req['user'] = null;
+          return next();
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data, error } = await supabase.auth.getUser(token);
+        
+        if (error || !data.user) {
+          req['user'] = null;
+        } else {
+          req['user'] = data.user;
+        }
+        
+      } catch (err) {
+        console.error('Auth middleware error:', err);
         req['user'] = null;
-        return next();
       }
-      
-      const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-      const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
-      
-      if (!supabaseUrl || !supabaseKey) {
-        req['user'] = null;
-        return next();
-      }
-      
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      const { data, error } = await supabase.auth.getUser(token);
-      
-      if (error || !data.user) {
-        req['user'] = null;
-      } else {
-        req['user'] = data.user;
-      }
-      
-    } catch (err) {
-      console.error('Auth middleware error:', err);
-      req['user'] = null;
-    }
-    
+    });
     next();
   }
 }
