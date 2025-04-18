@@ -50,38 +50,29 @@ export class AuthController {
     return { success: true };
   }
 
-// В AuthController
-@Get('profile')
-async getProfile(@Req() req) {
-  const user = req['user'];
-  if (!user) {
-    return { success: false, error: 'Не авторизован' };
-  }
-  
-  // Добавить обработку отсутствия данных
-  const supabase = this.supabaseService.getClient();
-  const { data: userData, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
-
-  if (error) {
-    console.error('Supabase error:', error);
-    return { success: false, error: 'Ошибка базы данных' };
-  }
-
-  if (!userData) {
-    return { success: false, error: 'Профиль не найден' };
-  }
-
-  return {
-    success: true,
-    user: {
-      id: user.id,
-      email: user.email,
-      ...userData
+  @Get('profile')
+  async getProfile(@Req() req) {
+    if (!req.user) {
+      return { success: false, error: 'Не авторизован' };
     }
-  };
-}
+    try {
+      const { data: userData } = await this.supabaseService.getClient()
+        .from('users')
+        .select('*')
+        .eq('user_id', req.user.id)
+        .single();
+        
+      return {
+        success: true,
+        user: {
+          id: req.user.id,
+          email: req.user.email,
+          ...userData
+        }
+      };
+    } catch (error) {
+      console.error('Profile error:', error);
+      return { success: false, error: 'Ошибка загрузки профиля' };
+    }
+  }
 }
