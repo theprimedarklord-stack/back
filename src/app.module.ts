@@ -8,7 +8,7 @@ import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({ isGlobal: true }),
     SupabaseModule,
     AuthModule,
   ],
