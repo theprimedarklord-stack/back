@@ -31,6 +31,8 @@ export class AuthService {
     return {
       success: true,
       theme: userData?.theme || 'light',
+      access_token: data.session.access_token,
+      user_id: data.user.id,
     };
   }
 }
