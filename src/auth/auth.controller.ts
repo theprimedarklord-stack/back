@@ -20,6 +20,8 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response
   ) {
     try {
+      console.log('Login request body:', body);
+
       const result = await this.authService.login(body.email, body.password);
       const isProd = process.env.NODE_ENV === 'production';
       const maxAge = body.rememberMe
