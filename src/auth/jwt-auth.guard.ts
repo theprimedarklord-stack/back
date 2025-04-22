@@ -19,7 +19,7 @@ import {
     canActivate(context: ExecutionContext): boolean {
       const request = context.switchToHttp().getRequest<Request>();
       const token = this.extractTokenFromRequest(request);
-  
+      console.log('Extracted token:', token);
       if (!token) {
         throw new UnauthorizedException('Требуется авторизация');
       }
