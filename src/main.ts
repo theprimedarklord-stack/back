@@ -22,7 +22,7 @@ async function bootstrap() {
     // origin: clientUrl,
     // origin: true,
     // origin: ['http://localhost:3000'],
-    origin: ['http://localhost:3000', 'https://smartmemory.vercel.app/'],
+    origin: ['http://localhost:3000', 'https://smartmemory.vercel.app'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Pragma'],
     exposedHeaders: ['Set-Cookie'],
