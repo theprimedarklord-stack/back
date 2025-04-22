@@ -17,14 +17,21 @@ async function bootstrap() {
       ? configService.get<string>('PROD_CLIENT_URL')
       : configService.get<string>('CLIENT_URL', 'http://localhost:3000');
 
-  // Включаем CORS, разрешая куки и заголовок Set-Cookie
-  app.enableCors({
-    origin: 'http://localhost:3000',
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Pragma'],
-    exposedHeaders: ['Set-Cookie'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  });
+      app.enableCors({
+        origin: clientUrl,
+        credentials: true,
+        allowedHeaders: [
+          'Content-Type',
+          'Authorization',
+          'X-Requested-With',
+          'Accept',
+          'Origin',
+          'Pragma',
+        ],
+        exposedHeaders: ['Set-Cookie'],
+        methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+      });
+      
   console.log('CORS ALLOWED ORIGIN:', clientUrl);
 
   // Подключаем парсер куки
