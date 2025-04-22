@@ -3,6 +3,9 @@ import { Res, Req } from '@nestjs/common';
 import { Body, Controller, Post, Get, Injectable } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SupabaseService } from '../supabase/supabase.service';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { UseGuards } from '@nestjs/common';
+
 
 @Controller('auth')
 export class AuthController {
@@ -51,7 +54,9 @@ export class AuthController {
   }
 
   @Get('profile')
+  @UseGuards(JwtAuthGuard)
   async getProfile(@Req() req) {
+    console.log('Request user:', req.user);
     if (!req.user) {
       return { success: false, error: 'Не авторизован' };
     }
