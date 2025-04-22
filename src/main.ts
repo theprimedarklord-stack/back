@@ -19,10 +19,10 @@ async function bootstrap() {
 
   // Включаем CORS, разрешая куки и заголовок Set-Cookie
   app.enableCors({
-    origin: clientUrl,
+    // origin: clientUrl,
     // origin: true,
     // origin: ['http://localhost:3000'],
-    // origin: ['http://localhost:3000', 'https://smartmemory.vercel.app'],
+    origin: ['http://localhost:3000', 'https://smartmemory.vercel.app'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Pragma'],
     exposedHeaders: ['Set-Cookie'],
@@ -34,7 +34,7 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Используем динамический порт (Railway прокидывает его в process.env.PORT)
-  const port = parseInt(configService.get<string>('PORT', '3001'), 10);
+  const port = parseInt(configService.get<string>('PORT', '8080'), 10);
   await app.listen(port, '0.0.0.0');
 
   console.log(`🚀 Application is running on: http://localhost:${port}`);
