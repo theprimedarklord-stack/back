@@ -21,7 +21,7 @@ export class AuthController {
   ) {
     try {
       const result = await this.authService.login(body.email, body.password);
-  
+      const isProduction = process.env.NODE_ENV === 'production';
       const maxAge = body.rememberMe
         ? 30 * 24 * 60 * 60 // 30 дней
         : 60 * 60; // 1 час
@@ -30,8 +30,8 @@ export class AuthController {
 
       res.cookie('access_token', result.access_token, {
         httpOnly: true,
-        secure: true, // всегда true для кросс-доменных запросов
-        sameSite: 'none', // всегда 'none' для кросс-доменных запросов
+        secure: isProduction, // Только HTTPS в продакшене
+        sameSite: isProduction ? 'none' : 'lax', // Для кросс-домена
         maxAge: maxAge * 1000,
         path: '/',
       });
