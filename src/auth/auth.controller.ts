@@ -25,7 +25,9 @@ export class AuthController {
       const maxAge = body.rememberMe
         ? 30 * 24 * 60 * 60 // 30 дней
         : 60 * 60; // 1 час
-  
+        console.log("result.access_token + ",result.access_token)
+
+
       res.cookie('access_token', result.access_token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',

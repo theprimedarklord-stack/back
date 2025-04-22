@@ -21,7 +21,8 @@ async function bootstrap() {
   app.enableCors({
     // origin: clientUrl,
     // origin: true,
-    origin: ['http://localhost:3000'],
+    // origin: ['http://localhost:3000'],
+    origin: 'http://localhost:3000',
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Pragma'],
     exposedHeaders: ['Set-Cookie'],
