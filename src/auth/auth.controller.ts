@@ -30,8 +30,8 @@ export class AuthController {
 
       res.cookie('access_token', result.access_token, {
         httpOnly: true,
-        secure: false, // Только HTTPS в продакшене
-        sameSite: 'none', // Для кросс-домена
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
         maxAge: maxAge * 1000,
         path: '/',
       });
