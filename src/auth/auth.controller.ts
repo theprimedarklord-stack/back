@@ -1,53 +1,53 @@
+// src/auth/auth.controller.ts
 import { Response } from 'express';
-import { Res, Req } from '@nestjs/common';
-import { Body, Controller, Post, Get, Injectable } from '@nestjs/common';
+import { Res, Req, Body, Controller, Post, Get } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { UseGuards } from '@nestjs/common';
 
-
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly supabaseService: SupabaseService // Добавили инъекцию SupabaseService
+    private readonly supabaseService: SupabaseService,
   ) {}
 
   @Post('login')
   async login(
     @Body() body: { email: string; password: string; rememberMe: boolean },
-    @Res({ passthrough: true }) res: Response
+    @Res({ passthrough: true }) res: Response,
   ) {
     try {
       console.log('Login request body:', body);
-
       const result = await this.authService.login(body.email, body.password);
-      const isProd = process.env.NODE_ENV === 'production';
-      const maxAge = body.rememberMe
-        ? 30 * 24 * 60 * 60 // 30 дней
-        : 60 * 60; // 1 час
-        console.log("result.access_token + ",result.access_token)
+      console.log('Login result:', result);
 
+      if (!result.access_token) {
+        throw new Error('Access token not returned from auth service');
+      }
+
+      const isProd = process.env.NODE_ENV === 'production';
+      const maxAge = body.rememberMe ? 30 * 24 * 60 * 60 : 60 * 60;
 
       res.cookie('access_token', result.access_token, {
         httpOnly: true,
         secure: isProd,
-        sameSite: 'none',
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: maxAge * 1000,
         path: '/',
       });
-  
+
+      console.log('Set-Cookie header:', res.get('Set-Cookie')); // Додаємо лог
+
       return {
         success: true,
         theme: result.theme,
         user_id: result.user_id,
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-      };
+      console.error('Login error:', error.message);
+      return { success: false, error: error.message };
     }
   }
 
@@ -64,20 +64,23 @@ export class AuthController {
     if (!req.user) {
       return { success: false, error: 'Не авторизован' };
     }
+
     try {
-      const { data: userData } = await this.supabaseService.getClient()
+      const { data: userData } = await this.supabaseService
+        .getClient()
         .from('users')
         .select('*')
         .eq('user_id', req.user.id)
         .single();
-        
+
       return {
         success: true,
         user: {
           id: req.user.id,
           email: req.user.email,
-          ...userData
-        }
+          role: req.user.role,
+          ...userData,
+        },
       };
     } catch (error) {
       console.error('Profile error:', error);

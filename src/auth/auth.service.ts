@@ -9,23 +9,23 @@ export class AuthService {
 
   async login(email: string, password: string) {
     const supabase = this.supabaseService.getClient();
-
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
+    console.log('Supabase response:', { data, error });
+
     if (error?.message === 'Invalid login credentials') {
       throw new Error('Неверный email или пароль');
     }
-
     if (error) {
       throw new Error(error.message);
     }
 
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('theme, role, username') // сразу подтяни все, что нужно
+      .select('theme, role, username')
       .eq('user_id', data.user.id)
       .single();
 
@@ -39,9 +39,9 @@ export class AuthService {
       role: userData?.role || 'user',
     };
 
-    const access_token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: '30d', // или 1h — можешь выбирать
-    });
+    const expiresIn = '30d'; // Токен живе 30 днів
+    const access_token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
+    console.log('Generated JWT token:', access_token); // Додаємо лог
 
     return {
       success: true,
