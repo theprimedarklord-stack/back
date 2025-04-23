@@ -14,26 +14,32 @@ import {
     role: string;
   }
   
-  @Injectable()
-  export class JwtAuthGuard implements CanActivate {
-    canActivate(context: ExecutionContext): boolean {
-      const request = context.switchToHttp().getRequest<Request>();
-      const token = this.extractTokenFromRequest(request);
-      console.log('Extracted token:', token);
-      if (!token) {
-        throw new UnauthorizedException('Требуется авторизация');
-      }
-  
-      try {
-        const payload = jwt.verify(token, process.env.JWT_SECRET!) as UserPayload;
-        request.user = payload;
-        return true;
-      } catch (err) {
-        throw new UnauthorizedException('Недействительный токен');
-      }
+  // src/auth/jwt-auth.guard.ts
+@Injectable()
+export class JwtAuthGuard implements CanActivate {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<Request>();
+    console.log('Request cookies:', request.cookies);
+    console.log('Request headers:', request.headers);
+
+    const token = this.extractTokenFromRequest(request);
+    console.log('Extracted token:', token);
+
+    if (!token) {
+      throw new UnauthorizedException('Требуется авторизация');
     }
-  
-    private extractTokenFromRequest(req: Request): string | null {
-      return req.cookies?.access_token || req.headers.authorization?.split(' ')[1] || null;
+
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET!) as UserPayload;
+      console.log('Verified token payload:', payload);
+      request.user = payload;
+      return true;
+    } catch (err) {
+      throw new UnauthorizedException('Недействительный токен');
     }
   }
+
+  private extractTokenFromRequest(req: Request): string | null {
+    return req.cookies?.access_token || req.headers.authorization?.split(' ')[1] || null;
+  }
+}

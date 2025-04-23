@@ -33,7 +33,7 @@ export class AuthController {
       res.cookie('access_token', result.access_token, {
         httpOnly: true,
         secure: isProd,
-        sameSite: isProd ? 'none' : 'lax',
+        sameSite: isProd ? 'none' : 'none',// Для тестування локально
         maxAge: maxAge * 1000,
         path: '/',
       });
