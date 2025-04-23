@@ -12,10 +12,9 @@ async function bootstrap() {
 
   // Определяем фронтенд-URL для CORS из переменных окружения
   // В .env или в Railway Settings задайте CLIENT_URL (локальный) и PROD_CLIENT_URL (продакшн)
-  const clientUrl =
-    process.env.NODE_ENV === 'production'
-      ? configService.get<string>('PROD_CLIENT_URL')
-      : configService.get<string>('CLIENT_URL', 'http://localhost:3000');
+  const clientUrl = process.env.NODE_ENV === 'production'
+  ? 'https://smartmemory.vercel.app'  // URL вашего фронтенда на Vercel
+  : 'http://localhost:3000';  // Локальный URL фронтенда 
 
       app.enableCors({
         origin: clientUrl,

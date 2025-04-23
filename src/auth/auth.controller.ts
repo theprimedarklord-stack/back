@@ -32,8 +32,8 @@ export class AuthController {
 
       res.cookie('access_token', result.access_token, {
         httpOnly: true,
-        secure: isProd,
-        sameSite: isProd ? 'none' : 'none',// Для тестування локально
+        secure: process.env.NODE_ENV === 'production', // true в продакшне, false локально
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: maxAge * 1000,
         path: '/',
       });
