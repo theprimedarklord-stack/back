@@ -1,0 +1,735 @@
+{
+  "levels": [
+    {
+      "level": 1,
+      "replacements": [
+        {
+          "pattern": "а паттерна:\n",
+          "marker": "\u0000",
+          "frequency": 6,
+          "length": 12,
+          "savings": 66,
+          "priority": 1371.7842395945506,
+          "context": "general",
+          "entropy": 3.0220552088742
+        },
+        {
+          "pattern": " паттерн",
+          "marker": "\u0001",
+          "frequency": 8,
+          "length": 8,
+          "savings": 56,
+          "priority": 1267.1353518862932,
+          "context": "word_start",
+          "entropy": 2.75
+        },
+        {
+          "pattern": " текст",
+          "marker": "\u0002",
+          "frequency": 10,
+          "length": 6,
+          "savings": 50,
+          "priority": 1224.744871391589,
+          "context": "word_start",
+          "entropy": 2.2516291673878226
+        },
+        {
+          "pattern": "а паттерна:",
+          "marker": "\u0003",
+          "frequency": 6,
+          "length": 11,
+          "savings": 60,
+          "priority": 1193.984924527944,
+          "context": "general",
+          "entropy": 2.8453509366224368
+        },
+        {
+          "pattern": " паттерна:\n",
+          "marker": "\u0004",
+          "frequency": 6,
+          "length": 11,
+          "savings": 60,
+          "priority": 1193.984924527944,
+          "context": "word_start",
+          "entropy": 3.095795255000934
+        },
+        {
+          "pattern": ". длина паттерна:\n",
+          "marker": "\u0005",
+          "frequency": 4,
+          "length": 18,
+          "savings": 68,
+          "priority": 1153.9982668964456,
+          "context": "general",
+          "entropy": 3.5724312513221195
+        },
+        {
+          "pattern": "а паттерна",
+          "marker": "\u0006",
+          "frequency": 6,
+          "length": 10,
+          "savings": 54,
+          "priority": 1024.577961894555,
+          "context": "general",
+          "entropy": 2.6464393446710153
+        },
+        {
+          "pattern": " паттерна:",
+          "marker": "\u0007",
+          "frequency": 6,
+          "length": 10,
+          "savings": 54,
+          "priority": 1024.577961894555,
+          "context": "word_start",
+          "entropy": 2.9219280948873623
+        },
+        {
+          "pattern": "паттерна:\n",
+          "marker": "\b",
+          "frequency": 6,
+          "length": 10,
+          "savings": 54,
+          "priority": 1024.577961894555,
+          "context": "general",
+          "entropy": 2.9219280948873623
+        },
+        {
+          "pattern": " паттер",
+          "marker": "\u000b",
+          "frequency": 8,
+          "length": 7,
+          "savings": 48,
+          "priority": 1015.9685034488028,
+          "context": "word_start",
+          "entropy": 2.521640636343318
+        },
+        {
+          "pattern": "паттерн",
+          "marker": "\f",
+          "frequency": 8,
+          "length": 7,
+          "savings": 48,
+          "priority": 1015.9685034488028,
+          "context": "general",
+          "entropy": 2.5216406363433186
+        },
+        {
+          "pattern": " текс",
+          "marker": "\u000e",
+          "frequency": 10,
+          "length": 5,
+          "savings": 40,
+          "priority": 894.4271909999159,
+          "context": "word_start",
+          "entropy": 2.321928094887362
+        },
+        {
+          "pattern": "текст",
+          "marker": "\u000f",
+          "frequency": 10,
+          "length": 5,
+          "savings": 40,
+          "priority": 894.4271909999159,
+          "context": "general",
+          "entropy": 1.9219280948873623
+        },
+        {
+          "pattern": "а паттерн",
+          "marker": "\u0010",
+          "frequency": 6,
+          "length": 9,
+          "savings": 48,
+          "priority": 864,
+          "context": "general",
+          "entropy": 2.725480556997868
+        },
+        {
+          "pattern": " паттерна",
+          "marker": "\u0011",
+          "frequency": 6,
+          "length": 9,
+          "savings": 48,
+          "priority": 864,
+          "context": "word_start",
+          "entropy": 2.725480556997868
+        },
+        {
+          "pattern": "паттерна:",
+          "marker": "\u0012",
+          "frequency": 6,
+          "length": 9,
+          "savings": 48,
+          "priority": 864,
+          "context": "general",
+          "entropy": 2.725480556997868
+        },
+        {
+          "pattern": "аттерна:\n",
+          "marker": "\u0013",
+          "frequency": 6,
+          "length": 9,
+          "savings": 48,
+          "priority": 864,
+          "context": "general",
+          "entropy": 2.725480556997868
+        },
+        {
+          "pattern": " сжати",
+          "marker": "\u0014",
+          "frequency": 8,
+          "length": 6,
+          "savings": 40,
+          "priority": 783.836717690617,
+          "context": "word_start",
+          "entropy": 2.584962500721156
+        },
+        {
+          "pattern": " патте",
+          "marker": "\u0015",
+          "frequency": 8,
+          "length": 6,
+          "savings": 40,
+          "priority": 783.836717690617,
+          "context": "word_start",
+          "entropy": 2.251629167387823
+        },
+        {
+          "pattern": "паттер",
+          "marker": "\u0016",
+          "frequency": 8,
+          "length": 6,
+          "savings": 40,
+          "priority": 783.836717690617,
+          "context": "general",
+          "entropy": 2.2516291673878226
+        },
+        {
+          "pattern": "аттерн",
+          "marker": "\u0017",
+          "frequency": 8,
+          "length": 6,
+          "savings": 40,
+          "priority": 783.836717690617,
+          "context": "general",
+          "entropy": 2.2516291673878226
+        },
+        {
+          "pattern": "а паттер",
+          "marker": "\u0018",
+          "frequency": 6,
+          "length": 8,
+          "savings": 42,
+          "priority": 712.76363543604,
+          "context": "general",
+          "entropy": 2.5
+        },
+        {
+          "pattern": "паттерна",
+          "marker": "\u0019",
+          "frequency": 6,
+          "length": 8,
+          "savings": 42,
+          "priority": 712.76363543604,
+          "context": "general",
+          "entropy": 2.5
+        },
+        {
+          "pattern": "аттерна:",
+          "marker": "\u001a",
+          "frequency": 6,
+          "length": 8,
+          "savings": 42,
+          "priority": 712.76363543604,
+          "context": "general",
+          "entropy": 2.5
+        },
+        {
+          "pattern": "ттерна:\n",
+          "marker": "\u001b",
+          "frequency": 6,
+          "length": 8,
+          "savings": 42,
+          "priority": 712.76363543604,
+          "context": "general",
+          "entropy": 2.75
+        },
+        {
+          "pattern": " тек",
+          "marker": "\u001c",
+          "frequency": 10,
+          "length": 4,
+          "savings": 30,
+          "priority": 600,
+          "context": "word_start",
+          "entropy": 2
+        },
+        {
+          "pattern": "текс",
+          "marker": "\u001d",
+          "frequency": 10,
+          "length": 4,
+          "savings": 30,
+          "priority": 600,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": "екст",
+          "marker": "\u001e",
+          "frequency": 10,
+          "length": 4,
+          "savings": 30,
+          "priority": 600,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": " сжат",
+          "marker": "\u001f",
+          "frequency": 8,
+          "length": 5,
+          "savings": 32,
+          "priority": 572.4334022399462,
+          "context": "word_start",
+          "entropy": 2.321928094887362
+        },
+        {
+          "pattern": "сжати",
+          "marker": "!",
+          "frequency": 8,
+          "length": 5,
+          "savings": 32,
+          "priority": 572.4334022399462,
+          "context": "general",
+          "entropy": 2.321928094887362
+        },
+        {
+          "pattern": " патт",
+          "marker": "\"",
+          "frequency": 8,
+          "length": 5,
+          "savings": 32,
+          "priority": 572.4334022399462,
+          "context": "word_start",
+          "entropy": 1.9219280948873623
+        },
+        {
+          "pattern": "патте",
+          "marker": "#",
+          "frequency": 8,
+          "length": 5,
+          "savings": 32,
+          "priority": 572.4334022399462,
+          "context": "general",
+          "entropy": 1.9219280948873623
+        },
+        {
+          "pattern": "аттер",
+          "marker": "$",
+          "frequency": 8,
+          "length": 5,
+          "savings": 32,
+          "priority": 572.4334022399462,
+          "context": "general",
+          "entropy": 1.9219280948873623
+        },
+        {
+          "pattern": "ттерн",
+          "marker": "%",
+          "frequency": 8,
+          "length": 5,
+          "savings": 32,
+          "priority": 572.4334022399462,
+          "context": "general",
+          "entropy": 1.9219280948873623
+        },
+        {
+          "pattern": "а патте",
+          "marker": "&",
+          "frequency": 6,
+          "length": 7,
+          "savings": 36,
+          "priority": 571.4822831899515,
+          "context": "general",
+          "entropy": 2.2359263506290326
+        },
+        {
+          "pattern": "аттерна",
+          "marker": "'",
+          "frequency": 6,
+          "length": 7,
+          "savings": 36,
+          "priority": 571.4822831899515,
+          "context": "general",
+          "entropy": 2.2359263506290326
+        },
+        {
+          "pattern": "ттерна:",
+          "marker": "*",
+          "frequency": 6,
+          "length": 7,
+          "savings": 36,
+          "priority": 571.4822831899515,
+          "context": "general",
+          "entropy": 2.5216406363433186
+        },
+        {
+          "pattern": "терна:\n",
+          "marker": "+",
+          "frequency": 6,
+          "length": 7,
+          "savings": 36,
+          "priority": 571.4822831899515,
+          "context": "general",
+          "entropy": 2.807354922057604
+        },
+        {
+          "pattern": "ное сжатие",
+          "marker": ",",
+          "frequency": 4,
+          "length": 10,
+          "savings": 36,
+          "priority": 455.36798306424663,
+          "context": "general",
+          "entropy": 3.121928094887362
+        },
+        {
+          "pattern": "а патт",
+          "marker": "-",
+          "frequency": 6,
+          "length": 6,
+          "savings": 30,
+          "priority": 440.90815370097204,
+          "context": "general",
+          "entropy": 1.9182958340544896
+        },
+        {
+          "pattern": "ттерна",
+          "marker": "/",
+          "frequency": 6,
+          "length": 6,
+          "savings": 30,
+          "priority": 440.90815370097204,
+          "context": "general",
+          "entropy": 2.2516291673878226
+        },
+        {
+          "pattern": "терна:",
+          "marker": ";",
+          "frequency": 6,
+          "length": 6,
+          "savings": 30,
+          "priority": 440.90815370097204,
+          "context": "general",
+          "entropy": 2.584962500721156
+        },
+        {
+          "pattern": "ерна:\n",
+          "marker": "<",
+          "frequency": 6,
+          "length": 6,
+          "savings": 30,
+          "priority": 440.90815370097204,
+          "context": "general",
+          "entropy": 2.584962500721156
+        },
+        {
+          "pattern": "\nОчистить",
+          "marker": "=",
+          "frequency": 4,
+          "length": 9,
+          "savings": 32,
+          "priority": 384,
+          "context": "general",
+          "entropy": 2.725480556997868
+        },
+        {
+          "pattern": " символов",
+          "marker": ">",
+          "frequency": 4,
+          "length": 9,
+          "savings": 32,
+          "priority": 384,
+          "context": "word_start",
+          "entropy": 2.725480556997868
+        },
+        {
+          "pattern": " сжа",
+          "marker": "?",
+          "frequency": 8,
+          "length": 4,
+          "savings": 24,
+          "priority": 384,
+          "context": "word_start",
+          "entropy": 2
+        },
+        {
+          "pattern": "сжат",
+          "marker": "@",
+          "frequency": 8,
+          "length": 4,
+          "savings": 24,
+          "priority": 384,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": "жати",
+          "marker": "[",
+          "frequency": 8,
+          "length": 4,
+          "savings": 24,
+          "priority": 384,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": " пат",
+          "marker": "\\",
+          "frequency": 8,
+          "length": 4,
+          "savings": 24,
+          "priority": 384,
+          "context": "word_start",
+          "entropy": 2
+        },
+        {
+          "pattern": "патт",
+          "marker": "]",
+          "frequency": 8,
+          "length": 4,
+          "savings": 24,
+          "priority": 384,
+          "context": "general",
+          "entropy": 1.5
+        },
+        {
+          "pattern": "атте",
+          "marker": "^",
+          "frequency": 8,
+          "length": 4,
+          "savings": 24,
+          "priority": 384,
+          "context": "general",
+          "entropy": 1.5
+        },
+        {
+          "pattern": "ттер",
+          "marker": "_",
+          "frequency": 8,
+          "length": 4,
+          "savings": 24,
+          "priority": 384,
+          "context": "general",
+          "entropy": 1.5
+        },
+        {
+          "pattern": "терн",
+          "marker": "`",
+          "frequency": 8,
+          "length": 4,
+          "savings": 24,
+          "priority": 384,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": "а пат",
+          "marker": "{",
+          "frequency": 6,
+          "length": 5,
+          "savings": 24,
+          "priority": 321.99378875996973,
+          "context": "general",
+          "entropy": 1.9219280948873623
+        },
+        {
+          "pattern": "терна",
+          "marker": "|",
+          "frequency": 6,
+          "length": 5,
+          "savings": 24,
+          "priority": 321.99378875996973,
+          "context": "general",
+          "entropy": 2.321928094887362
+        },
+        {
+          "pattern": "ерна:",
+          "marker": "}",
+          "frequency": 6,
+          "length": 5,
+          "savings": 24,
+          "priority": 321.99378875996973,
+          "context": "general",
+          "entropy": 2.321928094887362
+        },
+        {
+          "pattern": "рна:\n",
+          "marker": "~",
+          "frequency": 6,
+          "length": 5,
+          "savings": 24,
+          "priority": 321.99378875996973,
+          "context": "general",
+          "entropy": 2.321928094887362
+        },
+        {
+          "pattern": "е текст",
+          "marker": "",
+          "frequency": 4,
+          "length": 7,
+          "savings": 24,
+          "priority": 253.9921258622007,
+          "context": "general",
+          "entropy": 2.2359263506290326
+        },
+        {
+          "pattern": " сжатия",
+          "marker": "",
+          "frequency": 4,
+          "length": 7,
+          "savings": 24,
+          "priority": 253.9921258622007,
+          "context": "word_start",
+          "entropy": 2.807354922057604
+        },
+        {
+          "pattern": " текст\n",
+          "marker": "",
+          "frequency": 4,
+          "length": 7,
+          "savings": 24,
+          "priority": 253.9921258622007,
+          "context": "word_start",
+          "entropy": 2.5216406363433186
+        },
+        {
+          "pattern": "ина ",
+          "marker": "",
+          "frequency": 6,
+          "length": 4,
+          "savings": 18,
+          "priority": 216,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": "а па",
+          "marker": "",
+          "frequency": 6,
+          "length": 4,
+          "savings": 18,
+          "priority": 216,
+          "context": "general",
+          "entropy": 1.5
+        },
+        {
+          "pattern": "ерна",
+          "marker": "",
+          "frequency": 6,
+          "length": 4,
+          "savings": 18,
+          "priority": 216,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": "рна:",
+          "marker": "",
+          "frequency": 6,
+          "length": 4,
+          "savings": 18,
+          "priority": 216,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": "на:\n",
+          "marker": "",
+          "frequency": 6,
+          "length": 4,
+          "savings": 18,
+          "priority": 216,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": "екурси",
+          "marker": "",
+          "frequency": 4,
+          "length": 6,
+          "savings": 20,
+          "priority": 195.95917942265424,
+          "context": "general",
+          "entropy": 2.584962500721156
+        },
+        {
+          "pattern": "\nМин. ",
+          "marker": "",
+          "frequency": 4,
+          "length": 6,
+          "savings": 20,
+          "priority": 195.95917942265424,
+          "context": "general",
+          "entropy": 2.584962500721156
+        },
+        {
+          "pattern": "Логи",
+          "marker": "",
+          "frequency": 4,
+          "length": 4,
+          "savings": 12,
+          "priority": 96,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": "оги\n",
+          "marker": "",
+          "frequency": 4,
+          "length": 4,
+          "savings": 12,
+          "priority": 96,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": ": 0\n",
+          "marker": "",
+          "frequency": 4,
+          "length": 4,
+          "savings": 12,
+          "priority": 96,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": "ов: ",
+          "marker": "",
+          "frequency": 4,
+          "length": 4,
+          "savings": 12,
+          "priority": 96,
+          "context": "general",
+          "entropy": 2
+        },
+        {
+          "pattern": "0\nОб",
+          "marker": "",
+          "frequency": 4,
+          "length": 4,
+          "savings": 12,
+          "priority": 96,
+          "context": "general",
+          "entropy": 2
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "total_texts_processed": 92,
+    "marker_index": 0,
+    "binary_marker_index": 143,
+    "total_savings": 11735
+  }
+}

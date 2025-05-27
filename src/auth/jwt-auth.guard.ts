@@ -11,7 +11,7 @@ import {
   export interface UserPayload {
     id: string;
     email: string;
-    role: string;
+    role?: string;
   }
   
   // src/auth/jwt-auth.guard.ts

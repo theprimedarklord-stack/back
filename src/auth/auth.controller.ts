@@ -1,10 +1,11 @@
 // src/auth/auth.controller.ts
 import { Response } from 'express';
-import { Res, Req, Body, Controller, Post, Get } from '@nestjs/common';
+import { Res, Req, Body, Patch, Controller, Post, Get, HttpStatus, InternalServerErrorException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { UseGuards } from '@nestjs/common';
+import { LoginDto, RegisterDto } from './auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -15,46 +16,109 @@ export class AuthController {
 
   @Post('login')
   async login(
-    @Body() body: { email: string; password: string; rememberMe: boolean },
+    @Body() body: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
     try {
       console.log('Login request body:', body);
       const result = await this.authService.login(body.email, body.password);
       console.log('Login result:', result);
-
+  
       if (!result.access_token) {
-        throw new Error('Access token not returned from auth service');
+        throw new InternalServerErrorException('Access token not returned from auth service');
       }
-
+  
       const isProd = process.env.NODE_ENV === 'production';
-      const maxAge = body.rememberMe ? 30 * 24 * 60 * 60 : 60 * 60;
-
+      const maxAge = body.rememberMe ? 30 * 24 * 60 * 60 : 60 * 60; // 30 дней или 1 час
+  
       res.cookie('access_token', result.access_token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // true в продакшне, false локально
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: maxAge * 1000,
+        secure: isProd, // true в продакшене
+        sameSite: isProd ? 'none' : 'lax', // 'none' в продакшене для кросс-доменных запросов
+        maxAge: maxAge * 1000, // В миллисекундах
         path: '/',
       });
-
-      console.log('Set-Cookie header:', res.get('Set-Cookie')); // Додаємо лог
-
+  
+      console.log('Set-Cookie header:', res.get('Set-Cookie'));
+  
       return {
         success: true,
         theme: result.theme,
         user_id: result.user_id,
       };
     } catch (error) {
-      console.error('Login error:', error.message);
-      return { success: false, error: error.message };
+      console.error('Login error:', error.message, error.stack);
+      throw error; // Позволяем AllExceptionsFilter обработать ошибку
+    }
+  }
+
+  @Post('register')
+  async register(
+    @Body() body: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      const { user_id, access_token } = await this.authService.register(
+        body.email,
+        body.password,
+        body.username,
+      );
+
+      res.cookie('access_token', access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+        path: '/',
+      });
+
+      return { success: true, user_id };
+    } catch (error) {
+      console.error('Registration error:', error.message || error);
+      return {
+        success: false,
+        error: error.message || 'Ошибка регистрации',
+        status: HttpStatus.BAD_REQUEST,
+      };
     }
   }
 
   @Post('logout')
-  logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('access_token');
-    return { success: true };
+  async logout(@Req() req, @Res({ passthrough: true }) res: Response) {
+    try {
+      console.log('Logout request received');
+      const accessToken = req.cookies?.access_token;
+
+      if (accessToken) {
+        const { error } = await this.supabaseService.getClient().auth.signOut();
+        if (error) {
+          console.error('Supabase signOut error:', error.message);
+          return {
+            success: false,
+            error: 'Ошибка при завершении сессии',
+            status: HttpStatus.INTERNAL_SERVER_ERROR,
+          };
+        }
+      }
+
+      res.clearCookie('access_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/',
+      });
+
+      console.log('Set-Cookie header cleared:', res.get('Set-Cookie'));
+
+      return { success: true, message: 'Выход выполнен успешно' };
+    } catch (error) {
+      console.error('Logout error:', error.message);
+      return {
+        success: false,
+        error: 'Ошибка при выходе',
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+      };
+    }
   }
 
   @Get('profile')
@@ -66,25 +130,95 @@ export class AuthController {
     }
 
     try {
-      const { data: userData } = await this.supabaseService
-        .getClient()
+      const supabase = this.supabaseService.getClient();
+
+      // Получаем данные из таблицы users
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('user_id', req.user.id)
         .single();
+
+      if (userError) {
+        console.error('User data error:', userError);
+        throw new InternalServerErrorException('Ошибка загрузки данных пользователя');
+      }
+
+      // Получаем данные из таблицы user_settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', req.user.id)
+        .single();
+
+      if (settingsError) {
+        console.error('Settings data error:', settingsError);
+        throw new InternalServerErrorException('Ошибка загрузки настроек пользователя');
+      }
 
       return {
         success: true,
         user: {
           id: req.user.id,
           email: req.user.email,
-          role: req.user.role,
+          role: userData?.role || 'user',
           ...userData,
+          settings: settingsData, // Добавляем настройки пользователя
         },
       };
     } catch (error) {
       console.error('Profile error:', error);
       return { success: false, error: 'Ошибка загрузки профиля' };
+    }
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  async updateProfile(@Req() req, @Body() body: { userId: string; settings?: any }) {
+    try {
+      console.log('Обновление настроек пользователя:', req.user.id, body.settings);
+      
+      const supabase = this.supabaseService.getClient();
+
+      if (body.settings) {
+        // Сначала получаем текущие настройки
+        const { data: currentSettings, error: fetchError } = await supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', req.user.id)
+          .single();
+
+        if (fetchError) {
+          console.error('Ошибка получения текущих настроек:', fetchError);
+          throw new InternalServerErrorException('Ошибка получения настроек');
+        }
+
+        // Объединяем текущие настройки с новыми (частичное обновление)
+        const updatedSettings = {
+          ...currentSettings,
+          ...body.settings,
+          // Обновляем временную метку
+          updated_at: new Date().toISOString()
+        };
+
+        // Обновляем настройки в БД
+        const { error: updateError } = await supabase
+          .from('user_settings')
+          .update(updatedSettings)
+          .eq('user_id', req.user.id);
+
+        if (updateError) {
+          console.error('Ошибка обновления настроек:', updateError);
+          throw new InternalServerErrorException('Ошибка обновления настроек');
+        }
+
+        console.log('Настройки успешно обновлены');
+      }
+
+      return { success: true, message: 'Настройки обновлены' };
+    } catch (error) {
+      console.error('Update profile error:', error);
+      return { success: false, error: 'Ошибка обновления настроек' };
     }
   }
 }
