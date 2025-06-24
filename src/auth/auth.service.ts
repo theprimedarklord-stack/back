@@ -13,7 +13,6 @@ export class AuthService {
 
 // src/auth/auth.service.ts
 async login(email: string, password: string) {
-  console.log('Attempting login with:', { email, password });
   const supabase = this.supabaseService.getClient();
 
   // Шаг 1: Проверяем, существует ли пользователь с таким email
@@ -33,7 +32,6 @@ async login(email: string, password: string) {
     password,
   });
 
-  console.log('Supabase login response:', { data, error });
 
   if (error) {
     if (error.message === 'Invalid login credentials') {
@@ -72,7 +70,6 @@ async login(email: string, password: string) {
 
   const expiresIn = '30d';
   const access_token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
-  console.log('Generated JWT token:', access_token);
 
   return {
     success: true,
@@ -115,8 +112,6 @@ async login(email: string, password: string) {
 
     // Регистрация в Supabase
     const { data, error } = await supabase.auth.signUp({ email, password });
-    console.log('Register payload:', { email, password, username });
-    console.log('Supabase register response:', { data, error });
 
     if (error || !data?.user) {
       throw new BadRequestException(error?.message || 'Регистрация не удалась');

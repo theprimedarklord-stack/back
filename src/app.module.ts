@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { DictionaryModule } from './dictionary/dictionary.module';
 import { CardsModule } from './cards/cards.module';
+import { AdminModule } from './admin/admin.module';
 // import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
@@ -17,6 +18,7 @@ import { CardsModule } from './cards/cards.module';
     UserModule,
     DictionaryModule,
     CardsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

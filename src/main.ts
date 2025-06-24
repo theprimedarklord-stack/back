@@ -8,7 +8,6 @@ import * as express from 'express'; // Импортируем express для mid
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  console.log('ENV:', process.env.NODE_ENV);
   app.useGlobalFilters(new AllExceptionsFilter());
   const configService = app.get(ConfigService);
 
@@ -43,7 +42,6 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   });
 
-  console.log('CORS ALLOWED ORIGIN:', clientUrl);
 
   // Подключаем парсер куки
   app.use(cookieParser());
@@ -56,8 +54,6 @@ async function bootstrap() {
   const port = parseInt(configService.get<string>('PORT', '8080'), 10);
   await app.listen(port, '0.0.0.0');
 
-  console.log(`🚀 Application is running on: http://localhost:${port}`);
-  console.log(`🌐 CORS allowed origin: ${clientUrl}`);
 }
 
 bootstrap();

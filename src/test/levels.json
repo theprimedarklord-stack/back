@@ -724,12 +724,1177 @@
           "entropy": 2
         }
       ]
+    },
+    {
+      "level": 2,
+      "replacements": [
+        {
+          "pattern": "\",\"marker\":\"\\u001f\"},{\"seq\":\"",
+          "marker": "(",
+          "frequency": 134,
+          "length": 29,
+          "savings": 3752,
+          "priority": 2707488.5397534003,
+          "context": "general",
+          "entropy": 3.6855672020241244
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001f\"},{\"seq\":",
+          "marker": ")",
+          "frequency": 134,
+          "length": 28,
+          "savings": 3618,
+          "priority": 2565383.9692396927,
+          "context": "general",
+          "entropy": 3.7483733344003456
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f\"},{\"seq\":\"",
+          "marker": ".",
+          "frequency": 134,
+          "length": 28,
+          "savings": 3618,
+          "priority": 2565383.9692396927,
+          "context": "general",
+          "entropy": 3.7483733344003456
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001f\"},{\"seq\"",
+          "marker": "",
+          "frequency": 134,
+          "length": 27,
+          "savings": 3484,
+          "priority": 2425854.9354551276,
+          "context": "general",
+          "entropy": 3.730758448296684
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f\"},{\"seq\":",
+          "marker": "",
+          "frequency": 134,
+          "length": 27,
+          "savings": 3484,
+          "priority": 2425854.9354551276,
+          "context": "general",
+          "entropy": 3.8100810205217317
+        },
+        {
+          "pattern": "\"marker\":\"\\u001f\"},{\"seq\":\"",
+          "marker": "",
+          "frequency": 134,
+          "length": 27,
+          "savings": 3484,
+          "priority": 2425854.9354551276,
+          "context": "general",
+          "entropy": 3.730758448296684
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001f\"},{\"seq",
+          "marker": "",
+          "frequency": 134,
+          "length": 26,
+          "savings": 3350,
+          "priority": 2288949.859651801,
+          "context": "general",
+          "entropy": 3.796217602590055
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f\"},{\"seq\"",
+          "marker": "",
+          "frequency": 134,
+          "length": 26,
+          "savings": 3350,
+          "priority": 2288949.859651801,
+          "context": "general",
+          "entropy": 3.796217602590055
+        },
+        {
+          "pattern": "\"marker\":\"\\u001f\"},{\"seq\":",
+          "marker": "",
+          "frequency": 134,
+          "length": 26,
+          "savings": 3350,
+          "priority": 2288949.859651801,
+          "context": "general",
+          "entropy": 3.796217602590055
+        },
+        {
+          "pattern": "marker\":\"\\u001f\"},{\"seq\":\"",
+          "marker": "",
+          "frequency": 134,
+          "length": 26,
+          "savings": 3350,
+          "priority": 2288949.859651801,
+          "context": "general",
+          "entropy": 3.7962176025900556
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001f\"},{\"se",
+          "marker": "",
+          "frequency": 134,
+          "length": 25,
+          "savings": 3216,
+          "priority": 2154720,
+          "context": "general",
+          "entropy": 3.703465189601646
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f\"},{\"seq",
+          "marker": "",
+          "frequency": 134,
+          "length": 25,
+          "savings": 3216,
+          "priority": 2154720,
+          "context": "general",
+          "entropy": 3.8594705707972508
+        },
+        {
+          "pattern": "\"marker\":\"\\u001f\"},{\"seq\"",
+          "marker": "",
+          "frequency": 134,
+          "length": 25,
+          "savings": 3216,
+          "priority": 2154720,
+          "context": "general",
+          "entropy": 3.7834651896016456
+        },
+        {
+          "pattern": "marker\":\"\\u001f\"},{\"seq\":",
+          "marker": "",
+          "frequency": 134,
+          "length": 25,
+          "savings": 3216,
+          "priority": 2154720,
+          "context": "general",
+          "entropy": 3.8594705707972508
+        },
+        {
+          "pattern": "arker\":\"\\u001f\"},{\"seq\":\"",
+          "marker": "",
+          "frequency": 134,
+          "length": 25,
+          "savings": 3216,
+          "priority": 2154720,
+          "context": "general",
+          "entropy": 3.703465189601646
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u00",
+          "marker": "",
+          "frequency": 186,
+          "length": 16,
+          "savings": 2790,
+          "priority": 2075760,
+          "context": "general",
+          "entropy": 3.25
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001f\"},{\"s",
+          "marker": "",
+          "frequency": 134,
+          "length": 24,
+          "savings": 3082,
+          "priority": 2023219.7397850782,
+          "context": "general",
+          "entropy": 3.6887218755408675
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f\"},{\"se",
+          "marker": "",
+          "frequency": 134,
+          "length": 24,
+          "savings": 3082,
+          "priority": 2023219.7397850782,
+          "context": "general",
+          "entropy": 3.767894147619623
+        },
+        {
+          "pattern": "\"marker\":\"\\u001f\"},{\"seq",
+          "marker": "",
+          "frequency": 134,
+          "length": 24,
+          "savings": 3082,
+          "priority": 2023219.7397850782,
+          "context": "general",
+          "entropy": 3.8512274809529563
+        },
+        {
+          "pattern": "marker\":\"\\u001f\"},{\"seq\"",
+          "marker": "",
+          "frequency": 134,
+          "length": 24,
+          "savings": 3082,
+          "priority": 2023219.7397850782,
+          "context": "general",
+          "entropy": 3.851227480952956
+        },
+        {
+          "pattern": "arker\":\"\\u001f\"},{\"seq\":",
+          "marker": " ",
+          "frequency": 134,
+          "length": 24,
+          "savings": 3082,
+          "priority": 2023219.7397850782,
+          "context": "general",
+          "entropy": 3.767894147619623
+        },
+        {
+          "pattern": "rker\":\"\\u001f\"},{\"seq\":\"",
+          "marker": "¡",
+          "frequency": 134,
+          "length": 24,
+          "savings": 3082,
+          "priority": 2023219.7397850782,
+          "context": "general",
+          "entropy": 3.6053885422075345
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001f\"},{\"",
+          "marker": "¢",
+          "frequency": 134,
+          "length": 23,
+          "savings": 2948,
+          "priority": 1894506.91831727,
+          "context": "general",
+          "entropy": 3.588354347173234
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f\"},{\"s",
+          "marker": "£",
+          "frequency": 134,
+          "length": 23,
+          "savings": 2948,
+          "priority": 1894506.91831727,
+          "context": "general",
+          "entropy": 3.7579254136901956
+        },
+        {
+          "pattern": "\"marker\":\"\\u001f\"},{\"se",
+          "marker": "¤",
+          "frequency": 134,
+          "length": 23,
+          "savings": 2948,
+          "priority": 1894506.91831727,
+          "context": "general",
+          "entropy": 3.7579254136901956
+        },
+        {
+          "pattern": "marker\":\"\\u001f\"},{\"seq",
+          "marker": "¥",
+          "frequency": 134,
+          "length": 23,
+          "savings": 2948,
+          "priority": 1894506.91831727,
+          "context": "general",
+          "entropy": 3.914866303883101
+        },
+        {
+          "pattern": "arker\":\"\\u001f\"},{\"seq\"",
+          "marker": "¦",
+          "frequency": 134,
+          "length": 23,
+          "savings": 2948,
+          "priority": 1894506.91831727,
+          "context": "general",
+          "entropy": 3.7579254136901956
+        },
+        {
+          "pattern": "rker\":\"\\u001f\"},{\"seq\":",
+          "marker": "§",
+          "frequency": 134,
+          "length": 23,
+          "savings": 2948,
+          "priority": 1894506.91831727,
+          "context": "general",
+          "entropy": 3.6709688919510652
+        },
+        {
+          "pattern": "ker\":\"\\u001f\"},{\"seq\":\"",
+          "marker": "¨",
+          "frequency": 134,
+          "length": 23,
+          "savings": 2948,
+          "priority": 1894506.91831727,
+          "context": "general",
+          "entropy": 3.5883543471732335
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u0",
+          "marker": "©",
+          "frequency": 186,
+          "length": 15,
+          "savings": 2604,
+          "priority": 1875856.2458354852,
+          "context": "general",
+          "entropy": 3.2402239289418517
+        },
+        {
+          "pattern": ",\"marker\":\"\\u00",
+          "marker": "ª",
+          "frequency": 186,
+          "length": 15,
+          "savings": 2604,
+          "priority": 1875856.2458354852,
+          "context": "general",
+          "entropy": 3.323231428797621
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001",
+          "marker": "«",
+          "frequency": 166,
+          "length": 17,
+          "savings": 2656,
+          "priority": 1817860.777912324,
+          "context": "general",
+          "entropy": 3.381580488309164
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001f\"},{",
+          "marker": "¬",
+          "frequency": 134,
+          "length": 22,
+          "savings": 2814,
+          "priority": 1768643.2130511797,
+          "context": "general",
+          "entropy": 3.658993415253805
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f\"},{\"",
+          "marker": "­",
+          "frequency": 134,
+          "length": 22,
+          "savings": 2814,
+          "priority": 1768643.2130511797,
+          "context": "general",
+          "entropy": 3.658993415253805
+        },
+        {
+          "pattern": "\"marker\":\"\\u001f\"},{\"s",
+          "marker": "®",
+          "frequency": 134,
+          "length": 22,
+          "savings": 2814,
+          "priority": 1768643.2130511797,
+          "context": "general",
+          "entropy": 3.7499025061628957
+        },
+        {
+          "pattern": "marker\":\"\\u001f\"},{\"se",
+          "marker": "¯",
+          "frequency": 134,
+          "length": 22,
+          "savings": 2814,
+          "priority": 1768643.2130511797,
+          "context": "general",
+          "entropy": 3.8230679822736597
+        },
+        {
+          "pattern": "arker\":\"\\u001f\"},{\"seq",
+          "marker": "°",
+          "frequency": 134,
+          "length": 22,
+          "savings": 2814,
+          "priority": 1768643.2130511797,
+          "context": "general",
+          "entropy": 3.8230679822736597
+        },
+        {
+          "pattern": "rker\":\"\\u001f\"},{\"seq\"",
+          "marker": "±",
+          "frequency": 134,
+          "length": 22,
+          "savings": 2814,
+          "priority": 1768643.2130511797,
+          "context": "general",
+          "entropy": 3.6589934152538044
+        },
+        {
+          "pattern": "ker\":\"\\u001f\"},{\"seq\":",
+          "marker": "²",
+          "frequency": 134,
+          "length": 22,
+          "savings": 2814,
+          "priority": 1768643.2130511797,
+          "context": "general",
+          "entropy": 3.658993415253805
+        },
+        {
+          "pattern": "er\":\"\\u001f\"},{\"seq\":\"",
+          "marker": "³",
+          "frequency": 134,
+          "length": 22,
+          "savings": 2814,
+          "priority": 1768643.2130511797,
+          "context": "general",
+          "entropy": 3.4817145729860717
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u",
+          "marker": "´",
+          "frequency": 186,
+          "length": 14,
+          "savings": 2418,
+          "priority": 1682802.9263868066,
+          "context": "general",
+          "entropy": 3.09306920777189
+        },
+        {
+          "pattern": ",\"marker\":\"\\u0",
+          "marker": "µ",
+          "frequency": 186,
+          "length": 14,
+          "savings": 2418,
+          "priority": 1682802.9263868066,
+          "context": "general",
+          "entropy": 3.3248629576173574
+        },
+        {
+          "pattern": "\",\"marker\":\"\\",
+          "marker": "¶",
+          "frequency": 196,
+          "length": 13,
+          "savings": 2352,
+          "priority": 1662130.2935786953,
+          "context": "general",
+          "entropy": 2.9312089489103235
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001",
+          "marker": "·",
+          "frequency": 166,
+          "length": 16,
+          "savings": 2490,
+          "priority": 1653360,
+          "context": "general",
+          "entropy": 3.452819531114783
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001f\"},",
+          "marker": "¸",
+          "frequency": 134,
+          "length": 21,
+          "savings": 2680,
+          "priority": 1645694.5835725411,
+          "context": "general",
+          "entropy": 3.553763114472245
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f\"},{",
+          "marker": "¹",
+          "frequency": 134,
+          "length": 21,
+          "savings": 2680,
+          "priority": 1645694.5835725411,
+          "context": "general",
+          "entropy": 3.725650756112093
+        },
+        {
+          "pattern": "\"marker\":\"\\u001f\"},{\"",
+          "marker": "º",
+          "frequency": 134,
+          "length": 21,
+          "savings": 2680,
+          "priority": 1645694.5835725411,
+          "context": "general",
+          "entropy": 3.6490012097103404
+        },
+        {
+          "pattern": "marker\":\"\\u001f\"},{\"s",
+          "marker": "»",
+          "frequency": 134,
+          "length": 21,
+          "savings": 2680,
+          "priority": 1645694.5835725411,
+          "context": "general",
+          "entropy": 3.820888851350188
+        },
+        {
+          "pattern": "arker\":\"\\u001f\"},{\"se",
+          "marker": "¼",
+          "frequency": 134,
+          "length": 21,
+          "savings": 2680,
+          "priority": 1645694.5835725411,
+          "context": "general",
+          "entropy": 3.725650756112093
+        },
+        {
+          "pattern": "rker\":\"\\u001f\"},{\"seq",
+          "marker": "½",
+          "frequency": 134,
+          "length": 21,
+          "savings": 2680,
+          "priority": 1645694.5835725411,
+          "context": "general",
+          "entropy": 3.725650756112093
+        },
+        {
+          "pattern": "ker\":\"\\u001f\"},{\"seq\"",
+          "marker": "¾",
+          "frequency": 134,
+          "length": 21,
+          "savings": 2680,
+          "priority": 1645694.5835725411,
+          "context": "general",
+          "entropy": 3.64900120971034
+        },
+        {
+          "pattern": "er\":\"\\u001f\"},{\"seq\":",
+          "marker": "¿",
+          "frequency": 134,
+          "length": 21,
+          "savings": 2680,
+          "priority": 1645694.5835725411,
+          "context": "general",
+          "entropy": 3.5537631144722446
+        },
+        {
+          "pattern": "r\":\"\\u001f\"},{\"seq\":\"",
+          "marker": "À",
+          "frequency": 134,
+          "length": 21,
+          "savings": 2680,
+          "priority": 1645694.5835725411,
+          "context": "general",
+          "entropy": 3.4632805178108104
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001f\"}",
+          "marker": "Á",
+          "frequency": 136,
+          "length": 20,
+          "savings": 2584,
+          "priority": 1571615.9058497723,
+          "context": "general",
+          "entropy": 3.5414460711655216
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f\"},",
+          "marker": "Â",
+          "frequency": 134,
+          "length": 20,
+          "savings": 2546,
+          "priority": 1525731.7909514767,
+          "context": "general",
+          "entropy": 3.621928094887362
+        },
+        {
+          "pattern": "\"marker\":\"\\u001f\"},{",
+          "marker": "Ã",
+          "frequency": 134,
+          "length": 20,
+          "savings": 2546,
+          "priority": 1525731.7909514767,
+          "context": "general",
+          "entropy": 3.721928094887362
+        },
+        {
+          "pattern": "marker\":\"\\u001f\"},{\"",
+          "marker": "Ä",
+          "frequency": 134,
+          "length": 20,
+          "savings": 2546,
+          "priority": 1525731.7909514767,
+          "context": "general",
+          "entropy": 3.721928094887362
+        },
+        {
+          "pattern": "arker\":\"\\u001f\"},{\"s",
+          "marker": "Å",
+          "frequency": 134,
+          "length": 20,
+          "savings": 2546,
+          "priority": 1525731.7909514767,
+          "context": "general",
+          "entropy": 3.721928094887362
+        },
+        {
+          "pattern": "rker\":\"\\u001f\"},{\"se",
+          "marker": "Æ",
+          "frequency": 134,
+          "length": 20,
+          "savings": 2546,
+          "priority": 1525731.7909514767,
+          "context": "general",
+          "entropy": 3.621928094887362
+        },
+        {
+          "pattern": "ker\":\"\\u001f\"},{\"seq",
+          "marker": "Ç",
+          "frequency": 134,
+          "length": 20,
+          "savings": 2546,
+          "priority": 1525731.7909514767,
+          "context": "general",
+          "entropy": 3.721928094887362
+        },
+        {
+          "pattern": "er\":\"\\u001f\"},{\"seq\"",
+          "marker": "È",
+          "frequency": 134,
+          "length": 20,
+          "savings": 2546,
+          "priority": 1525731.7909514767,
+          "context": "general",
+          "entropy": 3.5414460711655216
+        },
+        {
+          "pattern": "r\":\"\\u001f\"},{\"seq\":",
+          "marker": "É",
+          "frequency": 134,
+          "length": 20,
+          "savings": 2546,
+          "priority": 1525731.7909514767,
+          "context": "general",
+          "entropy": 3.5414460711655216
+        },
+        {
+          "pattern": "\":\"\\u001f\"},{\"seq\":\"",
+          "marker": "Ê",
+          "frequency": 134,
+          "length": 20,
+          "savings": 2546,
+          "priority": 1525731.7909514767,
+          "context": "general",
+          "entropy": 3.3464393446710154
+        },
+        {
+          "pattern": ",\"marker\":\"\\u",
+          "marker": "Ë",
+          "frequency": 186,
+          "length": 13,
+          "savings": 2232,
+          "priority": 1496851.823111426,
+          "context": "general",
+          "entropy": 3.180832987205441
+        },
+        {
+          "pattern": "\",\"marker\":\"",
+          "marker": "Ì",
+          "frequency": 196,
+          "length": 12,
+          "savings": 2156,
+          "priority": 1463846.2041184518,
+          "context": "general",
+          "entropy": 2.751629167387823
+        },
+        {
+          "pattern": ",\"marker\":\"\\",
+          "marker": "Í",
+          "frequency": 196,
+          "length": 12,
+          "savings": 2156,
+          "priority": 1463846.2041184518,
+          "context": "general",
+          "entropy": 3.0220552088742
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001f\"",
+          "marker": "Î",
+          "frequency": 136,
+          "length": 19,
+          "savings": 2448,
+          "priority": 1451199.5074751095,
+          "context": "general",
+          "entropy": 3.426367488473226
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f\"}",
+          "marker": "Ï",
+          "frequency": 136,
+          "length": 19,
+          "savings": 2448,
+          "priority": 1451199.5074751095,
+          "context": "general",
+          "entropy": 3.616348566075163
+        },
+        {
+          "pattern": "\"marker\":\"\\u001f\"},",
+          "marker": "Ð",
+          "frequency": 134,
+          "length": 19,
+          "savings": 2412,
+          "priority": 1408831.0097438942,
+          "context": "general",
+          "entropy": 3.6163485660751635
+        },
+        {
+          "pattern": "marker\":\"\\u001f\"},{",
+          "marker": "Ñ",
+          "frequency": 134,
+          "length": 19,
+          "savings": 2412,
+          "priority": 1408831.0097438942,
+          "context": "general",
+          "entropy": 3.7871439606981383
+        },
+        {
+          "pattern": "arker\":\"\\u001f\"},{\"",
+          "marker": "Ò",
+          "frequency": 134,
+          "length": 19,
+          "savings": 2412,
+          "priority": 1408831.0097438942,
+          "context": "general",
+          "entropy": 3.616348566075163
+        },
+        {
+          "pattern": "rker\":\"\\u001f\"},{\"s",
+          "marker": "Ó",
+          "frequency": 134,
+          "length": 19,
+          "savings": 2412,
+          "priority": 1408831.0097438942,
+          "context": "general",
+          "entropy": 3.616348566075163
+        },
+        {
+          "pattern": "ker\":\"\\u001f\"},{\"se",
+          "marker": "Ô",
+          "frequency": 134,
+          "length": 19,
+          "savings": 2412,
+          "priority": 1408831.0097438942,
+          "context": "general",
+          "entropy": 3.616348566075163
+        },
+        {
+          "pattern": "er\":\"\\u001f\"},{\"seq",
+          "marker": "Õ",
+          "frequency": 134,
+          "length": 19,
+          "savings": 2412,
+          "priority": 1408831.0097438942,
+          "context": "general",
+          "entropy": 3.6163485660751626
+        },
+        {
+          "pattern": "r\":\"\\u001f\"},{\"seq\"",
+          "marker": "Ö",
+          "frequency": 134,
+          "length": 19,
+          "savings": 2412,
+          "priority": 1408831.0097438942,
+          "context": "general",
+          "entropy": 3.5316306463679625
+        },
+        {
+          "pattern": "\":\"\\u001f\"},{\"seq\":",
+          "marker": "×",
+          "frequency": 134,
+          "length": 19,
+          "savings": 2412,
+          "priority": 1408831.0097438942,
+          "context": "general",
+          "entropy": 3.4263674884732254
+        },
+        {
+          "pattern": ":\"\\u001f\"},{\"seq\":\"",
+          "marker": "Ø",
+          "frequency": 134,
+          "length": 19,
+          "savings": 2412,
+          "priority": 1408831.0097438942,
+          "context": "general",
+          "entropy": 3.4263674884732254
+        },
+        {
+          "pattern": "\",\"marker\":\"\\u001f",
+          "marker": "Ù",
+          "frequency": 136,
+          "length": 18,
+          "savings": 2312,
+          "priority": 1334021.996532291,
+          "context": "general",
+          "entropy": 3.5032583347756456
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f\"",
+          "marker": "Ú",
+          "frequency": 136,
+          "length": 18,
+          "savings": 2312,
+          "priority": 1334021.996532291,
+          "context": "general",
+          "entropy": 3.5032583347756456
+        },
+        {
+          "pattern": "marker\":\"\\u001f\"},",
+          "marker": "Û",
+          "frequency": 134,
+          "length": 18,
+          "savings": 2278,
+          "priority": 1295074.5550245359,
+          "context": "general",
+          "entropy": 3.6835423624332306
+        },
+        {
+          "pattern": "arker\":\"\\u001f\"},{",
+          "marker": "Ü",
+          "frequency": 134,
+          "length": 18,
+          "savings": 2278,
+          "priority": 1295074.5550245359,
+          "context": "general",
+          "entropy": 3.6835423624332306
+        },
+        {
+          "pattern": "rker\":\"\\u001f\"},{\"",
+          "marker": "Ý",
+          "frequency": 134,
+          "length": 18,
+          "savings": 2278,
+          "priority": 1295074.5550245359,
+          "context": "general",
+          "entropy": 3.5032583347756456
+        },
+        {
+          "pattern": "ker\":\"\\u001f\"},{\"s",
+          "marker": "Þ",
+          "frequency": 134,
+          "length": 18,
+          "savings": 2278,
+          "priority": 1295074.5550245359,
+          "context": "general",
+          "entropy": 3.614369445886757
+        },
+        {
+          "pattern": "er\":\"\\u001f\"},{\"se",
+          "marker": "ß",
+          "frequency": 134,
+          "length": 18,
+          "savings": 2278,
+          "priority": 1295074.5550245359,
+          "context": "general",
+          "entropy": 3.5032583347756456
+        },
+        {
+          "pattern": "r\":\"\\u001f\"},{\"seq",
+          "marker": "à",
+          "frequency": 134,
+          "length": 18,
+          "savings": 2278,
+          "priority": 1295074.5550245359,
+          "context": "general",
+          "entropy": 3.614369445886757
+        },
+        {
+          "pattern": "\":\"\\u001f\"},{\"seq\"",
+          "marker": "á",
+          "frequency": 134,
+          "length": 18,
+          "savings": 2278,
+          "priority": 1295074.5550245359,
+          "context": "general",
+          "entropy": 3.4138338639736006
+        },
+        {
+          "pattern": ":\"\\u001f\"},{\"seq\":",
+          "marker": "â",
+          "frequency": 134,
+          "length": 18,
+          "savings": 2278,
+          "priority": 1295074.5550245359,
+          "context": "general",
+          "entropy": 3.5032583347756456
+        },
+        {
+          "pattern": "\"\\u001f\"},{\"seq\":\"",
+          "marker": "ã",
+          "frequency": 134,
+          "length": 18,
+          "savings": 2278,
+          "priority": 1295074.5550245359,
+          "context": "general",
+          "entropy": 3.4138338639736006
+        },
+        {
+          "pattern": "\",\"marker\":",
+          "marker": "ä",
+          "frequency": 196,
+          "length": 11,
+          "savings": 1960,
+          "priority": 1274114.5794629303,
+          "context": "general",
+          "entropy": 2.8453509366224368
+        },
+        {
+          "pattern": ",\"marker\":\"",
+          "marker": "å",
+          "frequency": 196,
+          "length": 11,
+          "savings": 1960,
+          "priority": 1274114.5794629303,
+          "context": "general",
+          "entropy": 2.8453509366224368
+        },
+        {
+          "pattern": "\"},{\"seq\":\"",
+          "marker": "æ",
+          "frequency": 194,
+          "length": 11,
+          "savings": 1940,
+          "priority": 1248244.9060981583,
+          "context": "general",
+          "entropy": 2.7321588913645707
+        },
+        {
+          "pattern": ",\"marker\":\"\\u001f",
+          "marker": "ç",
+          "frequency": 136,
+          "length": 17,
+          "savings": 2176,
+          "priority": 1220175.386422788,
+          "context": "general",
+          "entropy": 3.572469458770136
+        },
+        {
+          "pattern": "arker\":\"\\u001f\"},",
+          "marker": "è",
+          "frequency": 134,
+          "length": 17,
+          "savings": 2144,
+          "priority": 1184551.7538174514,
+          "context": "general",
+          "entropy": 3.572469458770136
+        },
+        {
+          "pattern": "rker\":\"\\u001f\"},{",
+          "marker": "é",
+          "frequency": 134,
+          "length": 17,
+          "savings": 2144,
+          "priority": 1184551.7538174514,
+          "context": "general",
+          "entropy": 3.572469458770136
+        },
+        {
+          "pattern": "ker\":\"\\u001f\"},{\"",
+          "marker": "ê",
+          "frequency": 134,
+          "length": 17,
+          "savings": 2144,
+          "priority": 1184551.7538174514,
+          "context": "general",
+          "entropy": 3.4992275471326932
+        },
+        {
+          "pattern": "er\":\"\\u001f\"},{\"s",
+          "marker": "ë",
+          "frequency": 134,
+          "length": 17,
+          "savings": 2144,
+          "priority": 1184551.7538174514,
+          "context": "general",
+          "entropy": 3.4992275471326932
+        },
+        {
+          "pattern": "r\":\"\\u001f\"},{\"se",
+          "marker": "ì",
+          "frequency": 134,
+          "length": 17,
+          "savings": 2144,
+          "priority": 1184551.7538174514,
+          "context": "general",
+          "entropy": 3.4992275471326932
+        },
+        {
+          "pattern": "\":\"\\u001f\"},{\"seq",
+          "marker": "í",
+          "frequency": 134,
+          "length": 17,
+          "savings": 2144,
+          "priority": 1184551.7538174514,
+          "context": "general",
+          "entropy": 3.4992275471326932
+        },
+        {
+          "pattern": ":\"\\u001f\"},{\"seq\"",
+          "marker": "î",
+          "frequency": 134,
+          "length": 17,
+          "savings": 2144,
+          "priority": 1184551.7538174514,
+          "context": "general",
+          "entropy": 3.4992275471326932
+        },
+        {
+          "pattern": "\"\\u001f\"},{\"seq\":",
+          "marker": "ï",
+          "frequency": 134,
+          "length": 17,
+          "savings": 2144,
+          "priority": 1184551.7538174514,
+          "context": "general",
+          "entropy": 3.4992275471326932
+        },
+        {
+          "pattern": "\\u001f\"},{\"seq\":\"",
+          "marker": "ð",
+          "frequency": 134,
+          "length": 17,
+          "savings": 2144,
+          "priority": 1184551.7538174514,
+          "context": "general",
+          "entropy": 3.499227547132693
+        },
+        {
+          "pattern": "\",\"marker\"",
+          "marker": "ñ",
+          "frequency": 196,
+          "length": 10,
+          "savings": 1764,
+          "priority": 1093338.5273372561,
+          "context": "general",
+          "entropy": 2.6464393446710153
+        },
+        {
+          "pattern": ",\"marker\":",
+          "marker": "ò",
+          "frequency": 196,
+          "length": 10,
+          "savings": 1764,
+          "priority": 1093338.5273372561,
+          "context": "general",
+          "entropy": 2.9219280948873623
+        },
+        {
+          "pattern": "rker\":\"\\u001f\"},",
+          "marker": "ó",
+          "frequency": 134,
+          "length": 16,
+          "savings": 2010,
+          "priority": 1077360,
+          "context": "general",
+          "entropy": 3.452819531114783
+        },
+        {
+          "pattern": "ker\":\"\\u001f\"},{",
+          "marker": "ô",
+          "frequency": 134,
+          "length": 16,
+          "savings": 2010,
+          "priority": 1077360,
+          "context": "general",
+          "entropy": 3.577819531114783
+        },
+        {
+          "pattern": "er\":\"\\u001f\"},{\"",
+          "marker": "õ",
+          "frequency": 134,
+          "length": 16,
+          "savings": 2010,
+          "priority": 1077360,
+          "context": "general",
+          "entropy": 3.375
+        },
+        {
+          "pattern": "r\":\"\\u001f\"},{\"s",
+          "marker": "ö",
+          "frequency": 134,
+          "length": 16,
+          "savings": 2010,
+          "priority": 1077360,
+          "context": "general",
+          "entropy": 3.375
+        },
+        {
+          "pattern": "\":\"\\u001f\"},{\"se",
+          "marker": "÷",
+          "frequency": 134,
+          "length": 16,
+          "savings": 2010,
+          "priority": 1077360,
+          "context": "general",
+          "entropy": 3.375
+        },
+        {
+          "pattern": ":\"\\u001f\"},{\"seq",
+          "marker": "ø",
+          "frequency": 134,
+          "length": 16,
+          "savings": 2010,
+          "priority": 1077360,
+          "context": "general",
+          "entropy": 3.577819531114783
+        },
+        {
+          "pattern": "\"\\u001f\"},{\"seq\"",
+          "marker": "ù",
+          "frequency": 134,
+          "length": 16,
+          "savings": 2010,
+          "priority": 1077360,
+          "context": "general",
+          "entropy": 3.375
+        },
+        {
+          "pattern": "\\u001f\"},{\"seq\":",
+          "marker": "ú",
+          "frequency": 134,
+          "length": 16,
+          "savings": 2010,
+          "priority": 1077360,
+          "context": "general",
+          "entropy": 3.577819531114783
+        },
+        {
+          "pattern": "u001f\"},{\"seq\":\"",
+          "marker": "û",
+          "frequency": 134,
+          "length": 16,
+          "savings": 2010,
+          "priority": 1077360,
+          "context": "general",
+          "entropy": 3.375
+        },
+        {
+          "pattern": "\"},{\"seq\":",
+          "marker": "ü",
+          "frequency": 194,
+          "length": 10,
+          "savings": 1746,
+          "priority": 1071139.338162874,
+          "context": "general",
+          "entropy": 2.8464393446710154
+        },
+        {
+          "pattern": "},{\"seq\":\"",
+          "marker": "ý",
+          "frequency": 194,
+          "length": 10,
+          "savings": 1746,
+          "priority": 1071139.338162874,
+          "context": "general",
+          "entropy": 2.8464393446710154
+        },
+        {
+          "pattern": "ker\":\"\\u001f\"},",
+          "marker": "þ",
+          "frequency": 134,
+          "length": 15,
+          "savings": 1876,
+          "priority": 973606.0455030053,
+          "context": "general",
+          "entropy": 3.4565647621309536
+        },
+        {
+          "pattern": "er\":\"\\u001f\"},{",
+          "marker": "ÿ",
+          "frequency": 134,
+          "length": 15,
+          "savings": 1876,
+          "priority": 973606.0455030053,
+          "context": "general",
+          "entropy": 3.4565647621309536
+        }
+      ]
     }
   ],
   "metadata": {
-    "total_texts_processed": 92,
+    "total_texts_processed": 95,
     "marker_index": 0,
-    "binary_marker_index": 143,
-    "total_savings": 11735
+    "binary_marker_index": 256,
+    "total_savings": 14380
   }
 }

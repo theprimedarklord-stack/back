@@ -14,6 +14,52 @@ export class AuthController {
     private readonly supabaseService: SupabaseService,
   ) {}
 
+  @Get('users')
+  @UseGuards(JwtAuthGuard)
+  async getAllUsers(@Req() req) {
+    try {
+      // Перевіряємо, чи є користувач адміністратором
+      const { data: userData, error: userError } = await this.supabaseService
+        .getClient()
+        .from('users')
+        .select('role')
+        .eq('user_id', req.user.id)
+        .single();
+
+      if (userError || userData?.role !== 'admin') {
+        return {
+          success: false,
+          error: 'Доступ заборонено: потрібна роль адміністратора',
+          status: HttpStatus.FORBIDDEN,
+        };
+      }
+
+      // Отримуємо список усіх користувачів
+      const { data: users, error } = await this.supabaseService
+        .getClient()
+        .from('users')
+        .select('user_id, email, username, role');
+
+      if (error) {
+        console.error('Помилка отримання користувачів:', error);
+        return {
+          success: false,
+          error: 'Не вдалося отримати список користувачів',
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+        };
+      }
+
+      return { success: true, users };
+    } catch (error) {
+      console.error('Серверна помилка при отриманні користувачів:', error);
+      return {
+        success: false,
+        error: 'Серверна помилка',
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+      };
+    }
+  }
+
   @Post('login')
   async login(
     @Body() body: LoginDto,
