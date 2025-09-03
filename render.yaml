@@ -3,9 +3,13 @@ services:
     name: smartmemory-backend
     env: node
     buildCommand: npm install && npm run build
-    startCommand: node dist/main.js
+    startCommand: node dist/src/main.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3000
+      - key: SUPABASE_URL
+        value: YOUR_SUPABASE_URL_HERE
+      - key: NEXT_PUBLIC_API_URL
+        value: https://back.onrender.com
