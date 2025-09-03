@@ -19,11 +19,11 @@ import {
 export class JwtAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    console.log('Request cookies:', request.cookies);
-    console.log('Request headers:', request.headers);
+
+
 
     const token = this.extractTokenFromRequest(request);
-    console.log('Extracted token:', token);
+
 
     if (!token) {
       throw new UnauthorizedException('Требуется авторизация');
@@ -31,7 +31,7 @@ export class JwtAuthGuard implements CanActivate {
 
     try {
       const payload = jwt.verify(token, process.env.JWT_SECRET!) as UserPayload;
-      console.log('Verified token payload:', payload);
+  
       request.user = payload;
       return true;
     } catch (err) {

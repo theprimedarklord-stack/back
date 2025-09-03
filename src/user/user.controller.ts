@@ -61,14 +61,14 @@ export class UserController {
         };
       }
 
-      console.log('Загрузка аватара для пользователя:', req.user.id);
+  
 
       // Генерируем уникальное имя файла
       const fileExtension = path.extname(file.originalname);
       const fileName = `avatar_${req.user.id}_${crypto.randomUUID()}${fileExtension}`;
       const filePath = `${req.user.id}/${fileName}`;
 
-      console.log('Путь к файлу:', filePath);
+      
 
       // Используем админ клиент для операций с хранилищем
       const adminClient = this.supabaseService.getAdminClient();
@@ -91,7 +91,7 @@ export class UserController {
         };
       }
 
-      console.log('Файл успешно загружен:', uploadData);
+      
 
       // Получаем публичный URL файла
       const { data: urlData } = adminClient
@@ -100,11 +100,11 @@ export class UserController {
         .getPublicUrl(filePath);
 
       const avatarUrl = urlData.publicUrl;
-      console.log('Сгенерированный URL аватара:', avatarUrl);
+      
 
       // Получаем текущий аватар для удаления старого файла
       const { data: currentUser } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .select('avatar_url')
         .eq('user_id', req.user.id)
@@ -112,7 +112,7 @@ export class UserController {
 
       // Обновляем URL аватара в базе данных
       const { error: updateError } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .update({ avatar_url: avatarUrl })
         .eq('user_id', req.user.id);
@@ -138,7 +138,7 @@ export class UserController {
         try {
           const oldFilePath = this.extractFilePathFromUrl(currentUser.avatar_url);
           if (oldFilePath) {
-            console.log('Удаление старого аватара:', oldFilePath);
+    
             await adminClient
               .storage
               .from('card-images')
@@ -182,7 +182,7 @@ export class UserController {
 
       // Получаем текущий аватар
       const { data: currentUser, error: fetchError } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .select('avatar_url')
         .eq('user_id', req.user.id)
@@ -199,7 +199,7 @@ export class UserController {
 
       // Обновляем базу данных - убираем avatar_url
       const { error: updateError } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .update({ avatar_url: null })
         .eq('user_id', req.user.id);
@@ -218,7 +218,7 @@ export class UserController {
         try {
           const filePath = this.extractFilePathFromUrl(currentUser.avatar_url);
           if (filePath) {
-            console.log('Удаление файла из storage:', filePath);
+    
             
             // ИСПРАВЛЕНИЕ: Используем админ клиент для удаления файлов
             const adminClient = this.supabaseService.getAdminClient();
@@ -231,7 +231,7 @@ export class UserController {
               console.error('File deletion error:', deleteError);
               // Не возвращаем ошибку, так как основная операция прошла успешно
             } else {
-              console.log('Файл успешно удален из storage');
+      
             }
           }
         } catch (error) {
@@ -268,7 +268,7 @@ export class UserController {
       }
 
       const { data: userData, error } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .select('avatar_url')
         .eq('user_id', req.user.id)
@@ -338,7 +338,7 @@ export class UserController {
       }
 
       const { data: userData, error } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .select('theme')
         .eq('user_id', req.user.id)
@@ -398,7 +398,7 @@ export class UserController {
       }
 
       const { error } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .update({ theme })
         .eq('user_id', req.user.id);
@@ -443,7 +443,7 @@ export class UserController {
       }
 
       const { data: settingsData, error } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('user_settings')
         .select('sidebar_pinned, sidebar_width')
         .eq('user_id', req.user.id)
@@ -519,7 +519,7 @@ export class UserController {
       }
 
       const { error } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('user_settings')
         .update(updateData)
         .eq('user_id', req.user.id);
@@ -563,7 +563,7 @@ export class UserController {
       }
 
       const { data, error } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('user_settings')
         .select('language')
         .eq('user_id', req.user.id)
@@ -614,7 +614,7 @@ export class UserController {
       }
       
       const { error } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('user_settings')
         .update({ language })
         .eq('user_id', req.user.id);
@@ -652,7 +652,7 @@ export class UserController {
       }
 
       const { data: userData, error } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .select('username, full_name')
         .eq('user_id', req.user.id)
@@ -722,7 +722,7 @@ export class UserController {
       // Проверяем уникальность username, если он изменяется
       if (username !== undefined) {
         const { data: existingUser } = await this.supabaseService
-          .getClient()
+          .getAdminClient()
           .from('users')
           .select('user_id')
           .eq('username', username.trim())
@@ -750,7 +750,7 @@ export class UserController {
       }
 
       const { data, error } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .update(updateData)
         .eq('user_id', req.user.id)
@@ -814,7 +814,7 @@ export class UserController {
 
       // Проверяем уникальность email
       const { data: existingUser } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .select('user_id')
         .eq('email', email.toLowerCase())
@@ -847,7 +847,7 @@ export class UserController {
 
       // Обновляем email в таблице users
       const { error: dbError } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .update({ email: email.toLowerCase() })
         .eq('user_id', req.user.id);

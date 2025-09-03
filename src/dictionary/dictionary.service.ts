@@ -9,7 +9,7 @@ export class DictionaryService {
   async saveDictionary(dictionary: any): Promise<void> {
     try {
       writeFileSync(this.filePath, JSON.stringify(dictionary, null, 2));
-      console.log('Словарь сохранён в', this.filePath);
+  
     } catch (error) {
       console.error('Ошибка сохранения словаря:', error);
       throw new Error(`Не удалось сохранить словарь: ${error.message}`);

@@ -137,7 +137,7 @@ export class AdminService {
     const supabase = this.supabaseService.getClient();
 
     // Удаляем связанные данные
-    console.log(`Начинаем удаление пользователя ${existingUser.email}`);
+
 
     // 1. Удаляем настройки пользователя
     await supabase.from('user_settings').delete().eq('user_id', userId);
@@ -168,7 +168,7 @@ export class AdminService {
       deletedUserEmail: existingUser.email,
     });
 
-    console.log(`Пользователь ${existingUser.email} успешно удален`);
+
 
     return {
       user_id: userId,

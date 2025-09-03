@@ -14,9 +14,10 @@ export class AuthService {
 // src/auth/auth.service.ts
 async login(email: string, password: string) {
   const supabase = this.supabaseService.getClient();
+  const admin = this.supabaseService.getAdminClient();
 
   // Шаг 1: Проверяем, существует ли пользователь с таким email
-  const { data: userCheck, error: userError } = await supabase
+  const { data: userCheck, error: userError } = await admin
     .from('users') // Прямой запрос к таблице auth.users в Supabase
     .select('id')
     .eq('email', email)
@@ -51,7 +52,7 @@ async login(email: string, password: string) {
   }
 
   // Получаем дополнительные данные пользователя
-  const { data: userData, error: userErrorData } = await supabase
+  const { data: userData, error: userErrorData } = await admin
     .from('users')
     .select('theme, role, username')
     .eq('user_id', data.user.id)
@@ -81,9 +82,10 @@ async login(email: string, password: string) {
 
   async register(email: string, password: string, username: string) {
     const supabase = this.supabaseService.getClient();
+    const admin = this.supabaseService.getAdminClient();
 
     // Проверка уникальности email
-    const { data: existingEmail, error: emailError } = await supabase
+    const { data: existingEmail, error: emailError } = await admin
       .from('users')
       .select('email')
       .eq('email', email)
@@ -97,7 +99,7 @@ async login(email: string, password: string) {
     }
 
     // Проверка уникальности username
-    const { data: existingUsername, error: usernameError } = await supabase
+    const { data: existingUsername, error: usernameError } = await admin
       .from('users')
       .select('username')
       .eq('username', username)
@@ -118,7 +120,7 @@ async login(email: string, password: string) {
     }
 
     // Вставка в таблицу users
-    const { error: insertError } = await supabase.from('users').insert({
+    const { error: insertError } = await admin.from('users').insert({
       user_id: data.user.id,
       email,
       username,
@@ -130,7 +132,7 @@ async login(email: string, password: string) {
       throw new InternalServerErrorException('Ошибка при создании профиля пользователя');
     }
 
-    const { error: insertSettingsError } = await supabase.from('user_settings').insert({
+    const { error: insertSettingsError } = await admin.from('user_settings').insert({
       user_id: data.user.id,
     });
 

@@ -14,13 +14,39 @@ export class AuthController {
     private readonly supabaseService: SupabaseService,
   ) {}
 
+  @Get('user_list')
+  @UseGuards(JwtAuthGuard)
+  async getUserList() {
+    try {
+      const { data, error } = await this.supabaseService
+        .getAdminClient()
+        .from('users')
+        .select('user_id, email, username, avatar_url');
+      if (error) {
+        return {
+          success: false,
+          error: 'Ошибка получения пользователей',
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+        };
+      }
+      return { success: true, users: data };
+    } catch (error) {
+      console.error('Ошибка при получении user_list:', error);
+      return {
+        success: false,
+        error: 'Серверная ошибка',
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+      };
+    }
+  }
+
   @Get('users')
   @UseGuards(JwtAuthGuard)
   async getAllUsers(@Req() req) {
     try {
       // Перевіряємо, чи є користувач адміністратором
       const { data: userData, error: userError } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .select('role')
         .eq('user_id', req.user.id)
@@ -36,7 +62,7 @@ export class AuthController {
 
       // Отримуємо список усіх користувачів
       const { data: users, error } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .select('user_id, email, username, role');
 
@@ -66,9 +92,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     try {
-      console.log('Login request body:', body);
+
       const result = await this.authService.login(body.email, body.password);
-      console.log('Login result:', result);
+      
   
       if (!result.access_token) {
         throw new InternalServerErrorException('Access token not returned from auth service');
@@ -85,7 +111,7 @@ export class AuthController {
         path: '/',
       });
   
-      console.log('Set-Cookie header:', res.get('Set-Cookie'));
+
   
       return {
         success: true,
@@ -132,7 +158,7 @@ export class AuthController {
   @Post('logout')
   async logout(@Req() req, @Res({ passthrough: true }) res: Response) {
     try {
-      console.log('Logout request received');
+
       const accessToken = req.cookies?.access_token;
 
       if (accessToken) {
@@ -154,7 +180,7 @@ export class AuthController {
         path: '/',
       });
 
-      console.log('Set-Cookie header cleared:', res.get('Set-Cookie'));
+
 
       return { success: true, message: 'Выход выполнен успешно' };
     } catch (error) {
@@ -170,13 +196,13 @@ export class AuthController {
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   async getProfile(@Req() req) {
-    console.log('Request user:', req.user);
+
     if (!req.user) {
       return { success: false, error: 'Не авторизован' };
     }
 
     try {
-      const supabase = this.supabaseService.getClient();
+      const supabase = this.supabaseService.getAdminClient();
 
       // Получаем данные из таблицы users
       const { data: userData, error: userError } = await supabase
@@ -222,9 +248,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async updateProfile(@Req() req, @Body() body: { userId: string; settings?: any }) {
     try {
-      console.log('Обновление настроек пользователя:', req.user.id, body.settings);
+
       
-      const supabase = this.supabaseService.getClient();
+      const supabase = this.supabaseService.getAdminClient();
 
       if (body.settings) {
         // Сначала получаем текущие настройки
@@ -248,7 +274,8 @@ export class AuthController {
         };
 
         // Обновляем настройки в БД
-        const { error: updateError } = await supabase
+        const { error: updateError } = await this.supabaseService
+          .getAdminClient()
           .from('user_settings')
           .update(updatedSettings)
           .eq('user_id', req.user.id);
@@ -258,7 +285,7 @@ export class AuthController {
           throw new InternalServerErrorException('Ошибка обновления настроек');
         }
 
-        console.log('Настройки успешно обновлены');
+
       }
 
       return { success: true, message: 'Настройки обновлены' };

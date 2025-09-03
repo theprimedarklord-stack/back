@@ -77,4 +77,74 @@ export class CardsService {
 
     return true;
   }
+
+  async getCardHistory(userId: string, zoneId: string, hours: number = 24) {
+    try {
+      // Розраховуємо час початку (скільки годин назад)
+      const startTime = new Date();
+      startTime.setHours(startTime.getHours() - hours);
+
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .from('card_reviews')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('current_zone', zoneId)
+        .gte('started_at', startTime.toISOString())
+        .order('started_at', { ascending: false });
+
+      if (error) {
+        throw new InternalServerErrorException(error.message);
+      }
+
+      return data;
+    } catch (error) {
+      throw new InternalServerErrorException(`Помилка отримання історії карток: ${error.message}`);
+    }
+  }
+
+  async createCardReview(userId: string, reviewData: any) {
+    try {
+      const newReview = {
+        user_id: userId,
+        ...reviewData,
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .from('card_reviews')
+        .insert(newReview)
+        .select()
+        .single();
+
+      if (error) {
+        throw new InternalServerErrorException(error.message);
+      }
+
+      return data;
+    } catch (error) {
+      throw new InternalServerErrorException(`Помилка створення review карточки: ${error.message}`);
+    }
+  }
+
+  async getCardById(cardId: string) {
+    try {
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .from('cards')
+        .select('id, name, description, card_class, zone')
+        .eq('id', cardId)
+        .single();
+
+      if (error) {
+        throw new InternalServerErrorException(error.message);
+      }
+
+      return data;
+    } catch (error) {
+      throw new InternalServerErrorException(`Помилка отримання картки: ${error.message}`);
+    }
+  }
 }

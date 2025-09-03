@@ -206,7 +206,7 @@ export class AdminController {
         };
       }
 
-      console.log(`Роль пользователя ${existingUser.email} изменена с ${existingUser.role} на ${role}`);
+      
 
       return {
         success: true,
@@ -274,7 +274,7 @@ export class AdminController {
       const supabase = this.supabaseService.getClient();
 
       // Удаляем связанные данные
-      console.log(`Начинаем удаление пользователя ${existingUser.email}`);
+      
 
       // 1. Удаляем настройки пользователя
       const { error: settingsError } = await supabase
@@ -323,7 +323,7 @@ export class AdminController {
         // Не критично, пользователь уже удален из основной таблицы
       }
 
-      console.log(`Пользователь ${existingUser.email} успешно удален`);
+      
 
       return {
         success: true,
@@ -461,7 +461,7 @@ export class AdminController {
       }
 
       const action = is_blocked ? 'заблокирован' : 'разблокирован';
-      console.log(`Пользователь ${existingUser.email} ${action}`);
+      
 
       return {
         success: true,
