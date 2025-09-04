@@ -8,6 +8,7 @@ import * as express from 'express'; // Импортируем express для mid
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.getHttpAdapter().getInstance().set('trust proxy', 1); // Критично для работы Secure cookies за прокси (Render/Cloudflare)
   app.useGlobalFilters(new AllExceptionsFilter());
   const configService = app.get(ConfigService);
 
