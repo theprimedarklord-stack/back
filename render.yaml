@@ -10,6 +10,16 @@ services:
       - key: PORT
         value: 3000
       - key: SUPABASE_URL
-        value: YOUR_SUPABASE_URL_HERE
+        value: https://xvcbxejefbigtrtugmaw.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2Y2J4ZWplZmJpZ3RydHVnbWF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDc4MTkyMTQsImV4cCI6MjAyMzM5NTIxNH0.ptzv5hSeFftOflMeHrI62ghYdVGbz1Qm8TsAGQ5aq0Y
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2Y2J4ZWplZmJpZ3RydHVnbWF3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcwNzgxOTIxNCwiZXhwIjoyMDIzMzk1MjE0fQ.Jy1bypngdG_8C4pd2-48nCKQu9LRvf0Y1UjRuTd1_J4
+      - key: JWT_SECRET
+        value: 10ead5337ec6980966faa7b88444f425e1a6a69a727012dd14df043517b4ef71f7a3f07a76eb9e0177bfaa8b86ff2b96e25fdacdc0ac8b9960c45e9e2a9c25dc
+      - key: CLIENT_URL
+        value: https://smartmemory.vercel.app
+      - key: PROD_CLIENT_URL
+        value: https://smartmemory.vercel.app
       - key: NEXT_PUBLIC_API_URL
-        value: https://back.onrender.com
+        value: https://back-r5ry.onrender.com
