@@ -96,19 +96,38 @@ export class AuthController {
       // Логирование для диагностики
       console.log('=== LOGIN REQUEST DEBUG ===');
       console.log('Content-Type header:', req.headers['content-type']);
+      console.log('Accept-Encoding header:', req.headers['accept-encoding']);
+      console.log('User-Agent header:', req.headers['user-agent']);
+      console.log('Content-Length header:', req.headers['content-length']);
       console.log('Raw body received:', JSON.stringify(body, null, 2));
       console.log('Body type:', typeof body);
       console.log('Body keys:', Object.keys(body || {}));
+      console.log('Body.email value:', body?.email);
+      console.log('Body.password value:', body?.password ? '[HIDDEN - length: ' + body.password.length + ']' : 'undefined');
+      console.log('Body.rememberMe value:', body?.rememberMe);
       console.log('Request method:', req.method);
       console.log('Request URL:', req.url);
-      console.log('User-Agent:', req.headers['user-agent']);
+      console.log('Request IP:', req.ip);
+      console.log('Request headers (all):', JSON.stringify(req.headers, null, 2));
       
       // Проверяем, что body содержит необходимые поля
       if (!body || !body.email || !body.password) {
-        console.error('Missing required fields:', { email: !!body?.email, password: !!body?.password });
+        console.error('=== VALIDATION ERROR ===');
+        console.error('Body is null/undefined:', !body);
+        console.error('Email present:', !!body?.email);
+        console.error('Password present:', !!body?.password);
+        console.error('Email value:', body?.email);
+        console.error('Password value:', body?.password ? '[HIDDEN]' : 'undefined');
+        console.error('Full body:', JSON.stringify(body, null, 2));
+        console.error('========================');
         throw new BadRequestException('Отсутствуют обязательные поля: email и password');
       }
       
+      console.log('=== VALIDATION PASSED ===');
+      console.log('Email:', body.email);
+      console.log('Password length:', body.password.length);
+      console.log('RememberMe:', body.rememberMe);
+      console.log('==========================');
       console.log('================================');
 
       const result = await this.authService.login(body.email, body.password);

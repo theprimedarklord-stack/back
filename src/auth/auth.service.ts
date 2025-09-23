@@ -13,6 +13,15 @@ export class AuthService {
 
 // src/auth/auth.service.ts
 async login(email: string, password: string) {
+  console.log('=== AUTH SERVICE LOGIN DEBUG ===');
+  console.log('Email received:', email);
+  console.log('Password received:', password ? '[HIDDEN - length: ' + password.length + ']' : 'undefined');
+  console.log('Email type:', typeof email);
+  console.log('Password type:', typeof password);
+  console.log('Email is empty:', !email || email.trim() === '');
+  console.log('Password is empty:', !password || password.trim() === '');
+  console.log('================================');
+  
   const supabase = this.supabaseService.getClient();
   const admin = this.supabaseService.getAdminClient();
 

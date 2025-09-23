@@ -28,7 +28,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message = exception.message;
     }
 
-    console.error('Error:', exception);
+    console.error('=== EXCEPTION FILTER DEBUG ===');
+    console.error('Exception type:', exception?.constructor?.name || 'Unknown');
+    console.error('Exception message:', exception instanceof Error ? exception.message : 'Unknown error');
+    console.error('Exception stack:', exception instanceof Error ? exception.stack : 'No stack');
+    console.error('Full exception:', exception);
+    console.error('================================');
 
     response.status(status).json({
       success: false,
