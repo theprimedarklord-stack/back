@@ -47,29 +47,20 @@ async function bootstrap() {
   // Подключаем парсер куки
   app.use(cookieParser());
 
-  // Middleware для логирования сырого тела запроса (только для /auth/login)
+  // Увеличиваем лимит тела JSON-запроса до 50 МБ
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+  // Middleware для логирования сырого тела запроса (только для /auth/login) - ПОСЛЕ парсеров
   app.use('/auth/login', (req, res, next) => {
     console.log('=== RAW REQUEST BODY DEBUG ===');
     console.log('Content-Type:', req.headers['content-type']);
     console.log('Content-Length:', req.headers['content-length']);
-    
-    let rawBody = '';
-    req.on('data', chunk => {
-      rawBody += chunk.toString();
-    });
-    
-    req.on('end', () => {
-      console.log('Raw body string:', rawBody);
-      console.log('Raw body length:', rawBody.length);
-      console.log('=====================================');
-    });
-    
+    console.log('Parsed body:', req.body);
+    console.log('Body type:', typeof req.body);
+    console.log('=====================================');
     next();
   });
-
-  // Увеличиваем лимит тела JSON-запроса до 10 МБ
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // Используем динамический порт
   const port = parseInt(configService.get<string>('PORT', '8080'), 10);

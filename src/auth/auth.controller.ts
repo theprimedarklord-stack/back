@@ -1,6 +1,6 @@
 // src/auth/auth.controller.ts
 import { Response } from 'express';
-import { Res, Req, Body, Patch, Controller, Post, Get, HttpStatus, InternalServerErrorException } from '@nestjs/common';
+import { Res, Req, Body, Patch, Controller, Post, Get, HttpStatus, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -102,6 +102,13 @@ export class AuthController {
       console.log('Request method:', req.method);
       console.log('Request URL:', req.url);
       console.log('User-Agent:', req.headers['user-agent']);
+      
+      // Проверяем, что body содержит необходимые поля
+      if (!body || !body.email || !body.password) {
+        console.error('Missing required fields:', { email: !!body?.email, password: !!body?.password });
+        throw new BadRequestException('Отсутствуют обязательные поля: email и password');
+      }
+      
       console.log('================================');
 
       const result = await this.authService.login(body.email, body.password);
