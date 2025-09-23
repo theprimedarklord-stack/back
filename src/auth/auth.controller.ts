@@ -89,9 +89,20 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() body: LoginDto,
+    @Req() req,
     @Res({ passthrough: true }) res: Response,
   ) {
     try {
+      // Логирование для диагностики
+      console.log('=== LOGIN REQUEST DEBUG ===');
+      console.log('Content-Type header:', req.headers['content-type']);
+      console.log('Raw body received:', JSON.stringify(body, null, 2));
+      console.log('Body type:', typeof body);
+      console.log('Body keys:', Object.keys(body || {}));
+      console.log('Request method:', req.method);
+      console.log('Request URL:', req.url);
+      console.log('User-Agent:', req.headers['user-agent']);
+      console.log('================================');
 
       const result = await this.authService.login(body.email, body.password);
       
