@@ -160,7 +160,8 @@ async login(email: string, password: string) {
     success: result.success, 
     theme: result.theme, 
     user_id: result.user_id,
-    hasToken: !!result.access_token 
+    hasToken: !!result.access_token,
+    access_token: result.access_token ? '[PRESENT]' : '[MISSING]'
   });
   console.log('====================');
   
