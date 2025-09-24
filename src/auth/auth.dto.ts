@@ -1,5 +1,5 @@
 // src/auth/auth.dto.ts
-import { IsEmail, IsString, MinLength, IsBoolean, IsOptional, Matches } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsBoolean, IsOptional, Matches, Allow } from 'class-validator';
 
 export class LoginDto {
   @IsEmail({}, { message: 'Некорректный формат email' })
@@ -11,6 +11,7 @@ export class LoginDto {
 
   @IsBoolean({ message: 'rememberMe должен быть булевым значением' })
   @IsOptional() // Делаем поле необязательным
+  @Allow() // Разрешаем поле в whitelist валидации
   rememberMe?: boolean;
 }
 
