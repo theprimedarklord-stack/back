@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, MaxLength, IsIn } from 'class-validator';
 
 export class CreateTaskDto {
   @IsString()
@@ -11,6 +11,7 @@ export class CreateTaskDto {
   description: string;
 
   @IsOptional()
-  @IsBoolean()
-  completed?: boolean;
+  @IsString()
+  @IsIn(['not_completed', 'completed', 'not_needed', 'half_completed', 'urgent'])
+  status?: 'not_completed' | 'completed' | 'not_needed' | 'half_completed' | 'urgent';
 }

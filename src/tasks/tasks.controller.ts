@@ -110,4 +110,18 @@ export class TasksController {
       );
     }
   }
+
+  @Get('statuses/list')
+  async getStatuses() {
+    try {
+      const statuses = TasksService.getAllStatuses();
+      return { success: true, statuses };
+    } catch (error) {
+      console.error('Get statuses error:', error);
+      throw new HttpException(
+        'Ошибка получения статусов', 
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
 }
