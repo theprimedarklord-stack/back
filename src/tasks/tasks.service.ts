@@ -33,7 +33,7 @@ export class TasksService {
     }
   }
 
-  async findAll(userId: string): Promise<Task[]> {
+  async findAll(userId: string, overdue?: boolean): Promise<Task[]> {
     try {
       const { data, error } = await this.supabaseService
         .getAdminClient()
@@ -46,7 +46,20 @@ export class TasksService {
         throw new InternalServerErrorException(`Ошибка получения задач: ${error.message}`);
       }
 
-      return data || [];
+      let tasks = data || [];
+
+      // Добавляем поле is_overdue для каждой задачи
+      tasks = tasks.map(task => ({
+        ...task,
+        is_overdue: this.isTaskOverdue(task)
+      }));
+
+      // Фильтруем по просроченным задачам если запрошено
+      if (overdue === true) {
+        tasks = tasks.filter(task => task.is_overdue);
+      }
+
+      return tasks;
     } catch (error) {
       throw new InternalServerErrorException(`Ошибка получения задач: ${error.message}`);
     }
@@ -69,7 +82,11 @@ export class TasksService {
         throw new InternalServerErrorException(`Ошибка получения задачи: ${error.message}`);
       }
 
-      return data;
+      // Добавляем поле is_overdue
+      return {
+        ...data,
+        is_overdue: this.isTaskOverdue(data)
+      };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -158,5 +175,13 @@ export class TasksService {
       { value: 'half_completed', label: 'Выполнено на 50%', color: this.getStatusColor('half_completed') },
       { value: 'urgent', label: 'Мега срочно', color: this.getStatusColor('urgent') },
     ];
+  }
+
+  // Метод для определения просроченных задач
+  private isTaskOverdue(task: Task): boolean {
+    if (!task.deadline) return false;
+    if (task.status === 'completed' || task.status === 'not_needed') return false;
+    
+    return new Date(task.deadline) < new Date();
   }
 }

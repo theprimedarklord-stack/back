@@ -9,7 +9,8 @@ import {
   Req, 
   UseGuards, 
   HttpStatus,
-  HttpException 
+  HttpException,
+  Query
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -25,6 +26,15 @@ export class TasksController {
   async create(@Body() createTaskDto: CreateTaskDto, @Req() req) {
     try {
       const userId = req.user.id;
+      
+      // Валидация deadline
+      if (createTaskDto.deadline && new Date(createTaskDto.deadline) < new Date()) {
+        throw new HttpException(
+          'Deadline не может быть в прошлом', 
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      
       const task = await this.tasksService.create(createTaskDto, userId);
       return { success: true, task };
     } catch (error) {
@@ -40,10 +50,11 @@ export class TasksController {
   }
 
   @Get()
-  async findAll(@Req() req) {
+  async findAll(@Req() req, @Query('overdue') overdue?: string) {
     try {
       const userId = req.user.id;
-      const tasks = await this.tasksService.findAll(userId);
+      const isOverdue = overdue === 'true';
+      const tasks = await this.tasksService.findAll(userId, isOverdue);
       return { success: true, tasks };
     } catch (error) {
       console.error('Get tasks error:', error);
@@ -79,6 +90,15 @@ export class TasksController {
   async update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto, @Req() req) {
     try {
       const userId = req.user.id;
+      
+      // Валидация deadline
+      if (updateTaskDto.deadline && new Date(updateTaskDto.deadline) < new Date()) {
+        throw new HttpException(
+          'Deadline не может быть в прошлом', 
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      
       const task = await this.tasksService.update(id, updateTaskDto, userId);
       return { success: true, task };
     } catch (error) {

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength, IsIn } from 'class-validator';
+import { IsString, IsOptional, MaxLength, IsIn, IsDateString } from 'class-validator';
 
 export class UpdateTaskDto {
   @IsOptional()
@@ -14,4 +14,8 @@ export class UpdateTaskDto {
   @IsString()
   @IsIn(['not_completed', 'completed', 'not_needed', 'half_completed', 'urgent'])
   status?: 'not_completed' | 'completed' | 'not_needed' | 'half_completed' | 'urgent';
+
+  @IsOptional()
+  @IsDateString()
+  deadline?: string;
 }

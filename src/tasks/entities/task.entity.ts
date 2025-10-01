@@ -6,6 +6,7 @@ export interface Task {
   topic: string;
   description: string;
   status: TaskStatus;
+  deadline?: string;
   created_at: string;
   updated_at: string;
 }
@@ -14,10 +15,12 @@ export interface CreateTaskData {
   topic: string;
   description: string;
   status?: TaskStatus;
+  deadline?: string;
 }
 
 export interface UpdateTaskData {
   topic?: string;
   description?: string;
   status?: TaskStatus;
+  deadline?: string;
 }
