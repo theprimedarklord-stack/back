@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
-import { Task, CreateTaskData, UpdateTaskData, TaskStatus } from './entities/task.entity';
+import { Task, CreateTaskData, UpdateTaskData, TaskStatus, StatusHistoryEntry } from './entities/task.entity';
 
 @Injectable()
 export class TasksService {
@@ -8,12 +8,23 @@ export class TasksService {
 
   async create(createTaskData: CreateTaskData, userId: string): Promise<Task> {
     try {
+      const taskStatus = createTaskData.status || 'not_completed';
+      const now = new Date().toISOString();
+      
+      // Инициализируем историю статусов
+      const initialStatusHistory: StatusHistoryEntry[] = createTaskData.status_history || [{
+        status: taskStatus,
+        timestamp: now,
+        action: 'created'
+      }];
+
       const newTask = {
         user_id: userId,
         ...createTaskData,
-        status: createTaskData.status || 'not_completed',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        status: taskStatus,
+        status_history: initialStatusHistory,
+        created_at: now,
+        updated_at: now,
       };
 
       const { data, error } = await this.supabaseService
@@ -97,9 +108,27 @@ export class TasksService {
 
   async update(id: string, updateTaskData: UpdateTaskData, userId: string): Promise<Task> {
     try {
+      // Сначала получаем текущую задачу для проверки изменений статуса
+      const currentTask = await this.findOne(id, userId);
+      
+      const now = new Date().toISOString();
+      let statusHistory = currentTask.status_history || [];
+
+      // Если статус изменился, добавляем запись в историю
+      if (updateTaskData.status && updateTaskData.status !== currentTask.status) {
+        const newHistoryEntry: StatusHistoryEntry = {
+          status: updateTaskData.status,
+          timestamp: now,
+          action: 'status_changed'
+        };
+        
+        statusHistory = [...statusHistory, newHistoryEntry];
+      }
+
       const updateData = {
         ...updateTaskData,
-        updated_at: new Date().toISOString(),
+        status_history: updateTaskData.status_history || statusHistory,
+        updated_at: now,
       };
 
       const { data, error } = await this.supabaseService
