@@ -50,11 +50,11 @@ export class TasksController {
   }
 
   @Get()
-  async findAll(@Req() req, @Query('overdue') overdue?: string) {
+  async findAll(@Req() req, @Query('overdue') overdue?: string, @Query('priority') priority?: string) {
     try {
       const userId = req.user.id;
       const isOverdue = overdue === 'true';
-      const tasks = await this.tasksService.findAll(userId, isOverdue);
+      const tasks = await this.tasksService.findAll(userId, isOverdue, priority as any);
       return { success: true, tasks };
     } catch (error) {
       console.error('Get tasks error:', error);
@@ -140,6 +140,20 @@ export class TasksController {
       console.error('Get statuses error:', error);
       throw new HttpException(
         'Ошибка получения статусов', 
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Get('priorities/list')
+  async getPriorities() {
+    try {
+      const priorities = TasksService.getAllPriorities();
+      return { success: true, priorities };
+    } catch (error) {
+      console.error('Get priorities error:', error);
+      throw new HttpException(
+        'Ошибка получения приоритетов', 
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

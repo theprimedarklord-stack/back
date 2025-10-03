@@ -30,6 +30,11 @@ export class UpdateTaskDto {
   status?: 'not_completed' | 'completed' | 'not_needed' | 'half_completed' | 'urgent';
 
   @IsOptional()
+  @IsString()
+  @IsIn(['low', 'medium', 'high', 'critical'])
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+
+  @IsOptional()
   @IsDateString()
   deadline?: string;
 

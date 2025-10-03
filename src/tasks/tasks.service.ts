@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
-import { Task, CreateTaskData, UpdateTaskData, TaskStatus, StatusHistoryEntry } from './entities/task.entity';
+import { Task, CreateTaskData, UpdateTaskData, TaskStatus, TaskPriority, StatusHistoryEntry } from './entities/task.entity';
 
 @Injectable()
 export class TasksService {
@@ -9,6 +9,7 @@ export class TasksService {
   async create(createTaskData: CreateTaskData, userId: string): Promise<Task> {
     try {
       const taskStatus = createTaskData.status || 'not_completed';
+      const taskPriority = createTaskData.priority || 'medium';
       const now = new Date().toISOString();
       
       // Инициализируем историю статусов
@@ -22,6 +23,7 @@ export class TasksService {
         user_id: userId,
         ...createTaskData,
         status: taskStatus,
+        priority: taskPriority,
         status_history: initialStatusHistory,
         created_at: now,
         updated_at: now,
@@ -44,14 +46,20 @@ export class TasksService {
     }
   }
 
-  async findAll(userId: string, overdue?: boolean): Promise<Task[]> {
+  async findAll(userId: string, overdue?: boolean, priority?: TaskPriority): Promise<Task[]> {
     try {
-      const { data, error } = await this.supabaseService
+      let query = this.supabaseService
         .getAdminClient()
         .from('tasks')
         .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .eq('user_id', userId);
+
+      // Добавляем фильтр по приоритету если указан
+      if (priority && priority !== 'all' as any) {
+        query = query.eq('priority', priority);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
         throw new InternalServerErrorException(`Ошибка получения задач: ${error.message}`);
@@ -203,6 +211,36 @@ export class TasksService {
       { value: 'not_needed', label: 'Не нужно делать', color: this.getStatusColor('not_needed') },
       { value: 'half_completed', label: 'Выполнено на 50%', color: this.getStatusColor('half_completed') },
       { value: 'urgent', label: 'Мега срочно', color: this.getStatusColor('urgent') },
+    ];
+  }
+
+  // Вспомогательные методы для работы с приоритетами
+  static getPriorityColor(priority: TaskPriority): string {
+    const colors = {
+      'low': '#10b981',        // зеленый
+      'medium': '#f59e0b',     // оранжевый
+      'high': '#ef4444',       // красный
+      'critical': '#dc2626',   // темно-красный
+    };
+    return colors[priority] || '#6b7280';
+  }
+
+  static getPriorityLabel(priority: TaskPriority): string {
+    const labels = {
+      'low': 'Низкий',
+      'medium': 'Средний',
+      'high': 'Высокий',
+      'critical': 'Критический',
+    };
+    return labels[priority] || priority;
+  }
+
+  static getAllPriorities(): { value: TaskPriority; label: string; color: string }[] {
+    return [
+      { value: 'low', label: 'Низкий', color: this.getPriorityColor('low') },
+      { value: 'medium', label: 'Средний', color: this.getPriorityColor('medium') },
+      { value: 'high', label: 'Высокий', color: this.getPriorityColor('high') },
+      { value: 'critical', label: 'Критический', color: this.getPriorityColor('critical') },
     ];
   }
 
