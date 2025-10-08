@@ -14,7 +14,8 @@ import {
 import { GoalsService } from './goals.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
-import { UpdateSubgoalDto } from './dto/update-subgoal.dto';
+import { AddSubgoalDto } from './dto/add-subgoal.dto';
+import { PatchSubgoalDto } from './dto/patch-subgoal.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('goals')
@@ -130,23 +131,96 @@ export class GoalsController {
     }
   }
 
+  @Get(':goalId/subgoals')
+  async getSubgoals(@Param('goalId') goalId: string, @Req() req) {
+    try {
+      const userId = req.user.id;
+      const subgoals = await this.goalsService.getSubgoals(goalId, userId);
+      return { success: true, subgoals };
+    } catch (error) {
+      console.error('Get subgoals error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка получения подцелей',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post(':goalId/subgoals')
+  async addSubgoal(
+    @Param('goalId') goalId: string,
+    @Body() addSubgoalDto: AddSubgoalDto,
+    @Req() req
+  ) {
+    try {
+      const userId = req.user.id;
+      const subgoal = await this.goalsService.addSubgoal(
+        goalId,
+        addSubgoalDto.text,
+        addSubgoalDto.completed || false,
+        userId
+      );
+      return { success: true, subgoal };
+    } catch (error) {
+      console.error('Add subgoal error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка добавления подцели',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
   @Patch(':goalId/subgoals/:subgoalId')
-  async toggleSubgoal(
+  async updateSubgoal(
+    @Param('goalId') goalId: string,
+    @Param('subgoalId') subgoalId: string,
+    @Body() patchSubgoalDto: PatchSubgoalDto,
+    @Req() req
+  ) {
+    try {
+      const userId = req.user.id;
+      const subgoal = await this.goalsService.updateSubgoal(
+        goalId,
+        subgoalId,
+        patchSubgoalDto,
+        userId
+      );
+      return { success: true, subgoal };
+    } catch (error) {
+      console.error('Update subgoal error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка обновления подцели',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Delete(':goalId/subgoals/:subgoalId')
+  async deleteSubgoal(
     @Param('goalId') goalId: string,
     @Param('subgoalId') subgoalId: string,
     @Req() req
   ) {
     try {
       const userId = req.user.id;
-      await this.goalsService.toggleSubgoal(goalId, subgoalId, userId);
-      return { success: true, message: 'Статус подцели обновлён' };
+      await this.goalsService.deleteSubgoal(goalId, subgoalId, userId);
+      return { success: true, message: 'Подцель удалена' };
     } catch (error) {
-      console.error('Toggle subgoal error:', error);
+      console.error('Delete subgoal error:', error);
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException(
-        'Ошибка обновления подцели',
+        'Ошибка удаления подцели',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

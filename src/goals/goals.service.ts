@@ -231,6 +231,121 @@ export class GoalsService {
     }
   }
 
+  async getSubgoals(goalId: string, userId: string) {
+    try {
+      // Проверяем, что цель принадлежит пользователю
+      await this.findOne(goalId, userId);
+
+      const { data: subgoals, error } = await this.supabaseService
+        .getAdminClient()
+        .from('goal_subgoals')
+        .select('*')
+        .eq('goal_id', goalId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        throw new InternalServerErrorException(`Ошибка получения подцелей: ${error.message}`);
+      }
+
+      return subgoals || [];
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(`Ошибка получения подцелей: ${error.message}`);
+    }
+  }
+
+  async addSubgoal(goalId: string, text: string, completed: boolean = false, userId: string) {
+    try {
+      // Проверяем, что цель принадлежит пользователю
+      await this.findOne(goalId, userId);
+
+      const now = new Date().toISOString();
+
+      const { data: subgoal, error } = await this.supabaseService
+        .getAdminClient()
+        .from('goal_subgoals')
+        .insert({
+          goal_id: Number(goalId),
+          text,
+          completed,
+          created_at: now,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new InternalServerErrorException(`Ошибка добавления подцели: ${error.message}`);
+      }
+
+      return subgoal;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(`Ошибка добавления подцели: ${error.message}`);
+    }
+  }
+
+  async updateSubgoal(goalId: string, subgoalId: string, updateData: { text?: string; completed?: boolean }, userId: string) {
+    try {
+      // Проверяем, что цель принадлежит пользователю
+      await this.findOne(goalId, userId);
+
+      // Проверяем, что есть что обновлять
+      if (updateData.text === undefined && updateData.completed === undefined) {
+        throw new InternalServerErrorException('Нет полей для обновления');
+      }
+
+      const { data: subgoal, error } = await this.supabaseService
+        .getAdminClient()
+        .from('goal_subgoals')
+        .update(updateData)
+        .eq('id', subgoalId)
+        .eq('goal_id', goalId)
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          throw new NotFoundException('Подцель не найдена');
+        }
+        throw new InternalServerErrorException(`Ошибка обновления подцели: ${error.message}`);
+      }
+
+      return subgoal;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(`Ошибка обновления подцели: ${error.message}`);
+    }
+  }
+
+  async deleteSubgoal(goalId: string, subgoalId: string, userId: string): Promise<void> {
+    try {
+      // Проверяем, что цель принадлежит пользователю
+      await this.findOne(goalId, userId);
+
+      const { error } = await this.supabaseService
+        .getAdminClient()
+        .from('goal_subgoals')
+        .delete()
+        .eq('id', subgoalId)
+        .eq('goal_id', goalId);
+
+      if (error) {
+        throw new InternalServerErrorException(`Ошибка удаления подцели: ${error.message}`);
+      }
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(`Ошибка удаления подцели: ${error.message}`);
+    }
+  }
+
   async toggleSubgoal(goalId: string, subgoalId: string, userId: string): Promise<void> {
     try {
       // Проверяем, что цель принадлежит пользователю
