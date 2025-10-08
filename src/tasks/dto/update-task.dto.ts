@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength, IsIn, IsDateString, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, MaxLength, IsIn, IsDateString, IsArray, ValidateNested, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class StatusHistoryEntryDto {
@@ -43,4 +43,12 @@ export class UpdateTaskDto {
   @ValidateNested({ each: true })
   @Type(() => StatusHistoryEntryDto)
   status_history?: StatusHistoryEntryDto[];
+
+  @IsOptional()
+  @IsNumber()
+  goal_id?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  subgoal_id?: number | null;
 }

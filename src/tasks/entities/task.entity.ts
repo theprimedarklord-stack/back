@@ -16,6 +16,8 @@ export interface Task {
   priority: TaskPriority;
   deadline?: string;
   status_history: StatusHistoryEntry[];
+  goal_id?: number | null;
+  subgoal_id?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -27,6 +29,8 @@ export interface CreateTaskData {
   priority?: TaskPriority;
   deadline?: string;
   status_history?: StatusHistoryEntry[];
+  goal_id?: number | null;
+  subgoal_id?: number | null;
 }
 
 export interface UpdateTaskData {
@@ -36,4 +40,6 @@ export interface UpdateTaskData {
   priority?: TaskPriority;
   deadline?: string;
   status_history?: StatusHistoryEntry[];
+  goal_id?: number | null;
+  subgoal_id?: number | null;
 }

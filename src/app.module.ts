@@ -9,6 +9,7 @@ import { DictionaryModule } from './dictionary/dictionary.module';
 import { CardsModule } from './cards/cards.module';
 import { AdminModule } from './admin/admin.module';
 import { TasksModule } from './tasks/tasks.module';
+import { GoalsModule } from './goals/goals.module';
 // import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
@@ -21,6 +22,7 @@ import { TasksModule } from './tasks/tasks.module';
     CardsModule,
     AdminModule,
     TasksModule,
+    GoalsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
