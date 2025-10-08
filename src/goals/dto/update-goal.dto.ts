@@ -1,11 +1,11 @@
-import { IsString, IsOptional, IsArray, IsIn, IsDateString, ValidateNested, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsIn, IsDateString, ValidateNested, MaxLength, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateSubgoalDto {
   @IsString()
-  @IsOptional()
+  @IsNotEmpty()
   @MaxLength(500)
-  text?: string;
+  text: string;
 
   @IsOptional()
   completed?: boolean;
