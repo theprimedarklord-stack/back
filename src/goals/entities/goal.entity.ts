@@ -20,6 +20,7 @@ export interface Goal {
   category: GoalCategory;
   priority: GoalPriority;
   deadline: string | null;
+  project_id?: number | null;
   created_at: string;
   updated_at: string;
   goal_subgoals?: Subgoal[];
@@ -32,6 +33,7 @@ export interface CreateGoalData {
   category?: GoalCategory;
   priority?: GoalPriority;
   deadline?: string;
+  project_id?: number;
   subgoals?: { text: string; completed?: boolean }[];
 }
 
@@ -42,6 +44,7 @@ export interface UpdateGoalData {
   category?: GoalCategory;
   priority?: GoalPriority;
   deadline?: string;
+  project_id?: number;
   subgoals?: { text: string; completed?: boolean }[];
 }
 

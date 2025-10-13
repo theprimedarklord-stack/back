@@ -10,6 +10,7 @@ import { CardsModule } from './cards/cards.module';
 import { AdminModule } from './admin/admin.module';
 import { TasksModule } from './tasks/tasks.module';
 import { GoalsModule } from './goals/goals.module';
+import { ProjectsModule } from './projects/projects.module';
 // import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
@@ -23,6 +24,7 @@ import { GoalsModule } from './goals/goals.module';
     AdminModule,
     TasksModule,
     GoalsModule,
+    ProjectsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

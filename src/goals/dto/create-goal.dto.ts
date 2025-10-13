@@ -45,5 +45,8 @@ export class CreateGoalDto {
   @ValidateNested({ each: true })
   @Type(() => CreateSubgoalDto)
   subgoals?: CreateSubgoalDto[];
+
+  @IsOptional()
+  project_id?: number;
 }
 

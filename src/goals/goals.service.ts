@@ -20,6 +20,7 @@ export class GoalsService {
         category: goalCategory,
         priority: goalPriority,
         deadline: createGoalData.deadline || null,
+        project_id: createGoalData.project_id || null,
         created_at: now,
         updated_at: now,
       };
@@ -140,6 +141,7 @@ export class GoalsService {
       if (updateGoalData.category !== undefined) updateData.category = updateGoalData.category;
       if (updateGoalData.priority !== undefined) updateData.priority = updateGoalData.priority;
       if (updateGoalData.deadline !== undefined) updateData.deadline = updateGoalData.deadline;
+      if (updateGoalData.project_id !== undefined) updateData.project_id = updateGoalData.project_id;
 
       // Обновляем цель
       const { data: goal, error: goalError } = await this.supabaseService

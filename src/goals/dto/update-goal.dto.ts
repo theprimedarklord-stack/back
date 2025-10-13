@@ -45,5 +45,8 @@ export class UpdateGoalDto {
   @ValidateNested({ each: true })
   @Type(() => UpdateSubgoalDto)
   subgoals?: UpdateSubgoalDto[];
+
+  @IsOptional()
+  project_id?: number;
 }
 
