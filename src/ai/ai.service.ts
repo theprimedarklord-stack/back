@@ -119,7 +119,7 @@ export class AIService {
       const goal = await this.getGoalWithSubgoals(dto.goal_id, userId);
       
       // Шаг 4: Получить существующие задачи если нужно
-      let existingTasks = [];
+      let existingTasks: any[] = [];
       if (settings.context?.considerExistingTasks) {
         existingTasks = await this.getGoalTasks(dto.goal_id, userId);
       }
@@ -329,7 +329,7 @@ export class AIService {
     }
 
     // Тип рекомендаций
-    const types = [];
+    const types: string[] = [];
     if (settings.recommendation_type?.tasks) types.push('конкретные выполнимые задачи');
     if (settings.recommendation_type?.subgoals) types.push('промежуточные цели/этапы');
     if (settings.recommendation_type?.steps) types.push('пошаговые инструкции');
