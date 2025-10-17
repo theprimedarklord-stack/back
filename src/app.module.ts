@@ -11,6 +11,7 @@ import { AdminModule } from './admin/admin.module';
 import { TasksModule } from './tasks/tasks.module';
 import { GoalsModule } from './goals/goals.module';
 import { ProjectsModule } from './projects/projects.module';
+import { AIModule } from './ai/ai.module';
 // import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
@@ -25,6 +26,7 @@ import { ProjectsModule } from './projects/projects.module';
     TasksModule,
     GoalsModule,
     ProjectsModule,
+    AIModule,
   ],
   controllers: [AppController],
   providers: [AppService],
