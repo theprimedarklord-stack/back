@@ -23,6 +23,7 @@ export class CardsService {
     const newCard = {
       user_id: userId,
       ...cardData,
+      current_streak: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -46,6 +47,23 @@ export class CardsService {
       ...cardData,
       updated_at: new Date().toISOString(),
     };
+
+    // Обработка логики серии при наличии поля success
+    if ('success' in cardData) {
+      // Получить текущую карточку для получения current_streak
+      const { data: currentCard } = await this.supabaseService
+        .getClient()
+        .from('cards')
+        .select('current_streak')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single();
+
+      // Рассчитать новую серию
+      updateData.current_streak = cardData.success 
+        ? (currentCard?.current_streak || 0) + 1 
+        : 0;
+    }
 
     const { data, error } = await this.supabaseService
       .getClient()
