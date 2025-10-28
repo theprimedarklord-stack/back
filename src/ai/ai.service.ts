@@ -32,7 +32,8 @@ export class AIService {
     try {
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .from('ai.ai_settings')
+        .schema('ai')
+        .from('ai_settings')
         .select('*')
         .eq('user_id', userId)
         .single();
@@ -83,7 +84,8 @@ export class AIService {
       // Upsert настройки
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .from('ai.ai_settings')
+        .schema('ai')
+        .from('ai_settings')
         .upsert(updatedSettings, { 
           onConflict: 'user_id',
           ignoreDuplicates: false 
@@ -204,7 +206,8 @@ export class AIService {
     try {
       let query = this.supabaseService
         .getAdminClient()
-        .from('ai.ai_recommendations_cache')
+        .schema('ai')
+        .from('ai_recommendations_cache')
         .select('*')
         .eq('user_id', userId)
         .eq('goal_id', goalId)
@@ -233,7 +236,8 @@ export class AIService {
     try {
       let query = this.supabaseService
         .getAdminClient()
-        .from('ai.ai_recommendations_cache')
+        .schema('ai')
+        .from('ai_recommendations_cache')
         .delete()
         .eq('user_id', userId);
 
@@ -259,7 +263,8 @@ export class AIService {
   private async getGoalWithSubgoals(goalId: number, userId: string): Promise<any> {
     const { data, error } = await this.supabaseService
       .getAdminClient()
-      .from('project.goals')
+      .schema('project')
+      .from('goals')
       .select(`
         *,
         goal_subgoals(*)
@@ -281,7 +286,8 @@ export class AIService {
   private async getGoalTasks(goalId: number, userId: string): Promise<any[]> {
     const { data, error } = await this.supabaseService
       .getAdminClient()
-      .from('project.tasks')
+      .schema('project')
+      .from('tasks')
       .select('*')
       .eq('goal_id', goalId)
       .eq('user_id', userId);
@@ -477,7 +483,8 @@ export class AIService {
 
       const { error } = await this.supabaseService
         .getAdminClient()
-        .from('ai.ai_recommendations_cache')
+        .schema('ai')
+        .from('ai_recommendations_cache')
         .upsert(cacheData, { 
           onConflict: 'user_id,goal_id,cache_key',
           ignoreDuplicates: false 
@@ -836,7 +843,8 @@ export class AIService {
   private async getProject(projectId: number, userId: string): Promise<any> {
     const { data, error } = await this.supabaseService
       .getAdminClient()
-      .from('project.projects')
+      .schema('project')
+      .from('projects')
       .select('*')
       .eq('id', projectId)
       .eq('user_id', userId)

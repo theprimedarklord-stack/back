@@ -38,7 +38,8 @@ export class TasksService {
 
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .from('project.tasks')
+        .schema('project')
+        .from('tasks')
         .insert(newTask)
         .select()
         .single();
@@ -57,7 +58,8 @@ export class TasksService {
     try {
       let query = this.supabaseService
         .getAdminClient()
-        .from('project.tasks')
+        .schema('project')
+        .from('tasks')
         .select('*')
         .eq('user_id', userId);
 
@@ -95,7 +97,8 @@ export class TasksService {
     try {
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .from('project.tasks')
+        .schema('project')
+        .from('tasks')
         .select('*')
         .eq('id', id)
         .eq('user_id', userId)
@@ -161,7 +164,8 @@ export class TasksService {
 
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .from('project.tasks')
+        .schema('project')
+        .from('tasks')
         .update(updateData)
         .eq('id', id)
         .eq('user_id', userId)
@@ -188,7 +192,8 @@ export class TasksService {
     try {
       const { error } = await this.supabaseService
         .getAdminClient()
-        .from('project.tasks')
+        .schema('project')
+        .from('tasks')
         .delete()
         .eq('id', id)
         .eq('user_id', userId);

@@ -4,7 +4,11 @@
 Backend обращался к таблицам без указания схемы, поэтому искал их в `public` схеме. Но таблицы находятся в схемах `project` и `ai`.
 
 ## Решение
-Обновлены все запросы в 4 сервисах с указанием правильных схем.
+Обновлены все запросы в 4 сервисах с использованием правильного синтаксиса Supabase:
+```typescript
+.schema('schema_name')
+.from('table_name')
+```
 
 ---
 
@@ -47,11 +51,20 @@ Backend обращался к таблицам без указания схем�
 
 **Стало:**
 ```typescript
-.from('ai.ai_settings')
-.from('ai.ai_recommendations_cache')
-.from('project.goals')
-.from('project.tasks')
-.from('project.projects')
+.schema('ai')
+.from('ai_settings')
+
+.schema('ai')
+.from('ai_recommendations_cache')
+
+.schema('project')
+.from('goals')
+
+.schema('project')
+.from('tasks')
+
+.schema('project')
+.from('projects')
 ```
 
 ### 2. ✅ `src/projects/projects.service.ts` (8 мест)
@@ -65,9 +78,14 @@ Backend обращался к таблицам без указания схем�
 
 **Стало:**
 ```typescript
-.from('project.projects')
-.from('project.goals')
-.from('project.tasks')
+.schema('project')
+.from('projects')
+
+.schema('project')
+.from('goals')
+
+.schema('project')
+.from('tasks')
 ```
 
 ### 3. ✅ `src/goals/goals.service.ts` (16 мест)
@@ -80,8 +98,11 @@ Backend обращался к таблицам без указания схем�
 
 **Стало:**
 ```typescript
-.from('project.goals')
-.from('project.goal_subgoals')
+.schema('project')
+.from('goals')
+
+.schema('project')
+.from('goal_subgoals')
 ```
 
 ### 4. ✅ `src/tasks/tasks.service.ts` (5 мест)
@@ -93,7 +114,8 @@ Backend обращался к таблицам без указания схем�
 
 **Стало:**
 ```typescript
-.from('project.tasks')
+.schema('project')
+.from('tasks')
 ```
 
 ---
@@ -126,4 +148,30 @@ Backend обращался к таблицам без указания схем�
 **Дата:** 2025-10-28  
 **Исправлено:** 37 запросов  
 **Статус:** ✅ Готово к деплою
+
+---
+
+## Результат
+
+✅ **Нет ошибок линтера**  
+✅ **Все запросы используют правильный синтаксис Supabase**  
+✅ **Готово к деплою на Render**
+
+Теперь backend использует правильный синтаксис:
+```typescript
+// Для таблиц в схеме 'project'
+.schema('project').from('goals')
+.schema('project').from('tasks')
+.schema('project').from('projects')
+
+// Для таблиц в схеме 'ai'
+.schema('ai').from('ai_settings')
+.schema('ai').from('ai_recommendations_cache')
+
+// Для таблиц в 'public' (без изменений)
+.from('users')
+.from('cards')
+```
+
+**Попробуйте снова задеплоить!** 🚀
 
