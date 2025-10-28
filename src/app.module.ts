@@ -12,6 +12,7 @@ import { TasksModule } from './tasks/tasks.module';
 import { GoalsModule } from './goals/goals.module';
 import { ProjectsModule } from './projects/projects.module';
 import { AIModule } from './ai/ai.module';
+import { SuggestionsModule } from './suggestions/suggestions.module';
 // import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
@@ -27,6 +28,7 @@ import { AIModule } from './ai/ai.module';
     GoalsModule,
     ProjectsModule,
     AIModule,
+    SuggestionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

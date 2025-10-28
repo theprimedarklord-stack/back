@@ -1,6 +1,7 @@
 // src/ai/ai.service.ts
 import { Injectable, HttpException, HttpStatus, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ModuleRef } from '@nestjs/core';
 import { SupabaseService } from '../supabase/supabase.service';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as crypto from 'crypto';
@@ -23,10 +24,27 @@ import {
 
 @Injectable()
 export class AIService {
+  private suggestionsService: any = null;
+
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly configService: ConfigService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  // Ліниво отримуємо SuggestionsService для уникнення циклічних залежностей
+  private async getSuggestionsService() {
+    if (!this.suggestionsService) {
+      try {
+        // Динамічно отримуємо SuggestionsService через ModuleRef
+        const { SuggestionsService } = await import('../suggestions/suggestions.service');
+        this.suggestionsService = this.moduleRef.get(SuggestionsService, { strict: false });
+      } catch (error) {
+        console.warn('[AI] Не вдалося отримати SuggestionsService:', error.message);
+      }
+    }
+    return this.suggestionsService;
+  }
 
   async getSettings(userId: string): Promise<AISettings> {
     try {
@@ -582,6 +600,26 @@ export class AIService {
 
       const duration = Date.now() - startTime;
       console.log(`[AI] Goals generated: count=${goalsWithMetadata.length}, tokens=${tokensUsed}, duration=${duration}ms`);
+
+      // АВТОМАТИЧНЕ ЗБЕРЕЖЕННЯ в suggestions
+      // Зберігаємо згенеровані цілі як pending рекомендації
+      if (goalsWithMetadata.length > 0) {
+        try {
+          const suggestionsService = await this.getSuggestionsService();
+          if (suggestionsService) {
+            await suggestionsService.saveSuggestions(
+              userId,
+              projectId,
+              goalsWithMetadata,
+              'goal'
+            );
+            console.log(`[AI] Рекомендації автоматично збережено в suggestions`);
+          }
+        } catch (saveError) {
+          // Не падаємо якщо не вдалося зберегти suggestions (graceful degradation)
+          console.error('[AI] Помилка збереження в suggestions:', saveError.message);
+        }
+      }
 
       return {
         success: true,

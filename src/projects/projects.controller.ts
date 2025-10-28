@@ -17,6 +17,7 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { AddGeneratedStructureDto } from './dto/add-generated-structure.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AIService } from '../ai/ai.service';
+import { SuggestionsService } from '../suggestions/suggestions.service';
 import { GenerateGoalsForProjectDto } from '../ai/dto/generate-goals.dto';
 import { GenerateFullStructureDto } from '../ai/dto/generate-full-structure.dto';
 
@@ -26,6 +27,7 @@ export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly aiService: AIService,
+    private readonly suggestionsService: SuggestionsService,
   ) {}
 
   @Post()
@@ -204,13 +206,37 @@ export class ProjectsController {
   ) {
     try {
       const userId = req.user.id;
-      const result = await this.aiService.generateGoalsForProject(
+      const targetCount = dto.count || 5;
+
+      // НОВА ЛОГІКА: Використовуємо getOrFillPendingSuggestions
+      // Цей метод автоматично:
+      // 1. Перевіряє чи є pending рекомендації
+      // 2. Якщо не вистачає до targetCount - генерує додаткові через AI
+      // 3. Фільтрує дублікати
+      // 4. Повертає потрібну кількість рекомендацій
+      
+      const result = await this.suggestionsService.getOrFillPendingSuggestions(
         userId,
         Number(projectId),
-        dto.count,
-        dto.existing_goals
+        targetCount,
+        'goal'
       );
-      return result;
+
+      // Форматуємо відповідь як goals (для сумісності з фронтендом)
+      const goals = result.suggestions.map(s => ({
+        ...s.payload,
+        suggestionId: s.id, // Додаємо ID для подальшої роботи (accept/reject)
+        _suggestion: true, // Флаг що це suggestion
+      }));
+
+      return {
+        success: true,
+        goals,
+        cached: !result.generated_new,
+        generated_new: result.generated_new,
+        total_count: result.total_count,
+        source: result.generated_new ? 'suggestions_and_ai' : 'suggestions',
+      };
     } catch (error) {
       console.error('Generate goals error:', error);
       if (error instanceof HttpException) {
@@ -270,6 +296,36 @@ export class ProjectsController {
       }
       throw new HttpException(
         'Ошибка сохранения структуры',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * DELETE /projects/:id/suggestions - видалити всі pending рекомендації для проекту
+   * Використовується для перегенерації (очистити старі, потім згенерувати нові)
+   */
+  @Delete(':id/suggestions')
+  async deleteProjectSuggestions(@Param('id') projectId: string, @Req() req) {
+    try {
+      const userId = req.user.id;
+      const result = await this.suggestionsService.deleteAllPendingForProject(
+        userId,
+        Number(projectId),
+        'goal'
+      );
+      return {
+        success: true,
+        deleted_count: result.deleted_count,
+        message: `Видалено ${result.deleted_count} рекомендацій`,
+      };
+    } catch (error) {
+      console.error('Delete project suggestions error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка удаления рекомендаций проекта',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
