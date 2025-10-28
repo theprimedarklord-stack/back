@@ -32,7 +32,7 @@ export class AIService {
     try {
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .from('ai_settings')
+        .from('ai.ai_settings')
         .select('*')
         .eq('user_id', userId)
         .single();
@@ -83,7 +83,7 @@ export class AIService {
       // Upsert настройки
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .from('ai_settings')
+        .from('ai.ai_settings')
         .upsert(updatedSettings, { 
           onConflict: 'user_id',
           ignoreDuplicates: false 
@@ -204,7 +204,7 @@ export class AIService {
     try {
       let query = this.supabaseService
         .getAdminClient()
-        .from('ai_recommendations_cache')
+        .from('ai.ai_recommendations_cache')
         .select('*')
         .eq('user_id', userId)
         .eq('goal_id', goalId)
@@ -233,7 +233,7 @@ export class AIService {
     try {
       let query = this.supabaseService
         .getAdminClient()
-        .from('ai_recommendations_cache')
+        .from('ai.ai_recommendations_cache')
         .delete()
         .eq('user_id', userId);
 
@@ -259,7 +259,7 @@ export class AIService {
   private async getGoalWithSubgoals(goalId: number, userId: string): Promise<any> {
     const { data, error } = await this.supabaseService
       .getAdminClient()
-      .from('goals')
+      .from('project.goals')
       .select(`
         *,
         goal_subgoals(*)
@@ -281,7 +281,7 @@ export class AIService {
   private async getGoalTasks(goalId: number, userId: string): Promise<any[]> {
     const { data, error } = await this.supabaseService
       .getAdminClient()
-      .from('tasks')
+      .from('project.tasks')
       .select('*')
       .eq('goal_id', goalId)
       .eq('user_id', userId);
@@ -477,7 +477,7 @@ export class AIService {
 
       const { error } = await this.supabaseService
         .getAdminClient()
-        .from('ai_recommendations_cache')
+        .from('ai.ai_recommendations_cache')
         .upsert(cacheData, { 
           onConflict: 'user_id,goal_id,cache_key',
           ignoreDuplicates: false 
@@ -836,7 +836,7 @@ export class AIService {
   private async getProject(projectId: number, userId: string): Promise<any> {
     const { data, error } = await this.supabaseService
       .getAdminClient()
-      .from('projects')
+      .from('project.projects')
       .select('*')
       .eq('id', projectId)
       .eq('user_id', userId)
