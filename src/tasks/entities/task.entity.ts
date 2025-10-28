@@ -20,6 +20,15 @@ export interface Task {
   subgoal_id?: number | null;
   created_at: string;
   updated_at: string;
+  generated_by?: 'ai' | 'manual';
+  confidence?: number;
+  ai_metadata?: {
+    model?: string;
+    prompt_version?: string;
+    tokens_used?: number;
+    source_goal_id?: number;
+    source_project_id?: number;
+  };
 }
 
 export interface CreateTaskData {
@@ -31,6 +40,15 @@ export interface CreateTaskData {
   status_history?: StatusHistoryEntry[];
   goal_id?: number | null;
   subgoal_id?: number | null;
+  generated_by?: 'ai' | 'manual';
+  confidence?: number;
+  ai_metadata?: {
+    model?: string;
+    prompt_version?: string;
+    tokens_used?: number;
+    source_goal_id?: number;
+    source_project_id?: number;
+  };
 }
 
 export interface UpdateTaskData {
@@ -42,4 +60,13 @@ export interface UpdateTaskData {
   status_history?: StatusHistoryEntry[];
   goal_id?: number | null;
   subgoal_id?: number | null;
+  generated_by?: 'ai' | 'manual';
+  confidence?: number;
+  ai_metadata?: {
+    model?: string;
+    prompt_version?: string;
+    tokens_used?: number;
+    source_goal_id?: number;
+    source_project_id?: number;
+  };
 }

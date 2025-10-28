@@ -14,12 +14,19 @@ import {
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { AddGeneratedStructureDto } from './dto/add-generated-structure.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AIService } from '../ai/ai.service';
+import { GenerateGoalsForProjectDto } from '../ai/dto/generate-goals.dto';
+import { GenerateFullStructureDto } from '../ai/dto/generate-full-structure.dto';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
 export class ProjectsController {
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly aiService: AIService,
+  ) {}
 
   @Post()
   async create(@Body() createProjectDto: CreateProjectDto, @Req() req) {
@@ -184,6 +191,85 @@ export class ProjectsController {
       console.error('Get statuses error:', error);
       throw new HttpException(
         'Ошибка получения статусов',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post(':id/generate-goals')
+  async generateGoals(
+    @Param('id') projectId: string,
+    @Body() dto: GenerateGoalsForProjectDto,
+    @Req() req
+  ) {
+    try {
+      const userId = req.user.id;
+      const result = await this.aiService.generateGoalsForProject(
+        userId,
+        Number(projectId),
+        dto.count,
+        dto.existing_goals
+      );
+      return result;
+    } catch (error) {
+      console.error('Generate goals error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка генерации целей',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post(':id/generate-full-structure')
+  async generateFullStructure(
+    @Param('id') projectId: string,
+    @Body() dto: GenerateFullStructureDto,
+    @Req() req
+  ) {
+    try {
+      const userId = req.user.id;
+      const result = await this.aiService.generateFullStructure(
+        userId,
+        Number(projectId),
+        dto.settings
+      );
+      return result;
+    } catch (error) {
+      console.error('Generate full structure error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка генерации структуры',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post(':id/add-generated-structure')
+  async addGeneratedStructure(
+    @Param('id') projectId: string,
+    @Body() dto: AddGeneratedStructureDto,
+    @Req() req
+  ) {
+    try {
+      const userId = req.user.id;
+      const result = await this.projectsService.addGeneratedStructure(
+        userId,
+        Number(projectId),
+        dto.structure
+      );
+      return { success: true, ...result };
+    } catch (error) {
+      console.error('Add generated structure error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка сохранения структуры',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

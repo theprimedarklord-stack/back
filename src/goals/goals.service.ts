@@ -21,6 +21,9 @@ export class GoalsService {
         priority: goalPriority,
         deadline: createGoalData.deadline || null,
         project_id: createGoalData.project_id || null,
+        generated_by: createGoalData.generated_by || 'manual',
+        confidence: createGoalData.confidence || null,
+        ai_metadata: createGoalData.ai_metadata || null,
         created_at: now,
         updated_at: now,
       };
@@ -43,6 +46,8 @@ export class GoalsService {
           goal_id: goal.id,
           text: subgoal.text,
           completed: subgoal.completed || false,
+          generated_by: subgoal.generated_by || 'manual',
+          ai_metadata: subgoal.ai_metadata || null,
           created_at: now,
         }));
 
@@ -142,6 +147,9 @@ export class GoalsService {
       if (updateGoalData.priority !== undefined) updateData.priority = updateGoalData.priority;
       if (updateGoalData.deadline !== undefined) updateData.deadline = updateGoalData.deadline;
       if (updateGoalData.project_id !== undefined) updateData.project_id = updateGoalData.project_id;
+      if (updateGoalData.generated_by !== undefined) updateData.generated_by = updateGoalData.generated_by;
+      if (updateGoalData.confidence !== undefined) updateData.confidence = updateGoalData.confidence;
+      if (updateGoalData.ai_metadata !== undefined) updateData.ai_metadata = updateGoalData.ai_metadata;
 
       // Обновляем цель
       const { data: goal, error: goalError } = await this.supabaseService
@@ -172,6 +180,8 @@ export class GoalsService {
             goal_id: Number(id),
             text: subgoal.text,
             completed: subgoal.completed || false,
+            generated_by: subgoal.generated_by || 'manual',
+            ai_metadata: subgoal.ai_metadata || null,
             created_at: now,
           }));
 
@@ -258,7 +268,7 @@ export class GoalsService {
     }
   }
 
-  async addSubgoal(goalId: string, text: string, completed: boolean = false, userId: string) {
+  async addSubgoal(goalId: string, text: string, completed: boolean = false, userId: string, generated_by: 'ai' | 'manual' = 'manual', ai_metadata: any = null) {
     try {
       // Проверяем, что цель принадлежит пользователю
       await this.findOne(goalId, userId);
@@ -272,6 +282,8 @@ export class GoalsService {
           goal_id: Number(goalId),
           text,
           completed,
+          generated_by,
+          ai_metadata,
           created_at: now,
         })
         .select()

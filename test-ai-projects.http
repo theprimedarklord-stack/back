@@ -1,0 +1,154 @@
+### AI Projects Endpoints Testing
+### Замените YOUR_JWT_TOKEN на реальный JWT токен
+### Замените PROJECT_ID, GOAL_ID на реальные ID из вашей БД
+
+@baseUrl = http://localhost:3000
+@token = YOUR_JWT_TOKEN
+@projectId = 1
+@goalId = 1
+
+###############################################################################
+# 1. Поэтапная генерация целей для проекта
+###############################################################################
+
+POST {{baseUrl}}/projects/{{projectId}}/generate-goals
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "project_id": {{projectId}},
+  "count": 3,
+  "existing_goals": [],
+  "force_refresh": false
+}
+
+###############################################################################
+# 2. Генерация задач для конкретной цели
+###############################################################################
+
+POST {{baseUrl}}/goals/{{goalId}}/generate-tasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "goal_id": {{goalId}},
+  "project_id": {{projectId}},
+  "settings": {
+    "count": 3,
+    "include_subgoals": true
+  }
+}
+
+###############################################################################
+# 3. Каскадная генерация полной структуры
+###############################################################################
+
+POST {{baseUrl}}/projects/{{projectId}}/generate-full-structure
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "project_id": {{projectId}},
+  "settings": {
+    "generate_goals": true,
+    "goals_count": {
+      "min": 3,
+      "max": 5
+    },
+    "generate_tasks": true,
+    "tasks_per_goal": {
+      "min": 2,
+      "max": 4
+    },
+    "generate_subgoals": true,
+    "calculate_deadlines": true,
+    "determine_priorities": true,
+    "detail_level": "moderate"
+  }
+}
+
+###############################################################################
+# 4. Сохранение сгенерированной структуры
+###############################################################################
+
+POST {{baseUrl}}/projects/{{projectId}}/add-generated-structure
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "project_id": {{projectId}},
+  "structure": {
+    "goals": [
+      {
+        "title": "Тестовая цель 1",
+        "description": "Описание тестовой цели",
+        "category": "technical",
+        "priority": "high",
+        "keywords": ["тест", "api"],
+        "generated_by": "ai",
+        "confidence": 0.9,
+        "ai_metadata": {
+          "model": "gemini-2.0-flash-exp",
+          "prompt_version": "1.0",
+          "tokens_used": 500
+        },
+        "_tempId": "goal_0"
+      }
+    ],
+    "tasks": [
+      {
+        "topic": "Тестовая задача 1",
+        "description": "Описание тестовой задачи",
+        "priority": "high",
+        "status": "not_completed",
+        "generated_by": "ai",
+        "confidence": 0.85,
+        "ai_metadata": {
+          "model": "gemini-2.0-flash-exp",
+          "prompt_version": "1.0",
+          "tokens_used": 500
+        },
+        "_tempGoalId": "goal_0"
+      }
+    ]
+  }
+}
+
+###############################################################################
+# 5. Проверка: Получить проект с целями
+###############################################################################
+
+GET {{baseUrl}}/projects/{{projectId}}/goals
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 6. Проверка: Получить все цели
+###############################################################################
+
+GET {{baseUrl}}/goals
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 7. Проверка: Получить все задачи
+###############################################################################
+
+GET {{baseUrl}}/tasks
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 8. Создать проект для тестирования (если нужен новый)
+###############################################################################
+
+POST {{baseUrl}}/projects
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Тестовый проект для AI генерации",
+  "description": "Это проект для тестирования AI генерации целей и задач",
+  "category": "technical",
+  "priority": "high",
+  "keywords": ["тест", "ai", "генерация"],
+  "deadline": "2025-12-31"
+}
+

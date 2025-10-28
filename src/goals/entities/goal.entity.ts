@@ -9,6 +9,12 @@ export interface Subgoal {
   text: string;
   completed: boolean;
   created_at: string;
+  generated_by?: 'ai' | 'manual';
+  ai_metadata?: {
+    model?: string;
+    prompt_version?: string;
+    tokens_used?: number;
+  };
 }
 
 export interface Goal {
@@ -24,6 +30,14 @@ export interface Goal {
   created_at: string;
   updated_at: string;
   goal_subgoals?: Subgoal[];
+  generated_by?: 'ai' | 'manual';
+  confidence?: number;
+  ai_metadata?: {
+    model?: string;
+    prompt_version?: string;
+    tokens_used?: number;
+    source_project_id?: number;
+  };
 }
 
 export interface CreateGoalData {
@@ -34,7 +48,15 @@ export interface CreateGoalData {
   priority?: GoalPriority;
   deadline?: string;
   project_id?: number;
-  subgoals?: { text: string; completed?: boolean }[];
+  subgoals?: { text: string; completed?: boolean; generated_by?: 'ai' | 'manual'; ai_metadata?: any }[];
+  generated_by?: 'ai' | 'manual';
+  confidence?: number;
+  ai_metadata?: {
+    model?: string;
+    prompt_version?: string;
+    tokens_used?: number;
+    source_project_id?: number;
+  };
 }
 
 export interface UpdateGoalData {
@@ -45,6 +67,14 @@ export interface UpdateGoalData {
   priority?: GoalPriority;
   deadline?: string;
   project_id?: number;
-  subgoals?: { text: string; completed?: boolean }[];
+  subgoals?: { text: string; completed?: boolean; generated_by?: 'ai' | 'manual'; ai_metadata?: any }[];
+  generated_by?: 'ai' | 'manual';
+  confidence?: number;
+  ai_metadata?: {
+    model?: string;
+    prompt_version?: string;
+    tokens_used?: number;
+    source_project_id?: number;
+  };
 }
 

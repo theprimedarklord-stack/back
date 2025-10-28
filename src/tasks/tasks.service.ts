@@ -21,10 +21,17 @@ export class TasksService {
 
       const newTask = {
         user_id: userId,
-        ...createTaskData,
+        topic: createTaskData.topic,
+        description: createTaskData.description,
         status: taskStatus,
         priority: taskPriority,
+        deadline: createTaskData.deadline || null,
         status_history: initialStatusHistory,
+        goal_id: createTaskData.goal_id || null,
+        subgoal_id: createTaskData.subgoal_id || null,
+        generated_by: createTaskData.generated_by || 'manual',
+        confidence: createTaskData.confidence || null,
+        ai_metadata: createTaskData.ai_metadata || null,
         created_at: now,
         updated_at: now,
       };
@@ -133,11 +140,24 @@ export class TasksService {
         statusHistory = [...statusHistory, newHistoryEntry];
       }
 
-      const updateData = {
-        ...updateTaskData,
-        status_history: updateTaskData.status_history || statusHistory,
+      const updateData: any = {
         updated_at: now,
       };
+
+      // Копируем только переданные поля
+      if (updateTaskData.topic !== undefined) updateData.topic = updateTaskData.topic;
+      if (updateTaskData.description !== undefined) updateData.description = updateTaskData.description;
+      if (updateTaskData.status !== undefined) updateData.status = updateTaskData.status;
+      if (updateTaskData.priority !== undefined) updateData.priority = updateTaskData.priority;
+      if (updateTaskData.deadline !== undefined) updateData.deadline = updateTaskData.deadline;
+      if (updateTaskData.goal_id !== undefined) updateData.goal_id = updateTaskData.goal_id;
+      if (updateTaskData.subgoal_id !== undefined) updateData.subgoal_id = updateTaskData.subgoal_id;
+      if (updateTaskData.generated_by !== undefined) updateData.generated_by = updateTaskData.generated_by;
+      if (updateTaskData.confidence !== undefined) updateData.confidence = updateTaskData.confidence;
+      if (updateTaskData.ai_metadata !== undefined) updateData.ai_metadata = updateTaskData.ai_metadata;
+      
+      // История статусов всегда обновляется
+      updateData.status_history = updateTaskData.status_history || statusHistory;
 
       const { data, error } = await this.supabaseService
         .getAdminClient()

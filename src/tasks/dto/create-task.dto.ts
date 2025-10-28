@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, MaxLength, IsIn, IsDateString, IsArray, ValidateNested, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, MaxLength, IsIn, IsDateString, IsArray, ValidateNested, IsNumber, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class StatusHistoryEntryDto {
@@ -51,4 +51,23 @@ export class CreateTaskDto {
   @IsOptional()
   @IsNumber()
   subgoal_id?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ai', 'manual'])
+  generated_by?: 'ai' | 'manual';
+
+  @IsOptional()
+  @IsNumber()
+  confidence?: number;
+
+  @IsOptional()
+  @IsObject()
+  ai_metadata?: {
+    model?: string;
+    prompt_version?: string;
+    tokens_used?: number;
+    source_goal_id?: number;
+    source_project_id?: number;
+  };
 }

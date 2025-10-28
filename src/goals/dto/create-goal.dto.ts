@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsArray, IsIn, IsDateString, ValidateNested, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsArray, IsIn, IsDateString, ValidateNested, MaxLength, IsNumber, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateSubgoalDto {
@@ -9,6 +9,19 @@ export class CreateSubgoalDto {
 
   @IsOptional()
   completed?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ai', 'manual'])
+  generated_by?: 'ai' | 'manual';
+
+  @IsOptional()
+  @IsObject()
+  ai_metadata?: {
+    model?: string;
+    prompt_version?: string;
+    tokens_used?: number;
+  };
 }
 
 export class CreateGoalDto {
@@ -48,5 +61,23 @@ export class CreateGoalDto {
 
   @IsOptional()
   project_id?: number;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ai', 'manual'])
+  generated_by?: 'ai' | 'manual';
+
+  @IsOptional()
+  @IsNumber()
+  confidence?: number;
+
+  @IsOptional()
+  @IsObject()
+  ai_metadata?: {
+    model?: string;
+    prompt_version?: string;
+    tokens_used?: number;
+    source_project_id?: number;
+  };
 }
 

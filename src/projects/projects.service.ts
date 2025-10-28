@@ -259,5 +259,128 @@ export class ProjectsService {
       { value: 'cancelled', label: 'Отменен', color: this.getStatusColor('cancelled') },
     ];
   }
+
+  /**
+   * Сохранение сгенерированной AI структуры (цели + задачи)
+   */
+  async addGeneratedStructure(
+    userId: string,
+    projectId: number,
+    structure: {
+      goals: any[];
+      tasks: any[];
+    }
+  ): Promise<{
+    created_goals: any[];
+    created_tasks: any[];
+  }> {
+    try {
+      // Проверяем, что проект принадлежит пользователю
+      await this.findOne(projectId.toString(), userId);
+
+      const now = new Date().toISOString();
+      const createdGoals: any[] = [];
+      const createdTasks: any[] = [];
+
+      // Создаем цели
+      for (const goalData of structure.goals) {
+        const { _tempId, ...goalWithoutTempId } = goalData;
+        
+        const newGoal = {
+          user_id: userId,
+          title: goalData.title,
+          description: goalData.description || '',
+          keywords: goalData.keywords || [],
+          category: goalData.category || 'technical',
+          priority: goalData.priority || 'medium',
+          deadline: goalData.deadline || null,
+          project_id: projectId,
+          generated_by: goalData.generated_by || 'ai',
+          confidence: goalData.confidence || null,
+          ai_metadata: goalData.ai_metadata || null,
+          created_at: now,
+          updated_at: now,
+        };
+
+        const { data: goal, error: goalError } = await this.supabaseService
+          .getAdminClient()
+          .from('goals')
+          .insert(newGoal)
+          .select()
+          .single();
+
+        if (goalError) {
+          console.error(`Error creating goal: ${goalError.message}`);
+          throw new InternalServerErrorException(`Ошибка создания цели: ${goalError.message}`);
+        }
+
+        // Сохраняем созданную цель с маппингом временного ID
+        createdGoals.push({ ...goal, _tempId });
+      }
+
+      // Создаем задачи и привязываем к реальным goal_id
+      for (const taskData of structure.tasks) {
+        const { _tempId, _tempGoalId, ...taskWithoutTempId } = taskData;
+        
+        // Найти реальный goal_id по временному ID
+        let realGoalId = taskData.goal_id || null;
+        if (_tempGoalId) {
+          const matchedGoal = createdGoals.find(g => g._tempId === _tempGoalId);
+          if (matchedGoal) {
+            realGoalId = matchedGoal.id;
+          }
+        }
+
+        const newTask = {
+          user_id: userId,
+          topic: taskData.topic,
+          description: taskData.description || '',
+          status: taskData.status || 'not_completed',
+          priority: taskData.priority || 'medium',
+          deadline: taskData.deadline || null,
+          status_history: taskData.status_history || [{
+            status: taskData.status || 'not_completed',
+            timestamp: now,
+            action: 'created'
+          }],
+          goal_id: realGoalId,
+          subgoal_id: taskData.subgoal_id || null,
+          generated_by: taskData.generated_by || 'ai',
+          confidence: taskData.confidence || null,
+          ai_metadata: taskData.ai_metadata || null,
+          created_at: now,
+          updated_at: now,
+        };
+
+        const { data: task, error: taskError } = await this.supabaseService
+          .getAdminClient()
+          .from('tasks')
+          .insert(newTask)
+          .select()
+          .single();
+
+        if (taskError) {
+          console.error(`Error creating task: ${taskError.message}`);
+          // Продолжаем даже если одна задача не создалась
+          continue;
+        }
+
+        createdTasks.push(task);
+      }
+
+      console.log(`[Projects] Structure saved: goals=${createdGoals.length}, tasks=${createdTasks.length}`);
+
+      return {
+        created_goals: createdGoals,
+        created_tasks: createdTasks,
+      };
+
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(`Ошибка сохранения структуры: ${error.message}`);
+    }
+  }
 }
 

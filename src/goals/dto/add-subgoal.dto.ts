@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, MaxLength, IsIn, IsObject } from 'class-validator';
 
 export class AddSubgoalDto {
   @IsString()
@@ -9,5 +9,18 @@ export class AddSubgoalDto {
   @IsOptional()
   @IsBoolean()
   completed?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ai', 'manual'])
+  generated_by?: 'ai' | 'manual';
+
+  @IsOptional()
+  @IsObject()
+  ai_metadata?: {
+    model?: string;
+    prompt_version?: string;
+    tokens_used?: number;
+  };
 }
 

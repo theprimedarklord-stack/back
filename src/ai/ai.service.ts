@@ -12,6 +12,14 @@ import {
   GenerateRecommendationsResponse 
 } from './entities/ai-settings.entity';
 import { UpdateAISettingsDto } from './dto/ai-settings.dto';
+import { GenerateGoalsForProjectDto } from './dto/generate-goals.dto';
+import { GenerateTasksForGoalDto } from './dto/generate-tasks.dto';
+import { GenerateFullStructureDto } from './dto/generate-full-structure.dto';
+import { 
+  buildGenerateGoalsPrompt,
+  buildGenerateTasksForGoalPrompt,
+  buildGenerateFullStructurePrompt
+} from './prompts/project-structure.prompts';
 
 @Injectable()
 export class AIService {
@@ -512,5 +520,410 @@ export class AIService {
         steps: true,
       },
     };
+  }
+
+  // ==================== НОВЫЕ МЕТОДЫ ДЛЯ ГЕНЕРАЦИИ СТРУКТУРЫ ПРОЕКТОВ ====================
+
+  /**
+   * Поэтапная генерация целей для проекта
+   */
+  async generateGoalsForProject(
+    userId: string,
+    projectId: number,
+    count: number = 5,
+    existingGoals: any[] = []
+  ): Promise<{
+    success: boolean;
+    goals: any[];
+    cached: boolean;
+    model_used?: string;
+  }> {
+    const startTime = Date.now();
+    
+    try {
+      console.log(`[AI] Generate Goals: projectId=${projectId}, count=${count}`);
+
+      // Получить настройки AI
+      const settings = await this.getSettings(userId);
+      
+      if (!settings.enabled) {
+        console.log(`[AI] AI disabled for user ${userId}`);
+        return {
+          success: true,
+          goals: [],
+          cached: false,
+        };
+      }
+
+      // Получить данные проекта
+      const project = await this.getProject(projectId, userId);
+
+      // Создать промпт
+      const prompt = buildGenerateGoalsPrompt(project, existingGoals, count, settings);
+
+      // Вызвать Gemini API
+      const { text, tokensUsed } = await this.callGeminiAPI(prompt, settings);
+
+      // Парсинг ответа
+      const goals = this.parseGoalsResponse(text);
+
+      // Добавить AI метаданные к целям
+      const goalsWithMetadata = goals.map(goal => ({
+        ...goal,
+        project_id: projectId,
+        generated_by: 'ai' as const,
+        ai_metadata: {
+          model: settings.model,
+          prompt_version: '1.0',
+          tokens_used: tokensUsed,
+          source_project_id: projectId,
+        },
+      }));
+
+      const duration = Date.now() - startTime;
+      console.log(`[AI] Goals generated: count=${goalsWithMetadata.length}, tokens=${tokensUsed}, duration=${duration}ms`);
+
+      return {
+        success: true,
+        goals: goalsWithMetadata,
+        cached: false,
+        model_used: settings.model,
+      };
+
+    } catch (error) {
+      console.error(`[AI] Error generating goals: ${error.message}`);
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(`Ошибка генерации целей: ${error.message}`);
+    }
+  }
+
+  /**
+   * Генерация задач для конкретной цели
+   */
+  async generateTasksForGoal(
+    userId: string,
+    goalId: number,
+    projectId: number,
+    settings: { count?: number; include_subgoals?: boolean } = {}
+  ): Promise<{
+    success: boolean;
+    tasks: any[];
+    subgoals?: any[];
+    cached: boolean;
+  }> {
+    const startTime = Date.now();
+    
+    try {
+      console.log(`[AI] Generate Tasks: goalId=${goalId}, projectId=${projectId}`);
+
+      // Получить настройки AI
+      const aiSettings = await this.getSettings(userId);
+      
+      if (!aiSettings.enabled) {
+        console.log(`[AI] AI disabled for user ${userId}`);
+        return {
+          success: true,
+          tasks: [],
+          cached: false,
+        };
+      }
+
+      // Получить данные цели и проекта
+      const goal = await this.getGoalWithSubgoals(goalId, userId);
+      const project = await this.getProject(projectId, userId);
+
+      // Создать промпт
+      const prompt = buildGenerateTasksForGoalPrompt(goal, project, settings);
+
+      // Вызвать Gemini API
+      const { text, tokensUsed } = await this.callGeminiAPI(prompt, aiSettings);
+
+      // Парсинг ответа
+      const result = this.parseTasksResponse(text);
+
+      // Добавить AI метаданные к задачам
+      const tasksWithMetadata = result.tasks.map(task => ({
+        ...task,
+        goal_id: goalId,
+        generated_by: 'ai' as const,
+        ai_metadata: {
+          model: aiSettings.model,
+          prompt_version: '1.0',
+          tokens_used: tokensUsed,
+          source_goal_id: goalId,
+          source_project_id: projectId,
+        },
+      }));
+
+      const duration = Date.now() - startTime;
+      console.log(`[AI] Tasks generated: count=${tasksWithMetadata.length}, tokens=${tokensUsed}, duration=${duration}ms`);
+
+      return {
+        success: true,
+        tasks: tasksWithMetadata,
+        cached: false,
+      };
+
+    } catch (error) {
+      console.error(`[AI] Error generating tasks: ${error.message}`);
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(`Ошибка генерации задач: ${error.message}`);
+    }
+  }
+
+  /**
+   * Каскадная генерация полной структуры (цели + задачи + подцели)
+   */
+  async generateFullStructure(
+    userId: string,
+    projectId: number,
+    settings: GenerateFullStructureDto['settings']
+  ): Promise<{
+    success: boolean;
+    structure: {
+      goals: any[];
+      tasks: any[];
+      subgoals: any[];
+    };
+    metadata: {
+      total_tokens: number;
+      generation_time: number;
+      model: string;
+    };
+  }> {
+    const startTime = Date.now();
+    
+    try {
+      console.log(`[AI] Generate Full Structure: projectId=${projectId}`);
+
+      // Получить настройки AI
+      const aiSettings = await this.getSettings(userId);
+      
+      if (!aiSettings.enabled) {
+        console.log(`[AI] AI disabled for user ${userId}`);
+        return {
+          success: true,
+          structure: {
+            goals: [],
+            tasks: [],
+            subgoals: [],
+          },
+          metadata: {
+            total_tokens: 0,
+            generation_time: 0,
+            model: aiSettings.model,
+          },
+        };
+      }
+
+      // Получить данные проекта
+      const project = await this.getProject(projectId, userId);
+
+      // Создать промпт
+      const prompt = buildGenerateFullStructurePrompt(project, settings);
+
+      // Вызвать Gemini API
+      const { text, tokensUsed } = await this.callGeminiAPI(prompt, aiSettings);
+
+      // Парсинг ответа
+      const parsedStructure = this.parseFullStructureResponse(text);
+
+      // Подготовить структуру с AI метаданными
+      const goals: any[] = [];
+      const tasks: any[] = [];
+      const subgoals: any[] = [];
+
+      parsedStructure.goals.forEach((goal, goalIndex) => {
+        // Добавить цель с метаданными
+        goals.push({
+          title: goal.title,
+          description: goal.description,
+          keywords: goal.keywords || [],
+          category: goal.category,
+          priority: goal.priority,
+          deadline: goal.deadline || null,
+          project_id: projectId,
+          generated_by: 'ai' as const,
+          confidence: goal.confidence || 0.85,
+          ai_metadata: {
+            model: aiSettings.model,
+            prompt_version: '1.0',
+            tokens_used: tokensUsed,
+            source_project_id: projectId,
+          },
+          _tempId: `goal_${goalIndex}`, // Временный ID для связи с задачами
+        });
+
+        // Добавить задачи для этой цели
+        if (goal.tasks && Array.isArray(goal.tasks)) {
+          goal.tasks.forEach((task, taskIndex) => {
+            tasks.push({
+              topic: task.topic,
+              description: task.description,
+              priority: task.priority || 'medium',
+              deadline: task.deadline || null,
+              status: 'not_completed',
+              generated_by: 'ai' as const,
+              confidence: task.confidence || 0.9,
+              ai_metadata: {
+                model: aiSettings.model,
+                prompt_version: '1.0',
+                tokens_used: tokensUsed,
+                source_project_id: projectId,
+              },
+              _tempGoalId: `goal_${goalIndex}`, // Связь с родительской целью
+              _tempId: `task_${goalIndex}_${taskIndex}`, // Временный ID
+            });
+
+            // Добавить подцели для задачи
+            if (task.subgoals && Array.isArray(task.subgoals)) {
+              task.subgoals.forEach(subgoal => {
+                subgoals.push({
+                  text: subgoal.text,
+                  completed: subgoal.completed || false,
+                  generated_by: 'ai' as const,
+                  ai_metadata: {
+                    model: aiSettings.model,
+                    prompt_version: '1.0',
+                    tokens_used: tokensUsed,
+                  },
+                  _tempTaskId: `task_${goalIndex}_${taskIndex}`, // Связь с родительской задачей
+                });
+              });
+            }
+          });
+        }
+      });
+
+      const duration = Date.now() - startTime;
+      console.log(`[AI] Full structure generated: goals=${goals.length}, tasks=${tasks.length}, subgoals=${subgoals.length}, tokens=${tokensUsed}, duration=${duration}ms`);
+
+      return {
+        success: true,
+        structure: {
+          goals,
+          tasks,
+          subgoals,
+        },
+        metadata: {
+          total_tokens: tokensUsed,
+          generation_time: duration,
+          model: aiSettings.model,
+        },
+      };
+
+    } catch (error) {
+      console.error(`[AI] Error generating full structure: ${error.message}`);
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(`Ошибка генерации полной структуры: ${error.message}`);
+    }
+  }
+
+  // ==================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ====================
+
+  private async getProject(projectId: number, userId: string): Promise<any> {
+    const { data, error } = await this.supabaseService
+      .getAdminClient()
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        throw new NotFoundException('Проект не найден');
+      }
+      throw new InternalServerErrorException(`Ошибка получения проекта: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  private parseGoalsResponse(text: string): any[] {
+    try {
+      // Удаляем markdown синтаксис
+      let cleaned = text.trim();
+      cleaned = cleaned.replace(/^```json\n?/i, '');
+      cleaned = cleaned.replace(/^```\n?/i, '');
+      cleaned = cleaned.replace(/\n?```$/i, '');
+      cleaned = cleaned.trim();
+      
+      // Парсим JSON
+      const parsed = JSON.parse(cleaned);
+      
+      // Валидация
+      if (!Array.isArray(parsed)) {
+        throw new Error('Response is not an array');
+      }
+      
+      return parsed;
+    } catch (error) {
+      console.error('Failed to parse goals response:', error);
+      console.error('Raw text:', text);
+      throw new InternalServerErrorException('Ошибка парсинга ответа AI');
+    }
+  }
+
+  private parseTasksResponse(text: string): { tasks: any[] } {
+    try {
+      // Удаляем markdown синтаксис
+      let cleaned = text.trim();
+      cleaned = cleaned.replace(/^```json\n?/i, '');
+      cleaned = cleaned.replace(/^```\n?/i, '');
+      cleaned = cleaned.replace(/\n?```$/i, '');
+      cleaned = cleaned.trim();
+      
+      // Парсим JSON
+      const parsed = JSON.parse(cleaned);
+      
+      // Валидация
+      if (!parsed.tasks || !Array.isArray(parsed.tasks)) {
+        throw new Error('Response does not contain tasks array');
+      }
+      
+      return parsed;
+    } catch (error) {
+      console.error('Failed to parse tasks response:', error);
+      console.error('Raw text:', text);
+      throw new InternalServerErrorException('Ошибка парсинга ответа AI');
+    }
+  }
+
+  private parseFullStructureResponse(text: string): { goals: any[] } {
+    try {
+      // Удаляем markdown синтаксис
+      let cleaned = text.trim();
+      cleaned = cleaned.replace(/^```json\n?/i, '');
+      cleaned = cleaned.replace(/^```\n?/i, '');
+      cleaned = cleaned.replace(/\n?```$/i, '');
+      cleaned = cleaned.trim();
+      
+      // Парсим JSON
+      const parsed = JSON.parse(cleaned);
+      
+      // Валидация
+      if (!parsed.goals || !Array.isArray(parsed.goals)) {
+        throw new Error('Response does not contain goals array');
+      }
+      
+      return parsed;
+    } catch (error) {
+      console.error('Failed to parse full structure response:', error);
+      console.error('Raw text:', text);
+      throw new InternalServerErrorException('Ошибка парсинга ответа AI');
+    }
   }
 }

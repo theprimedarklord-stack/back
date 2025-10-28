@@ -17,11 +17,16 @@ import { UpdateGoalDto } from './dto/update-goal.dto';
 import { AddSubgoalDto } from './dto/add-subgoal.dto';
 import { PatchSubgoalDto } from './dto/patch-subgoal.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AIService } from '../ai/ai.service';
+import { GenerateTasksForGoalDto } from '../ai/dto/generate-tasks.dto';
 
 @Controller('goals')
 @UseGuards(JwtAuthGuard)
 export class GoalsController {
-  constructor(private readonly goalsService: GoalsService) {}
+  constructor(
+    private readonly goalsService: GoalsService,
+    private readonly aiService: AIService,
+  ) {}
 
   @Post()
   async create(@Body() createGoalDto: CreateGoalDto, @Req() req) {
@@ -249,6 +254,33 @@ export class GoalsController {
       console.error('Get priorities error:', error);
       throw new HttpException(
         'Ошибка получения приоритетов',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post(':id/generate-tasks')
+  async generateTasks(
+    @Param('id') goalId: string,
+    @Body() dto: GenerateTasksForGoalDto,
+    @Req() req
+  ) {
+    try {
+      const userId = req.user.id;
+      const result = await this.aiService.generateTasksForGoal(
+        userId,
+        Number(goalId),
+        dto.project_id,
+        dto.settings
+      );
+      return result;
+    } catch (error) {
+      console.error('Generate tasks error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка генерации задач',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
