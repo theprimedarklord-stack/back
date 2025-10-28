@@ -31,7 +31,6 @@ export class GoalsService {
       // Создаём цель
       const { data: goal, error: goalError } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goals')
         .insert(newGoal)
         .select()
@@ -54,7 +53,6 @@ export class GoalsService {
 
         const { data: createdSubgoals, error: subgoalsError} = await this.supabaseService
           .getAdminClient()
-          .schema('project')
           .from('goal_subgoals')
           .insert(subgoals)
           .select();
@@ -86,7 +84,6 @@ export class GoalsService {
     try {
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goals')
         .select(`
           *,
@@ -109,7 +106,6 @@ export class GoalsService {
     try {
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goals')
         .select(`
           *,
@@ -159,7 +155,6 @@ export class GoalsService {
       // Обновляем цель
       const { data: goal, error: goalError } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goals')
         .update(updateData)
         .eq('id', id)
@@ -176,7 +171,6 @@ export class GoalsService {
         // Удаляем старые подцели
         await this.supabaseService
           .getAdminClient()
-          .schema('project')
           .from('goal_subgoals')
           .delete()
           .eq('goal_id', id);
@@ -194,8 +188,7 @@ export class GoalsService {
 
           const { data: createdSubgoals, error: subgoalsError } = await this.supabaseService
             .getAdminClient()
-            .schema('project')
-          .from('goal_subgoals')
+            .from('goal_subgoals')
             .insert(subgoals)
             .select();
 
@@ -211,7 +204,6 @@ export class GoalsService {
         // Если подцели не переданы, получаем существующие
         const { data: existingSubgoals } = await this.supabaseService
           .getAdminClient()
-          .schema('project')
           .from('goal_subgoals')
           .select('*')
           .eq('goal_id', id);
@@ -236,7 +228,6 @@ export class GoalsService {
       // Удаляем цель (подцели удалятся автоматически через CASCADE)
       const { error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goals')
         .delete()
         .eq('id', id)
@@ -260,7 +251,6 @@ export class GoalsService {
 
       const { data: subgoals, error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goal_subgoals')
         .select('*')
         .eq('goal_id', goalId)
@@ -288,7 +278,6 @@ export class GoalsService {
 
       const { data: subgoal, error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goal_subgoals')
         .insert({
           goal_id: Number(goalId),
@@ -326,7 +315,6 @@ export class GoalsService {
 
       const { data: subgoal, error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goal_subgoals')
         .update(updateData)
         .eq('id', subgoalId)
@@ -357,7 +345,6 @@ export class GoalsService {
 
       const { error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goal_subgoals')
         .delete()
         .eq('id', subgoalId)
@@ -382,7 +369,6 @@ export class GoalsService {
       // Получаем текущий статус подцели
       const { data: subgoal, error: getError } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goal_subgoals')
         .select('completed')
         .eq('id', subgoalId)
@@ -399,7 +385,6 @@ export class GoalsService {
       // Переключаем статус
       const { error: updateError } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goal_subgoals')
         .update({ completed: !subgoal.completed })
         .eq('id', subgoalId)

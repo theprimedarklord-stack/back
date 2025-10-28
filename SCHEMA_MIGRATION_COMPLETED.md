@@ -1,38 +1,37 @@
 # Миграция схем БД - Завершена ✅
 
-## Проблема
-Backend обращался к таблицам без указания схемы, поэтому искал их в `public` схеме. Но таблицы находятся в схемах `project` и `ai`.
+## История миграции
 
-## Решение
-Обновлены все запросы в 4 сервисах с использованием правильного синтаксиса Supabase:
-```typescript
-.schema('schema_name')
-.from('table_name')
-```
+### Этап 1: Первоначальное состояние
+Backend обращался к таблицам без указания схемы (искал в `public`), но таблицы находились в схемах `project` и `ai`.
+
+### Этап 2: Попытка использования `.schema()`
+Временно использовался синтаксис `.schema('schema_name').from('table_name')`.
+
+### Этап 3: Финальное решение
+Все таблицы перенесены в схему `public` в Supabase, backend обращается к ним напрямую через `.from('table_name')`.
 
 ---
 
-## Структура БД
+## Финальная структура БД
 
-### Схема `project`:
-- ✅ `project.projects`
-- ✅ `project.goals`
-- ✅ `project.goal_subgoals`
-- ✅ `project.tasks`
-- ✅ `project.suggestions`
-- ✅ `project.task_card_links`
+### Схема `public` (все таблицы):
+- ✅ `public.projects` ← перенесено из `project.projects`
+- ✅ `public.goals` ← перенесено из `project.goals`
+- ✅ `public.goal_subgoals` ← перенесено из `project.goal_subgoals`
+- ✅ `public.tasks` ← перенесено из `project.tasks`
+- ✅ `public.suggestions` ← перенесено из `project.suggestions`
+- ✅ `public.task_card_links` ← перенесено из `project.task_card_links`
+- ✅ `public.ai_settings` ← перенесено из `ai.ai_settings`
+- ✅ `public.ai_recommendations_cache` ← перенесено из `ai.ai_recommendations_cache`
+- ✅ `public.users` (уже было)
+- ✅ `public.user_settings` (уже было)
+- ✅ `public.cards` (уже было)
+- ✅ `public.card_reviews` (уже было)
+- ✅ `public.card_images` (уже было)
 
-### Схема `ai`:
-- ✅ `ai.ai_settings`
-- ✅ `ai.ai_recommendations_cache`
-
-### Схема `public`:
-- `public.users`
-- `public.user_settings`
-- `public.cards`
-- `public.card_reviews`
-- `public.card_images`
-- и другие (остались без изменений)
+### Схемы `ai` и `project`:
+❌ Удалены (больше не используются)
 
 ---
 
@@ -40,7 +39,7 @@ Backend обращался к таблицам без указания схем�
 
 ### 1. ✅ `src/ai/ai.service.ts` (8 мест)
 
-**Было:**
+**Финальная версия:**
 ```typescript
 .from('ai_settings')
 .from('ai_recommendations_cache')
@@ -49,74 +48,37 @@ Backend обращался к таблицам без указания схем�
 .from('projects')
 ```
 
-**Стало:**
-```typescript
-.schema('ai')
-.from('ai_settings')
-
-.schema('ai')
-.from('ai_recommendations_cache')
-
-.schema('project')
-.from('goals')
-
-.schema('project')
-.from('tasks')
-
-.schema('project')
-.from('projects')
-```
+Все таблицы доступны напрямую из схемы `public`.
 
 ### 2. ✅ `src/projects/projects.service.ts` (8 мест)
 
-**Было:**
+**Финальная версия:**
 ```typescript
 .from('projects')
 .from('goals')
 .from('tasks')
 ```
 
-**Стало:**
-```typescript
-.schema('project')
-.from('projects')
-
-.schema('project')
-.from('goals')
-
-.schema('project')
-.from('tasks')
-```
+Все таблицы доступны напрямую из схемы `public`.
 
 ### 3. ✅ `src/goals/goals.service.ts` (16 мест)
 
-**Было:**
+**Финальная версия:**
 ```typescript
 .from('goals')
 .from('goal_subgoals')
 ```
 
-**Стало:**
-```typescript
-.schema('project')
-.from('goals')
-
-.schema('project')
-.from('goal_subgoals')
-```
+Все таблицы доступны напрямую из схемы `public`.
 
 ### 4. ✅ `src/tasks/tasks.service.ts` (5 мест)
 
-**Было:**
+**Финальная версия:**
 ```typescript
 .from('tasks')
 ```
 
-**Стало:**
-```typescript
-.schema('project')
-.from('tasks')
-```
+Все таблицы доступны напрямую из схемы `public`.
 
 ---
 

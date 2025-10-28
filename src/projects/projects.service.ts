@@ -28,7 +28,6 @@ export class ProjectsService {
 
       const { data: project, error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('projects')
         .insert(newProject)
         .select()
@@ -48,7 +47,6 @@ export class ProjectsService {
     try {
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('projects')
         .select('*')
         .eq('user_id', userId)
@@ -68,7 +66,6 @@ export class ProjectsService {
     try {
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('projects')
         .select('*')
         .eq('id', id)
@@ -111,7 +108,6 @@ export class ProjectsService {
 
       const { data: project, error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('projects')
         .update(updateData)
         .eq('id', id)
@@ -139,7 +135,6 @@ export class ProjectsService {
 
       const { error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('projects')
         .delete()
         .eq('id', id)
@@ -163,7 +158,6 @@ export class ProjectsService {
 
       const { data: goals, error } = await this.supabaseService
         .getAdminClient()
-        .schema('project')
         .from('goals')
         .select(`
           *,
@@ -310,7 +304,6 @@ export class ProjectsService {
 
         const { data: goal, error: goalError } = await this.supabaseService
           .getAdminClient()
-          .schema('project')
           .from('goals')
           .insert(newGoal)
           .select()
@@ -361,7 +354,6 @@ export class ProjectsService {
 
         const { data: task, error: taskError } = await this.supabaseService
           .getAdminClient()
-          .schema('project')
           .from('tasks')
           .insert(newTask)
           .select()

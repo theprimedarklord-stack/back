@@ -32,7 +32,6 @@ export class AIService {
     try {
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .schema('ai')
         .from('ai_settings')
         .select('*')
         .eq('user_id', userId)
@@ -84,7 +83,6 @@ export class AIService {
       // Upsert настройки
       const { data, error } = await this.supabaseService
         .getAdminClient()
-        .schema('ai')
         .from('ai_settings')
         .upsert(updatedSettings, { 
           onConflict: 'user_id',
@@ -206,7 +204,6 @@ export class AIService {
     try {
       let query = this.supabaseService
         .getAdminClient()
-        .schema('ai')
         .from('ai_recommendations_cache')
         .select('*')
         .eq('user_id', userId)
@@ -236,7 +233,6 @@ export class AIService {
     try {
       let query = this.supabaseService
         .getAdminClient()
-        .schema('ai')
         .from('ai_recommendations_cache')
         .delete()
         .eq('user_id', userId);
@@ -263,7 +259,6 @@ export class AIService {
   private async getGoalWithSubgoals(goalId: number, userId: string): Promise<any> {
     const { data, error } = await this.supabaseService
       .getAdminClient()
-      .schema('project')
       .from('goals')
       .select(`
         *,
@@ -286,7 +281,6 @@ export class AIService {
   private async getGoalTasks(goalId: number, userId: string): Promise<any[]> {
     const { data, error } = await this.supabaseService
       .getAdminClient()
-      .schema('project')
       .from('tasks')
       .select('*')
       .eq('goal_id', goalId)
@@ -483,7 +477,6 @@ export class AIService {
 
       const { error } = await this.supabaseService
         .getAdminClient()
-        .schema('ai')
         .from('ai_recommendations_cache')
         .upsert(cacheData, { 
           onConflict: 'user_id,goal_id,cache_key',
@@ -843,7 +836,6 @@ export class AIService {
   private async getProject(projectId: number, userId: string): Promise<any> {
     const { data, error } = await this.supabaseService
       .getAdminClient()
-      .schema('project')
       .from('projects')
       .select('*')
       .eq('id', projectId)
