@@ -829,8 +829,8 @@ export class AIService {
       // Создать промпт
       const prompt = buildGenerateTasksForGoalPrompt(goal, project, settings);
 
-      // Вызвать Gemini API
-      const { text, tokensUsed } = await this.callGeminiAPI(prompt, aiSettings);
+      // Вызвать AI провайдер
+      const { text, tokensUsed } = await this.callAIProvider(prompt, aiSettings);
 
       // Парсинг ответа
       const result = this.parseTasksResponse(text);
@@ -920,8 +920,8 @@ export class AIService {
       // Создать промпт
       const prompt = buildGenerateFullStructurePrompt(project, settings);
 
-      // Вызвать Gemini API
-      const { text, tokensUsed } = await this.callGeminiAPI(prompt, aiSettings);
+      // Вызвать AI провайдер
+      const { text, tokensUsed } = await this.callAIProvider(prompt, aiSettings);
 
       // Парсинг ответа
       const parsedStructure = this.parseFullStructureResponse(text);
