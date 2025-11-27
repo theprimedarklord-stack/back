@@ -103,7 +103,13 @@ export class AIController {
       const result = await this.aiService.sendChatMessage(
         userId,
         dto.message,
-        dto.history
+        dto.history,
+        {
+          provider: dto.provider,
+          model: dto.model,
+          temperature: dto.temperature,
+          max_tokens: dto.max_tokens,
+        }
       );
       return {
         success: true,

@@ -190,10 +190,21 @@ export class AIService {
     }
   }
 
-  async sendChatMessage(userId: string, message: string, history?: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<{ text: string; tokensUsed: number; modelUsed: string }> {
+  async sendChatMessage(
+    userId: string, 
+    message: string, 
+    history?: Array<{ role: 'user' | 'assistant'; content: string }>,
+    overrides?: { provider?: 'gemini' | 'openai' | 'anthropic'; model?: string; temperature?: number; max_tokens?: number }
+  ): Promise<{ text: string; tokensUsed: number; modelUsed: string }> {
     try {
       // Получаем настройки чата
       const chatSettings = await this.getChatSettings(userId);
+      
+      // Используем переданные параметры или настройки по умолчанию
+      const provider = overrides?.provider || chatSettings.provider;
+      const model = overrides?.model || chatSettings.model;
+      const temperature = overrides?.temperature !== undefined ? overrides.temperature : chatSettings.temperature;
+      const max_tokens = overrides?.max_tokens !== undefined ? overrides.max_tokens : chatSettings.max_tokens;
       
       // Строим промпт с учетом истории, если она есть
       let prompt = message;
@@ -209,10 +220,10 @@ export class AIService {
       const settingsForProvider: AISettings = {
         user_id: userId,
         enabled: true,
-        provider: chatSettings.provider,
-        model: chatSettings.model,
-        temperature: chatSettings.temperature,
-        max_tokens: chatSettings.max_tokens,
+        provider,
+        model,
+        temperature,
+        max_tokens,
         recommendations_count: 5, // не используется для чата
         language: 'uk', // можно сделать настраиваемым
         context: {
@@ -240,7 +251,7 @@ export class AIService {
       return {
         text,
         tokensUsed,
-        modelUsed: chatSettings.model,
+        modelUsed: model,
       };
     } catch (error) {
       console.error('[AI] Chat message error:', error);
