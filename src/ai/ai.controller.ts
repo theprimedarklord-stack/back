@@ -16,6 +16,7 @@ import { UpdateAISettingsDto } from './dto/ai-settings.dto';
 import { UpdateAIChatSettingsDto } from './dto/ai-chat-settings.dto';
 import { UpdateAIOutlineSettingsDto } from './dto/ai-outline-settings.dto';
 import { GenerateRecommendationsDto } from './dto/generate-recommendations.dto';
+import { ChatDto } from './dto/chat.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('ai')
@@ -90,6 +91,33 @@ export class AIController {
       }
       throw new HttpException(
         'Ошибка сохранения chat settings',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post('chat')
+  async sendChatMessage(@Req() req, @Body() dto: ChatDto) {
+    try {
+      const userId = req.user.id;
+      const result = await this.aiService.sendChatMessage(
+        userId,
+        dto.message,
+        dto.history
+      );
+      return {
+        success: true,
+        message: result.text,
+        tokensUsed: result.tokensUsed,
+        modelUsed: result.modelUsed,
+      };
+    } catch (error) {
+      console.error('Send chat message error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка отправки сообщения в чат',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

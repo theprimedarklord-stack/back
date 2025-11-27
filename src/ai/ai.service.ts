@@ -190,6 +190,67 @@ export class AIService {
     }
   }
 
+  async sendChatMessage(userId: string, message: string, history?: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<{ text: string; tokensUsed: number; modelUsed: string }> {
+    try {
+      // Получаем настройки чата
+      const chatSettings = await this.getChatSettings(userId);
+      
+      // Строим промпт с учетом истории, если она есть
+      let prompt = message;
+      if (history && history.length > 0) {
+        // Формируем контекст из истории
+        const historyContext = history
+          .map(msg => `${msg.role === 'user' ? 'Пользователь' : 'Ассистент'}: ${msg.content}`)
+          .join('\n\n');
+        prompt = `${historyContext}\n\nПользователь: ${message}\n\nАссистент:`;
+      }
+
+      // Конвертируем AIChatSettings в формат, совместимый с callAIProvider
+      const settingsForProvider: AISettings = {
+        user_id: userId,
+        enabled: true,
+        provider: chatSettings.provider,
+        model: chatSettings.model,
+        temperature: chatSettings.temperature,
+        max_tokens: chatSettings.max_tokens,
+        recommendations_count: 5, // не используется для чата
+        language: 'uk', // можно сделать настраиваемым
+        context: {
+          considerExistingTasks: false,
+          considerHistory: false,
+          considerCurrentGoals: false,
+          considerDeadlines: false,
+          considerPriorities: false,
+        },
+        format: {
+          detailLevel: 'medium',
+          includeExamples: false,
+          includeTimeEstimates: false,
+        },
+        recommendation_type: {
+          tasks: false,
+          subgoals: false,
+          steps: false,
+        },
+      };
+
+      // Вызываем провайдер
+      const { text, tokensUsed } = await this.callAIProvider(prompt, settingsForProvider);
+
+      return {
+        text,
+        tokensUsed,
+        modelUsed: chatSettings.model,
+      };
+    } catch (error) {
+      console.error('[AI] Chat message error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(`Ошибка отправки сообщения в чат: ${error.message}`);
+    }
+  }
+
   async getOutlineSettings(userId: string): Promise<AIOutlineSettings> {
     try {
       const { data, error } = await this.supabaseService
