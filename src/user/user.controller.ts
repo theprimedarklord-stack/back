@@ -7,6 +7,7 @@ import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer
 import * as multer from 'multer';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { UpdateSidebarSettingsDto } from './dto/update-sidebar-settings.dto';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -445,7 +446,7 @@ export class UserController {
       const { data: settingsData, error } = await this.supabaseService
         .getAdminClient()
         .from('user_settings')
-        .select('sidebar_pinned, sidebar_width')
+        .select('sidebar_pinned, sidebar_width, on_this_page_display_mode')
         .eq('user_id', req.user.id)
         .single();
 
@@ -461,7 +462,8 @@ export class UserController {
       return { 
         success: true, 
         sidebar_pinned: settingsData?.sidebar_pinned || false,
-        sidebar_width: settingsData?.sidebar_width || 234
+        sidebar_width: settingsData?.sidebar_width || 234,
+        on_this_page_display_mode: settingsData?.on_this_page_display_mode || null
       };
     } catch (error) {
       console.error('Get sidebar settings error:', error);
@@ -476,7 +478,7 @@ export class UserController {
   @Post('sidebar')
   @UseGuards(JwtAuthGuard)
   async updateSidebarSettings(
-    @Body() body: { sidebar_pinned?: boolean; sidebar_width?: number },
+    @Body() body: UpdateSidebarSettingsDto,
     @Req() req: AuthenticatedRequest,
   ) {
     try {
@@ -488,24 +490,7 @@ export class UserController {
         };
       }
 
-      const { sidebar_pinned, sidebar_width } = body;
-      
-      // Валидация данных
-      if (sidebar_pinned !== undefined && typeof sidebar_pinned !== 'boolean') {
-        return {
-          success: false,
-          error: 'Invalid sidebar_pinned value',
-          status: HttpStatus.BAD_REQUEST,
-        };
-      }
-
-      if (sidebar_width !== undefined && (typeof sidebar_width !== 'number' || sidebar_width < 150 || sidebar_width > 700)) {
-        return {
-          success: false,
-          error: 'Invalid sidebar_width value',
-          status: HttpStatus.BAD_REQUEST,
-        };
-      }
+      const { sidebar_pinned, sidebar_width, on_this_page_display_mode } = body;
 
       // Готовим объект для обновления
       const updateData: any = {};
@@ -516,6 +501,10 @@ export class UserController {
 
       if (sidebar_width !== undefined) {
         updateData.sidebar_width = sidebar_width;
+      }
+
+      if (on_this_page_display_mode !== undefined) {
+        updateData.on_this_page_display_mode = on_this_page_display_mode;
       }
 
       const { error } = await this.supabaseService
@@ -537,7 +526,8 @@ export class UserController {
         success: true, 
         settings: {
           sidebar_pinned,
-          sidebar_width
+          sidebar_width,
+          on_this_page_display_mode
         }
       };
     } catch (error) {
@@ -667,11 +657,20 @@ export class UserController {
         };
       }
 
+      // Получаем настройки пользователя
+      const { data: settingsData } = await this.supabaseService
+        .getAdminClient()
+        .from('user_settings')
+        .select('on_this_page_display_mode')
+        .eq('user_id', req.user.id)
+        .single();
+
       return {
         success: true,
         profile: {
           username: userData?.username || '',
           full_name: userData?.full_name || '',
+          on_this_page_display_mode: settingsData?.on_this_page_display_mode || null,
         }
       };
 
