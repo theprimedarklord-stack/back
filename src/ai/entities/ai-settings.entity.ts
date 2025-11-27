@@ -4,6 +4,7 @@ export interface AISettings {
   id?: number;
   user_id: string;
   enabled: boolean;
+  provider?: 'gemini' | 'openai' | 'anthropic';
   model: string;
   temperature: number;
   max_tokens: number;

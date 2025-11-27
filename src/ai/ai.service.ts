@@ -3,7 +3,6 @@ import { Injectable, HttpException, HttpStatus, NotFoundException, InternalServe
 import { ConfigService } from '@nestjs/config';
 import { ModuleRef } from '@nestjs/core';
 import { SupabaseService } from '../supabase/supabase.service';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as crypto from 'crypto';
 import { 
   AISettings, 
@@ -12,7 +11,11 @@ import {
   GenerateRecommendationsRequest,
   GenerateRecommendationsResponse 
 } from './entities/ai-settings.entity';
+import { AIChatSettings } from './entities/ai-chat-settings.entity';
+import { AIOutlineSettings } from './entities/ai-outline-settings.entity';
 import { UpdateAISettingsDto } from './dto/ai-settings.dto';
+import { UpdateAIChatSettingsDto } from './dto/ai-chat-settings.dto';
+import { UpdateAIOutlineSettingsDto } from './dto/ai-outline-settings.dto';
 import { GenerateGoalsForProjectDto } from './dto/generate-goals.dto';
 import { GenerateTasksForGoalDto } from './dto/generate-tasks.dto';
 import { GenerateFullStructureDto } from './dto/generate-full-structure.dto';
@@ -21,6 +24,8 @@ import {
   buildGenerateTasksForGoalPrompt,
   buildGenerateFullStructurePrompt
 } from './prompts/project-structure.prompts';
+import { AIProviderFactory } from './providers/ai-provider.factory';
+import { AIProviderType } from './providers/ai-provider.interface';
 
 @Injectable()
 export class AIService {
@@ -30,6 +35,7 @@ export class AIService {
     private readonly supabaseService: SupabaseService,
     private readonly configService: ConfigService,
     private readonly moduleRef: ModuleRef,
+    private readonly providerFactory: AIProviderFactory,
   ) {}
 
   // Ліниво отримуємо SuggestionsService для уникнення циклічних залежностей
@@ -122,6 +128,158 @@ export class AIService {
     }
   }
 
+  async getChatSettings(userId: string): Promise<AIChatSettings> {
+    try {
+      const { data, error } = await this.supabaseService
+        .getAdminClient()
+        .from('ai_chat_settings')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw new InternalServerErrorException(`Ошибка получения chat settings: ${error.message}`);
+      }
+
+      if (!data) {
+        return this.getDefaultChatSettings(userId);
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(`Ошибка получения chat settings: ${error.message}`);
+    }
+  }
+
+  async updateChatSettings(userId: string, dto: UpdateAIChatSettingsDto): Promise<AIChatSettings> {
+    try {
+      const now = new Date().toISOString();
+      
+      const currentSettings = await this.getChatSettings(userId);
+      
+      const updatedSettings = {
+        ...currentSettings,
+        ...dto,
+        user_id: userId,
+        updated_at: now,
+      };
+
+      const { data, error } = await this.supabaseService
+        .getAdminClient()
+        .from('ai_chat_settings')
+        .upsert(updatedSettings, { 
+          onConflict: 'user_id',
+          ignoreDuplicates: false 
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new InternalServerErrorException(`Ошибка сохранения chat settings: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(`Ошибка сохранения chat settings: ${error.message}`);
+    }
+  }
+
+  async getOutlineSettings(userId: string): Promise<AIOutlineSettings> {
+    try {
+      const { data, error } = await this.supabaseService
+        .getAdminClient()
+        .from('ai_outline_settings')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw new InternalServerErrorException(`Ошибка получения outline settings: ${error.message}`);
+      }
+
+      if (!data) {
+        return this.getDefaultOutlineSettings(userId);
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(`Ошибка получения outline settings: ${error.message}`);
+    }
+  }
+
+  async updateOutlineSettings(userId: string, dto: UpdateAIOutlineSettingsDto): Promise<AIOutlineSettings> {
+    try {
+      const now = new Date().toISOString();
+      
+      const currentSettings = await this.getOutlineSettings(userId);
+      
+      const updatedSettings = {
+        ...currentSettings,
+        ...dto,
+        user_id: userId,
+        updated_at: now,
+      };
+
+      const { data, error } = await this.supabaseService
+        .getAdminClient()
+        .from('ai_outline_settings')
+        .upsert(updatedSettings, { 
+          onConflict: 'user_id',
+          ignoreDuplicates: false 
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new InternalServerErrorException(`Ошибка сохранения outline settings: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(`Ошибка сохранения outline settings: ${error.message}`);
+    }
+  }
+
+  private getDefaultChatSettings(userId: string): AIChatSettings {
+    return {
+      user_id: userId,
+      provider: 'gemini',
+      model: 'gemini-2.5-flash',
+      temperature: 0.7,
+      max_tokens: 2048,
+    };
+  }
+
+  private getDefaultOutlineSettings(userId: string): AIOutlineSettings {
+    return {
+      user_id: userId,
+      provider: 'gemini',
+      model: 'gemini-2.5-flash',
+      temperature: 0.7,
+      default_actions: {
+        explain: true,
+        summarize: true,
+        translate: true,
+        connections: true,
+        create_card: true,
+      },
+      connections_enabled: true,
+      auto_scroll: true,
+    };
+  }
+
   async generateRecommendations(userId: string, dto: GenerateRecommendationsRequest): Promise<GenerateRecommendationsResponse> {
     const startTime = Date.now();
     
@@ -170,9 +328,9 @@ export class AIService {
 
       console.log(`[AI] Cache Miss: generating fresh recommendations`);
 
-      // Шаг 7: Генерировать через Gemini API
+      // Шаг 7: Генерировать через AI провайдер
       const prompt = this.buildPrompt(goal, existingTasks, settings);
-      const { text, tokensUsed } = await this.callGeminiAPI(prompt, settings);
+      const { text, tokensUsed } = await this.callAIProvider(prompt, settings);
       
       // Шаг 8: Парсинг ответа
       const recommendations = this.parseAIResponse(text);
@@ -181,7 +339,8 @@ export class AIService {
       await this.saveToCache(userId, dto.goal_id, cacheKey, contextHash, recommendations, settings.model, tokensUsed);
 
       const duration = Date.now() - startTime;
-      console.log(`[AI] Gemini API Call: tokens=${tokensUsed}, duration=${duration}ms`);
+      const provider = settings.provider || 'gemini';
+      console.log(`[AI] ${provider} API Call: tokens=${tokensUsed}, duration=${duration}ms`);
 
       return {
         success: true,
@@ -438,36 +597,28 @@ export class AIService {
     return hash.substring(0, 16); // короткий хеш (16 символов)
   }
 
-  private async callGeminiAPI(prompt: string, settings: AISettings): Promise<{ text: string; tokensUsed: number }> {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+  private async callAIProvider(prompt: string, settings: AISettings): Promise<{ text: string; tokensUsed: number }> {
+    const providerType: AIProviderType = (settings.provider || 'gemini') as AIProviderType;
     
-    if (!apiKey) {
+    try {
+      const provider = this.providerFactory.getProvider(providerType);
+      const result = await provider.generateContent(prompt, settings);
+      return result;
+    } catch (error) {
+      console.error(`[AI] Error with ${providerType} provider:`, error.message);
+      
+      // Fallback на Gemini если другой провайдер не работает
+      if (providerType !== 'gemini') {
+        console.warn(`[AI] Falling back to Gemini provider`);
+        const geminiProvider = this.providerFactory.getProvider('gemini');
+        return await geminiProvider.generateContent(prompt, settings);
+      }
+      
       throw new HttpException(
-        'GEMINI_API_KEY не настроен',
+        `Ошибка AI провайдера: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
-    
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-      model: settings.model || 'gemini-2.0-flash-exp',
-    });
-    
-    const generationConfig = {
-      temperature: settings.temperature || 0.7,
-      maxOutputTokens: settings.max_tokens || 2048,
-    };
-    
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig,
-    });
-    
-    const response = result.response;
-    const text = response.text();
-    const tokensUsed = response.usageMetadata?.totalTokenCount || 0;
-    
-    return { text, tokensUsed };
   }
 
   private async saveToCache(
@@ -515,6 +666,7 @@ export class AIService {
     return {
       user_id: userId,
       enabled: true,
+      provider: 'gemini',
       model: 'gemini-2.0-flash-exp',
       temperature: 0.7,
       max_tokens: 2048,
@@ -579,8 +731,8 @@ export class AIService {
       // Создать промпт
       const prompt = buildGenerateGoalsPrompt(project, existingGoals, count, settings);
 
-      // Вызвать Gemini API
-      const { text, tokensUsed } = await this.callGeminiAPI(prompt, settings);
+      // Вызвать AI провайдер
+      const { text, tokensUsed } = await this.callAIProvider(prompt, settings);
 
       // Парсинг ответа
       const goals = this.parseGoalsResponse(text);

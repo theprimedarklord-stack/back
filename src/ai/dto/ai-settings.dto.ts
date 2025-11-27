@@ -1,11 +1,16 @@
 // src/ai/dto/ai-settings.dto.ts
-import { IsOptional, IsBoolean, IsString, IsNumber, IsObject, Min, Max } from 'class-validator';
+import { IsOptional, IsBoolean, IsString, IsNumber, IsObject, IsIn, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateAISettingsDto {
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['gemini', 'openai', 'anthropic'])
+  provider?: 'gemini' | 'openai' | 'anthropic';
 
   @IsOptional()
   @IsString()

@@ -13,6 +13,8 @@ import {
 } from '@nestjs/common';
 import { AIService } from './ai.service';
 import { UpdateAISettingsDto } from './dto/ai-settings.dto';
+import { UpdateAIChatSettingsDto } from './dto/ai-chat-settings.dto';
+import { UpdateAIOutlineSettingsDto } from './dto/ai-outline-settings.dto';
 import { GenerateRecommendationsDto } from './dto/generate-recommendations.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -52,6 +54,78 @@ export class AIController {
       }
       throw new HttpException(
         'Ошибка сохранения настроек AI',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Get('chat-settings')
+  async getChatSettings(@Req() req) {
+    try {
+      const userId = req.user.id;
+      const settings = await this.aiService.getChatSettings(userId);
+      return { success: true, settings };
+    } catch (error) {
+      console.error('Get chat settings error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка получения chat settings',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post('chat-settings')
+  async updateChatSettings(@Req() req, @Body() dto: UpdateAIChatSettingsDto) {
+    try {
+      const userId = req.user.id;
+      const settings = await this.aiService.updateChatSettings(userId, dto);
+      return { success: true, settings };
+    } catch (error) {
+      console.error('Update chat settings error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка сохранения chat settings',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Get('outline-settings')
+  async getOutlineSettings(@Req() req) {
+    try {
+      const userId = req.user.id;
+      const settings = await this.aiService.getOutlineSettings(userId);
+      return { success: true, settings };
+    } catch (error) {
+      console.error('Get outline settings error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка получения outline settings',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post('outline-settings')
+  async updateOutlineSettings(@Req() req, @Body() dto: UpdateAIOutlineSettingsDto) {
+    try {
+      const userId = req.user.id;
+      const settings = await this.aiService.updateOutlineSettings(userId, dto);
+      return { success: true, settings };
+    } catch (error) {
+      console.error('Update outline settings error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Ошибка сохранения outline settings',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
