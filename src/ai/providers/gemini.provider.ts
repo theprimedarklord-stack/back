@@ -29,16 +29,32 @@ export class GeminiProvider implements AIProvider {
       maxOutputTokens: settings.max_tokens || 2048,
     };
 
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig,
+    // Добавляем таймаут 60 секунд
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Gemini API request timeout after 60 seconds'));
+      }, 60000);
     });
 
-    const response = result.response;
-    const text = response.text();
-    const tokensUsed = response.usageMetadata?.totalTokenCount || 0;
+    try {
+      const requestPromise = model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig,
+      });
 
-    return { text, tokensUsed };
+      const result = await Promise.race([requestPromise, timeoutPromise]);
+      const response = result.response;
+      const text = response.text();
+      const tokensUsed = response.usageMetadata?.totalTokenCount || 0;
+
+      return { text, tokensUsed };
+    } catch (error) {
+      console.error('[Gemini Provider] Error:', error);
+      if (error.message && error.message.includes('timeout')) {
+        throw new Error('Gemini API request timeout');
+      }
+      throw new Error(`Gemini API error: ${error.message}`);
+    }
   }
 }
 

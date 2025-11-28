@@ -246,12 +246,12 @@ export class AIService {
       };
 
       // Вызываем провайдер
-      const { text, tokensUsed } = await this.callAIProvider(prompt, settingsForProvider);
+      const { text, tokensUsed, modelUsed } = await this.callAIProvider(prompt, settingsForProvider);
 
       return {
         text,
         tokensUsed,
-        modelUsed: model,
+        modelUsed, // Теперь используем реально использованную модель
       };
     } catch (error) {
       console.error('[AI] Chat message error:', error);
@@ -402,24 +402,23 @@ export class AIService {
 
       // Шаг 7: Генерировать через AI провайдер
       const prompt = this.buildPrompt(goal, existingTasks, settings);
-      const { text, tokensUsed } = await this.callAIProvider(prompt, settings);
+      const { text, tokensUsed, modelUsed, providerUsed } = await this.callAIProvider(prompt, settings);
       
       // Шаг 8: Парсинг ответа
       const recommendations = this.parseAIResponse(text);
 
       // Шаг 9: Сохранить в кеш
-      await this.saveToCache(userId, dto.goal_id, cacheKey, contextHash, recommendations, settings.model, tokensUsed);
+      await this.saveToCache(userId, dto.goal_id, cacheKey, contextHash, recommendations, modelUsed, tokensUsed);
 
       const duration = Date.now() - startTime;
-      const provider = settings.provider || 'gemini';
-      console.log(`[AI] ${provider} API Call: tokens=${tokensUsed}, duration=${duration}ms`);
+      console.log(`[AI] ${providerUsed} API Call: tokens=${tokensUsed}, duration=${duration}ms`);
 
       return {
         success: true,
         recommendations,
         cached: false,
         tokensUsed,
-        modelUsed: settings.model,
+        modelUsed,
       };
 
     } catch (error) {
@@ -669,13 +668,21 @@ export class AIService {
     return hash.substring(0, 16); // короткий хеш (16 символов)
   }
 
-  private async callAIProvider(prompt: string, settings: AISettings): Promise<{ text: string; tokensUsed: number }> {
+  private async callAIProvider(
+    prompt: string, 
+    settings: AISettings
+  ): Promise<{ text: string; tokensUsed: number; modelUsed: string; providerUsed: string }> {
     const providerType: AIProviderType = (settings.provider || 'gemini') as AIProviderType;
+    const originalModel = settings.model;
     
     try {
       const provider = this.providerFactory.getProvider(providerType);
       const result = await provider.generateContent(prompt, settings);
-      return result;
+      return {
+        ...result,
+        modelUsed: originalModel || settings.model || 'gemini-2.0-flash-exp',
+        providerUsed: providerType,
+      };
     } catch (error) {
       console.error(`[AI] Error with ${providerType} provider:`, error.message);
       
@@ -683,7 +690,20 @@ export class AIService {
       if (providerType !== 'gemini') {
         console.warn(`[AI] Falling back to Gemini provider`);
         const geminiProvider = this.providerFactory.getProvider('gemini');
-        return await geminiProvider.generateContent(prompt, settings);
+        
+        // Создаем новый объект settings с правильной моделью Gemini
+        const geminiSettings: AISettings = {
+          ...settings,
+          provider: 'gemini',
+          model: 'gemini-2.0-flash-exp', // Дефолтная модель Gemini
+        };
+        
+        const result = await geminiProvider.generateContent(prompt, geminiSettings);
+        return {
+          ...result,
+          modelUsed: 'gemini-2.0-flash-exp',
+          providerUsed: 'gemini',
+        };
       }
       
       throw new HttpException(
@@ -804,7 +824,7 @@ export class AIService {
       const prompt = buildGenerateGoalsPrompt(project, existingGoals, count, settings);
 
       // Вызвать AI провайдер
-      const { text, tokensUsed } = await this.callAIProvider(prompt, settings);
+      const { text, tokensUsed, modelUsed } = await this.callAIProvider(prompt, settings);
 
       // Парсинг ответа
       const goals = this.parseGoalsResponse(text);
@@ -815,7 +835,7 @@ export class AIService {
         project_id: projectId,
         generated_by: 'ai' as const,
         ai_metadata: {
-          model: settings.model,
+          model: modelUsed,
           prompt_version: '1.0',
           tokens_used: tokensUsed,
           source_project_id: projectId,
@@ -849,7 +869,7 @@ export class AIService {
         success: true,
         goals: goalsWithMetadata,
         cached: false,
-        model_used: settings.model,
+        model_used: modelUsed,
       };
 
     } catch (error) {
@@ -902,7 +922,7 @@ export class AIService {
       const prompt = buildGenerateTasksForGoalPrompt(goal, project, settings);
 
       // Вызвать AI провайдер
-      const { text, tokensUsed } = await this.callAIProvider(prompt, aiSettings);
+      const { text, tokensUsed, modelUsed } = await this.callAIProvider(prompt, aiSettings);
 
       // Парсинг ответа
       const result = this.parseTasksResponse(text);
@@ -913,7 +933,7 @@ export class AIService {
         goal_id: goalId,
         generated_by: 'ai' as const,
         ai_metadata: {
-          model: aiSettings.model,
+          model: modelUsed,
           prompt_version: '1.0',
           tokens_used: tokensUsed,
           source_goal_id: goalId,
@@ -993,7 +1013,7 @@ export class AIService {
       const prompt = buildGenerateFullStructurePrompt(project, settings);
 
       // Вызвать AI провайдер
-      const { text, tokensUsed } = await this.callAIProvider(prompt, aiSettings);
+      const { text, tokensUsed, modelUsed } = await this.callAIProvider(prompt, aiSettings);
 
       // Парсинг ответа
       const parsedStructure = this.parseFullStructureResponse(text);
@@ -1016,7 +1036,7 @@ export class AIService {
           generated_by: 'ai' as const,
           confidence: goal.confidence || 0.85,
           ai_metadata: {
-            model: aiSettings.model,
+            model: modelUsed,
             prompt_version: '1.0',
             tokens_used: tokensUsed,
             source_project_id: projectId,
@@ -1036,7 +1056,7 @@ export class AIService {
               generated_by: 'ai' as const,
               confidence: task.confidence || 0.9,
               ai_metadata: {
-                model: aiSettings.model,
+                model: modelUsed,
                 prompt_version: '1.0',
                 tokens_used: tokensUsed,
                 source_project_id: projectId,
@@ -1053,7 +1073,7 @@ export class AIService {
                   completed: subgoal.completed || false,
                   generated_by: 'ai' as const,
                   ai_metadata: {
-                    model: aiSettings.model,
+                    model: modelUsed,
                     prompt_version: '1.0',
                     tokens_used: tokensUsed,
                   },
@@ -1078,7 +1098,7 @@ export class AIService {
         metadata: {
           total_tokens: tokensUsed,
           generation_time: duration,
-          model: aiSettings.model,
+          model: modelUsed,
         },
       };
 
