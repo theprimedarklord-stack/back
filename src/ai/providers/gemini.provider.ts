@@ -21,7 +21,7 @@ export class GeminiProvider implements AIProvider {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: settings.model || 'gemini-2.0-flash-exp',
+      model: settings.model || 'gemini-2.0-flash',
     });
 
     const generationConfig = {
@@ -48,11 +48,29 @@ export class GeminiProvider implements AIProvider {
       const tokensUsed = response.usageMetadata?.totalTokenCount || 0;
 
       return { text, tokensUsed };
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Gemini Provider] Error:', error);
+      
+      // Обработка таймаута
       if (error.message && error.message.includes('timeout')) {
         throw new Error('Gemini API request timeout');
       }
+      
+      // Обработка ошибки 429 (Quota Exceeded)
+      const status = error?.status || error?.statusCode || error?.response?.status;
+      if (status === 429) {
+        throw new Error('Gemini API quota exceeded. Please try again later or use a different model.');
+      }
+      
+      // Проверка сообщения об ошибке квоты (на случай если статус не определен)
+      if (error.message && (
+        error.message.toLowerCase().includes('quota') ||
+        error.message.toLowerCase().includes('rate limit') ||
+        error.message.toLowerCase().includes('429')
+      )) {
+        throw new Error('Gemini API quota exceeded. Please try again later or use a different model.');
+      }
+      
       throw new Error(`Gemini API error: ${error.message}`);
     }
   }

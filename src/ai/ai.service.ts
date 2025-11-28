@@ -680,7 +680,7 @@ export class AIService {
       const result = await provider.generateContent(prompt, settings);
       return {
         ...result,
-        modelUsed: originalModel || settings.model || 'gemini-2.0-flash-exp',
+        modelUsed: originalModel || settings.model || 'gemini-2.0-flash',
         providerUsed: providerType,
       };
     } catch (error) {
@@ -695,13 +695,13 @@ export class AIService {
         const geminiSettings: AISettings = {
           ...settings,
           provider: 'gemini',
-          model: 'gemini-2.0-flash-exp', // Дефолтная модель Gemini
+          model: 'gemini-2.0-flash', // Дефолтная модель Gemini
         };
         
         const result = await geminiProvider.generateContent(prompt, geminiSettings);
         return {
           ...result,
-          modelUsed: 'gemini-2.0-flash-exp',
+          modelUsed: 'gemini-2.0-flash',
           providerUsed: 'gemini',
         };
       }
@@ -759,7 +759,7 @@ export class AIService {
       user_id: userId,
       enabled: true,
       provider: 'gemini',
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.0-flash',
       temperature: 0.7,
       max_tokens: 2048,
       recommendations_count: 5,

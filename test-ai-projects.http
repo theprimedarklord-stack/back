@@ -88,7 +88,7 @@ Content-Type: application/json
         "generated_by": "ai",
         "confidence": 0.9,
         "ai_metadata": {
-          "model": "gemini-2.0-flash-exp",
+          "model": "gemini-2.0-flash",
           "prompt_version": "1.0",
           "tokens_used": 500
         },
@@ -104,7 +104,7 @@ Content-Type: application/json
         "generated_by": "ai",
         "confidence": 0.85,
         "ai_metadata": {
-          "model": "gemini-2.0-flash-exp",
+          "model": "gemini-2.0-flash",
           "prompt_version": "1.0",
           "tokens_used": 500
         },

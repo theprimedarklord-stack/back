@@ -10,7 +10,7 @@ export interface Suggestion {
   entity_type: EntityType;
   payload: any; // JSON object with goal/task/subgoal data
   source: string; // 'ai', 'manual', etc.
-  model_used: string; // 'gemini-2.0-flash-exp', etc.
+  model_used: string; // 'gemini-2.0-flash', etc.
   confidence: number | null; // 0.0 - 1.0
   status: SuggestionStatus;
   accepted_by: string | null;

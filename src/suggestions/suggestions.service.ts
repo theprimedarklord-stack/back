@@ -45,7 +45,7 @@ export class SuggestionsService {
         entity_type: entityType,
         payload: goal,
         source: 'ai',
-        model_used: goal.ai_metadata?.model || goal.modelUsed || 'gemini-2.0-flash-exp',
+        model_used: goal.ai_metadata?.model || goal.modelUsed || 'gemini-2.0-flash',
         confidence: goal.confidence || 0.8,
         status: 'pending' as SuggestionStatus,
         created_at: now,
