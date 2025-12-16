@@ -1,10 +1,11 @@
-import { IsOptional, IsBoolean, IsNumber, IsString, IsIn, Min, Max } from 'class-validator';
+import { IsOptional, IsNumber, IsString, IsIn, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateSidebarSettingsDto {
   @IsOptional()
-  @IsBoolean()
-  sidebar_pinned?: boolean;
+  @IsString()
+  @IsIn(['expanded', 'collapsed', 'hover', 'overlay'])
+  sidebar_mode?: string;
 
   @IsOptional()
   @IsNumber()

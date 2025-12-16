@@ -412,7 +412,7 @@ FormData: { avatar: File }
 
 // POST /user/sidebar
 {
-  "sidebar_pinned": true,
+  "sidebar_mode": "expanded",
   "sidebar_width": 300
 }
 ```
@@ -662,7 +662,7 @@ export class CreateTaskDto {
 - id: BIGSERIAL (PK)
 - user_id: UUID (FK → users.user_id)
 - language: TEXT ('en' | 'uk' | 'ru')
-- sidebar_pinned: BOOLEAN
+- sidebar_mode: TEXT ('expanded' | 'collapsed' | 'hover' | 'overlay')
 - sidebar_width: INTEGER
 - created_at: TIMESTAMP
 - updated_at: TIMESTAMP

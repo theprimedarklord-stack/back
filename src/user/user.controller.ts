@@ -446,7 +446,7 @@ export class UserController {
       const { data: settingsData, error } = await this.supabaseService
         .getAdminClient()
         .from('user_settings')
-        .select('sidebar_pinned, sidebar_width, on_this_page_display_mode')
+        .select('sidebar_mode, sidebar_width, on_this_page_display_mode')
         .eq('user_id', req.user.id)
         .single();
 
@@ -461,7 +461,7 @@ export class UserController {
 
       return { 
         success: true, 
-        sidebar_pinned: settingsData?.sidebar_pinned || false,
+        sidebar_mode: settingsData?.sidebar_mode || 'expanded',
         sidebar_width: settingsData?.sidebar_width || 234,
         on_this_page_display_mode: settingsData?.on_this_page_display_mode || null
       };
@@ -490,13 +490,13 @@ export class UserController {
         };
       }
 
-      const { sidebar_pinned, sidebar_width, on_this_page_display_mode } = body;
+      const { sidebar_mode, sidebar_width, on_this_page_display_mode } = body;
 
       // Готовим объект для обновления
       const updateData: any = {};
 
-      if (sidebar_pinned !== undefined) {
-        updateData.sidebar_pinned = sidebar_pinned;
+      if (sidebar_mode !== undefined) {
+        updateData.sidebar_mode = sidebar_mode;
       }
 
       if (sidebar_width !== undefined) {
@@ -525,7 +525,7 @@ export class UserController {
       return { 
         success: true, 
         settings: {
-          sidebar_pinned,
+          sidebar_mode,
           sidebar_width,
           on_this_page_display_mode
         }
