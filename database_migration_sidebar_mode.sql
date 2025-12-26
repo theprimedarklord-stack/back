@@ -50,8 +50,8 @@ DROP COLUMN IF EXISTS sidebar_pinned;
 -- =====================================================
 
 -- Проверяем структуру таблицы
--- SELECT column_name, data_type, column_default 
--- FROM information_schema.columns 
--- WHERE table_name = 'user_settings' 
--- AND column_name IN ('sidebar_mode', 'sidebar_pinned');
+SELECT column_name, data_type, column_default 
+FROM information_schema.columns 
+WHERE table_name = 'user_settings' 
+AND column_name IN ('sidebar_mode', 'sidebar_pinned');
 
