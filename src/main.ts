@@ -5,12 +5,47 @@ import * as cookieParser from 'cookie-parser';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import * as express from 'express'; // Импортируем express для middleware
+import { Client } from 'pg'; // Добавлено для миграции
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.getHttpAdapter().getInstance().set('trust proxy', 1); // Критично для работы Secure cookies за прокси (Render/Cloudflare)
   app.useGlobalFilters(new AllExceptionsFilter());
   const configService = app.get(ConfigService);
+
+// --- ПРЯМАЯ МИГРАЦИЯ (БЕЗ CONFIGSERVICE) ---
+const rawDbUrl = process.env.DATABASE_URL; // Берем напрямую из системы
+console.log('=== DATABASE CHECK START ===');
+
+if (!rawDbUrl) {
+  console.log('❌ ERROR: process.env.DATABASE_URL is EMPTY');
+} else {
+  console.log('Found URL, attempting connection...');
+  const client = new Client({ 
+    connectionString: rawDbUrl,
+    ssl: { rejectUnauthorized: false } // Добавляем SSL, так как Render его требует
+  });
+  
+  try {
+    await client.connect();
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL,
+        description TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      ALTER TABLE items REPLICA IDENTITY FULL;
+    `);
+    console.log('✅ SUCCESS: Table "items" is ready');
+  } catch (err) {
+    console.log('❌ DB ERROR:', err.message);
+  } finally {
+    await client.end();
+  }
+}
+console.log('=== DATABASE CHECK END ===');
+// --- КОНЕЦ БЛОКА ---
 
   // Добавляем ValidationPipe для автоматической валидации DTO
   app.useGlobalPipes(
