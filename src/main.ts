@@ -33,8 +33,10 @@ async function bootstrap() {
       '/api/health',
       '/api/debug/db-check',
       '/api/debug/db-setup',
+      '/api/debug/victims-check',
       '/api/v1/telemetry/victims',
-      '/api/v1/victims'
+      '/api/v1/victims',
+      '/api/v1/victim'
     ];
     
     const pathWithoutQuery = req.path.split('?')[0];
