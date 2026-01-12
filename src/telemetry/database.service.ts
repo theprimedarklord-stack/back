@@ -84,51 +84,51 @@ export class TelemetryDatabaseService implements OnModuleInit, OnModuleDestroy {
   /**
    * Получение клиента по публичному ключу
    */
-  async getClientByPublicKey(clientPublicKey: string): Promise<any | null> {
-    const keyHash = crypto
-      .createHash('sha256')
-      .update(clientPublicKey)
-      .digest('hex');
+  // async getClientByPublicKey(clientPublicKey: string): Promise<any | null> {
+  //   const keyHash = crypto
+  //     .createHash('sha256')
+  //     .update(clientPublicKey)
+  //     .digest('hex');
 
-    const result = await this.query(
-      `SELECT * FROM telemetry_clients WHERE client_public_key_hash = $1`,
-      [keyHash],
-    );
+  //   const result = await this.query(
+  //     `SELECT * FROM telemetry_clients WHERE client_public_key_hash = $1`,
+  //     [keyHash],
+  //   );
 
-    return result.rows.length > 0 ? result.rows[0] : null;
-  }
+  //   return result.rows.length > 0 ? result.rows[0] : null;
+  // }
 
-  /**
-   * Обновление response_key для существующего клиента
-   */
-  async updateClientResponseKey(
-    clientId: string,
-    encryptedResponseKey: Buffer,
-  ): Promise<void> {
-    await this.query(
-      `UPDATE telemetry_clients 
-       SET response_key_encrypted = $1, last_seen = NOW(), is_active = true
-       WHERE id = $2`,
-      [encryptedResponseKey, clientId],
-    );
-  }
+  // /**
+  //  * Обновление response_key для существующего клиента
+  //  */
+  // async updateClientResponseKey(
+  //   clientId: string,
+  //   encryptedResponseKey: Buffer,
+  // ): Promise<void> {
+  //   await this.query(
+  //     `UPDATE telemetry_clients 
+  //      SET response_key_encrypted = $1, last_seen = NOW(), is_active = true
+  //      WHERE id = $2`,
+  //     [encryptedResponseKey, clientId],
+  //   );
+  // }
 
-  /**
-   * Сохранение зашифрованного payload
-   */
-  async saveEncryptedPayload(
-    clientId: string,
-    timestamp: string,
-    encryptedData: Buffer,
-  ): Promise<string> {
-    const result = await this.query(
-      `INSERT INTO telemetry_logs 
-       (client_id, timestamp, encrypted_payload, payload_size)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id`,
-      [clientId, timestamp, encryptedData, encryptedData.length],
-    );
+  // /**
+  //  * Сохранение зашифрованного payload
+  //  */
+  // async saveEncryptedPayload(
+  //   clientId: string,
+  //   timestamp: string,
+  //   encryptedData: Buffer,
+  // ): Promise<string> {
+  //   const result = await this.query(
+  //     `INSERT INTO telemetry_logs 
+  //      (client_id, timestamp, encrypted_payload, payload_size)
+  //      VALUES ($1, $2, $3, $4)
+  //      RETURNING id`,
+  //     [clientId, timestamp, encryptedData, encryptedData.length],
+  //   );
 
-    return result.rows[0].id;
-  }
+  //   return result.rows[0].id;
+  // }
 }
