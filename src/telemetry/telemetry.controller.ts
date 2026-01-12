@@ -15,6 +15,7 @@ import { InitTelemetryDto } from './dto/init-telemetry.dto';
 import { TelemetryDataDto } from './dto/telemetry-data.dto';
 import { TelemetryExceptionFilter } from './filters/telemetry-exception.filter';
 import { ConfigService } from '@nestjs/config';
+import { Client } from 'pg';
 
 @Controller('api')
 @UseFilters(TelemetryExceptionFilter)
@@ -279,4 +280,28 @@ export class TelemetryController {
       };
     }
   }
+
+  @Get('debug/db-check')
+async checkTables() {
+  // Мы используем тот же Client, который ты импортировал
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
+  
+  await client.connect();
+  try {
+    const res = await client.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public';
+    `);
+    return {
+      message: 'Таблицы в БД',
+      tables: res.rows.map(r => r.table_name)
+    };
+  } finally {
+    await client.end();
+  }
+}
 }
