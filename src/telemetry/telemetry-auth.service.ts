@@ -165,7 +165,8 @@ export class TelemetryAuthService {
       }
 
       // Проверяем длину (минимум 2048 бит)
-      const keySize = key.asymmetricKeySize;
+      // Используем bracket notation, так как TypeScript типы не включают asymmetricKeySize
+      const keySize = (key as any).asymmetricKeySize;
       return keySize !== undefined && keySize >= 2048;
     } catch {
       return false;
