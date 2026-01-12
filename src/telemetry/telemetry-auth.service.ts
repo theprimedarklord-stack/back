@@ -154,22 +154,64 @@ export class TelemetryAuthService {
    * Валидация публичного RSA ключа клиента
    * Проверяет тип ключа (RSA) и минимальную длину (2048 бит)
    */
+/**
+ * Валидация публичного RSA ключа клиента
+ * Проверяет тип ключа (RSA) и минимальную длину (2048 бит)
+ */
   validatePublicKey(publicKeyPem: string): boolean {
     try {
-      // Пробуем загрузить ключ
-      const key = crypto.createPublicKey(publicKeyPem);
-
-      // Проверяем что это RSA с достаточной длиной
+      // 1. Преобразуем текстовые \n в реальные символы новой строки
+      const cleanPem = publicKeyPem.replace(/\\n/g, '\n');
+      
+      // 2. Убираем возможные лишние пробелы в начале/конце
+      const trimmedPem = cleanPem.trim();
+      
+      // 3. Логируем для отладки (первые 100 символов)
+      console.log('Public key to validate (first 100 chars):', trimmedPem.substring(0, 100));
+      
+      // 4. Пробуем загрузить ключ
+      const key = crypto.createPublicKey(trimmedPem);
+      
+      // 5. Проверяем что это RSA
       if (key.asymmetricKeyType !== 'rsa') {
+        console.log('ERROR: Not an RSA key');
         return false;
       }
-
-      // Проверяем длину (минимум 2048 бит)
-      // Используем bracket notation, так как TypeScript типы не включают asymmetricKeySize
+      
+      // 6. Проверяем длину (минимум 2048 бит)
       const keySize = (key as any).asymmetricKeySize;
-      return keySize !== undefined && keySize >= 2048;
-    } catch {
-      return false;
+      console.log('Key size:', keySize, 'bits');
+      
+      if (keySize === undefined || keySize < 2048) {
+        console.log('ERROR: Key size too small');
+        return false;
+      }
+      
+      // 7. Дополнительная проверка: можем ли мы экспортировать ключ
+      const exported = key.export({ type: 'pkcs1', format: 'pem' });
+      console.log('Public key validation SUCCESS');
+      return true;
+      
+    } catch (error) {
+      // 8. Детальный лог ошибки
+      console.error('Public key validation FAILED:', error.message);
+      console.error('Error stack:', error.stack);
+      
+      // 9. Попробуем альтернативный формат
+      try {
+        console.log('Trying alternative format...');
+        // Иногда ключ в формате PKCS#8, а мы пытаемся как PKCS#1
+        const key = crypto.createPublicKey({
+          key: publicKeyPem.replace(/\\n/g, '\n').trim(),
+          format: 'pem',
+          type: 'spki'
+        });
+        console.log('Alternative format succeeded');
+        return true;
+      } catch (altError) {
+        console.error('Alternative format also failed:', altError.message);
+        return false;
+      }
     }
   }
 }
