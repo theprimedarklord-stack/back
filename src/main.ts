@@ -27,6 +27,7 @@ async function bootstrap() {
   app.use((req, res, next) => {
     const validPaths = [
       '/api/v1/telemetry',
+      '/api/v1/init',
       '/api/analytics',
       '/health',
       '/api/health',
