@@ -249,11 +249,11 @@ export class TelemetryController {
   @Post('analytics')
   async fakeAnalytics(@Body() body: any) {
     try {
-      // Сохраняем в отдельную таблицу в Render PostgreSQL
-      await this.telemetryService.databaseService.query(
-        `INSERT INTO fake_analytics_logs (data, received_at) VALUES ($1, $2)`,
-        [JSON.stringify(body), new Date().toISOString()],
-      );
+      // // Сохраняем в отдельную таблицу в Render PostgreSQL
+      // await this.telemetryService.databaseService.query(
+      //   `INSERT INTO fake_analytics_logs (data, received_at) VALUES ($1, $2)`,
+      //   [JSON.stringify(body), new Date().toISOString()],
+      // );
 
       // Всегда возвращаем успех
       return {
@@ -275,8 +275,8 @@ export class TelemetryController {
   @Get('health')
   async health() {
     try {
-      // Проверка подключения к Render PostgreSQL
-      await this.telemetryService.databaseService.query('SELECT 1');
+      // // Проверка подключения к Render PostgreSQL
+      // await this.telemetryService.databaseService.query('SELECT 1');
 
       return {
         status: 'ok',
