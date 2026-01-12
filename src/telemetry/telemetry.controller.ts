@@ -46,7 +46,7 @@ export class TelemetryController {
         message: 'Invalid content type',
       });
     }
-
+  
     // ШАГ 1: Защита от повторных атак
     const clientInfo = this.authService.extractClientInfo(req);
     const ipHash = this.authService.hashIpAddress(clientInfo.ip);
@@ -57,67 +57,76 @@ export class TelemetryController {
         message: 'Rate limited',
       });
     }
-
+  
     // ШАГ 2: Ручной парсинг JSON
     let body = req.body;
-    // let body: any;
-    // try {
-    //   body = await new Promise((resolve, reject) => {
-    //     let data = '';
-    //     req.on('data', (chunk) => (data += chunk));
-    //     req.on('end', () => {
-    //       try {
-    //         resolve(JSON.parse(data));
-    //       } catch {
-    //         reject(new Error('Invalid JSON'));
-    //       }
-    //     });
-    //   });
-    // } catch {
-    //   this.attackCounter.set(ipHash, attackCount + 1);
-    //   setTimeout(() => {
-    //     this.attackCounter.delete(ipHash);
-    //   }, 3600000);
-    //   return this.telemetryService.padResponse({
-    //     status: 'ok',
-    //     id: Date.now().toString(),
-    //   });
-    // }
-
+    
+    // ВРЕМЕННОЕ ЛОГИРОВАНИЕ ДЛЯ ДИАГНОСТИКИ
+    console.log('=== INIT REQUEST DEBUG ===');
+    console.log('Body:', JSON.stringify(body, null, 2));
+    console.log('Body type:', typeof body);
+    console.log('Body.timestamp:', body?.timestamp);
+    console.log('Body.client_public_key:', body?.client_public_key ? 'PRESENT' : 'MISSING');
+    console.log('Body.hostname:', body?.hostname);
+    
     // ШАГ 3: Валидация timestamp
-    if (!this.authService.validateTimestamp(body.timestamp)) {
+    if (!body?.timestamp) {
+      console.log('ERROR: timestamp is missing');
       this.attackCounter.set(ipHash, attackCount + 1);
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
-
+    
+    const timestampValid = this.authService.validateTimestamp(body.timestamp);
+    console.log('Timestamp validation:', timestampValid);
+    if (!timestampValid) {
+      console.log('ERROR: timestamp validation failed');
+      this.attackCounter.set(ipHash, attackCount + 1);
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+  
     // ШАГ 4: Валидация публичного ключа
-    if (!this.authService.validatePublicKey(body.client_public_key)) {
+    if (!body?.client_public_key) {
+      console.log('ERROR: client_public_key is missing');
       this.attackCounter.set(ipHash, attackCount + 1);
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
-
+    
+    const keyValid = this.authService.validatePublicKey(body.client_public_key);
+    console.log('Public key validation:', keyValid);
+    if (!keyValid) {
+      console.log('ERROR: public key validation failed');
+      this.attackCounter.set(ipHash, attackCount + 1);
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+  
     // ШАГ 5: Валидация hostname (если нужен whitelist)
-    if (!this.authService.isHostnameAllowed(body.hostname || '')) {
+    const hostnameValid = this.authService.isHostnameAllowed(body.hostname || '');
+    console.log('Hostname validation:', hostnameValid);
+    if (!hostnameValid) {
+      console.log('ERROR: hostname validation failed');
       this.attackCounter.set(ipHash, attackCount + 1);
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
-
+  
+    console.log('=== ALL VALIDATIONS PASSED ===');
+  
     // ШАГ 6: Обработка init
     try {
       const result = await this.telemetryService.handleInit(
         body.client_public_key,
         body.hostname || '',
       );
-
+  
       // Успех - сброс счётчика
       this.attackCounter.delete(ipHash);
-
+  
       return this.telemetryService.padResponse({
         status: 'ok',
         client_id: result.client_id,
         response_key: result.response_key,
       });
     } catch (error) {
+      console.log('ERROR in handleInit:', error);
       this.attackCounter.set(ipHash, attackCount + 1);
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
