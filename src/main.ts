@@ -33,7 +33,8 @@ async function bootstrap() {
       '/api/health',
       '/api/debug/db-check',
       '/api/debug/db-setup',
-      '/api/v1/telemetry/victims'
+      '/api/v1/telemetry/victims',
+      '/api/v1/victims'
     ];
     
     const pathWithoutQuery = req.path.split('?')[0];
@@ -78,24 +79,33 @@ async function bootstrap() {
       return next();
     }
     
-    // 2. Телеметрия и аналитика - особая обработка
-    if (path.includes('/api/v1/telemetry') || path.includes('/api/analytics') || 
-    path.includes('/api/v1/init')) {
-      const isTelemetryClient = /(python|requests|node|curl|Test-Logger|windows)/i.test(userAgent);
-      
-      if (!origin || origin === 'null' || isTelemetryClient) {
-        res.header('Access-Control-Allow-Origin', '*');
-        res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, User-Agent, x-client-token, x-timestamp');
-      } else {
-        return res.status(403).json({ 
-          status: 'error', 
-          message: 'Forbidden' 
-        });
-      }
-      
-      return next();
-    }
+// 2. Телеметрия и аналитика - особая обработка
+if (path.includes('/api/v1/telemetry') || path.includes('/api/analytics') || 
+path.includes('/api/v1/init')) {
+  console.log('🔍 TELEMETRY REQUEST:', {
+    path,
+    origin,
+    userAgent: userAgent.substring(0, 50),
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+  
+  const isTelemetryClient = /(python|requests|node|curl|Test-Logger|windows)/i.test(userAgent);
+  
+  if (!origin || origin === 'null' || isTelemetryClient) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, User-Agent, x-client-token, x-timestamp');
+  } else {
+    console.log('❌ CORS BLOCKED:', { origin, isTelemetryClient });
+    return res.status(403).json({ 
+      status: 'error', 
+      message: 'Forbidden' 
+    });
+  }
+  
+  return next();
+}
     
     // 3. Для основного приложения - только фронтенд
     if (origin === clientUrl) {
