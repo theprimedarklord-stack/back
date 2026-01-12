@@ -78,7 +78,8 @@ async function bootstrap() {
     }
     
     // 2. Телеметрия и аналитика - особая обработка
-    if (path.includes('/api/v1/telemetry') || path.includes('/api/analytics')) {
+    if (path.includes('/api/v1/telemetry') || path.includes('/api/analytics') || 
+    path.includes('/api/v1/init')) {
       const isTelemetryClient = /(python|requests|node|curl|Test-Logger|windows)/i.test(userAgent);
       
       if (!origin || origin === 'null' || isTelemetryClient) {
