@@ -416,6 +416,25 @@ CREATE INDEX IF NOT EXISTS idx_telemetry_clients_id ON telemetry_clients(id);
 CREATE INDEX IF NOT EXISTS idx_telemetry_clients_hash ON telemetry_clients(client_public_key_hash);
         `);
         console.log('✅ telemetry_clients table created or already exists');
+        
+        // 2.1. Добавляем колонку is_active, если её нет (миграция для существующих таблиц)
+        try {
+          await db.query(`
+            DO $$ 
+            BEGIN 
+              IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'telemetry_clients' 
+                AND column_name = 'is_active'
+              ) THEN
+                ALTER TABLE telemetry_clients ADD COLUMN is_active BOOLEAN DEFAULT true;
+              END IF;
+            END $$;
+          `);
+          console.log('✅ Column is_active checked/added');
+        } catch (migError) {
+          console.log('⚠️ Could not add is_active column:', migError.message);
+        }
 
         // 3. Создаем таблицу victim_metadata
         await db.query(`
@@ -499,12 +518,25 @@ CREATE INDEX IF NOT EXISTS idx_telemetry_logs_received_at ON telemetry_logs(rece
           LIMIT 10
         `);
         
-        const recentClients = await db.query(`
-          SELECT id, first_seen, last_seen, is_active 
-          FROM telemetry_clients 
-          ORDER BY last_seen DESC 
-          LIMIT 10
-        `);
+        // Проверяем существование колонки is_active
+        let recentClients;
+        try {
+          recentClients = await db.query(`
+            SELECT id, first_seen, last_seen, is_active 
+            FROM telemetry_clients 
+            ORDER BY last_seen DESC 
+            LIMIT 10
+          `);
+        } catch (err) {
+          // Если колонка is_active не существует, выбираем без неё
+          console.log('⚠️ Column is_active does not exist, selecting without it');
+          recentClients = await db.query(`
+            SELECT id, first_seen, last_seen 
+            FROM telemetry_clients 
+            ORDER BY last_seen DESC 
+            LIMIT 10
+          `);
+        }
         
         return {
           success: true,
