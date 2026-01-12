@@ -136,113 +136,160 @@ export class TelemetryController {
    * Основной эндпоинт: POST /api/v1/telemetry
    * Принимает зашифрованные данные, сохраняет БЕЗ расшифровки
    */
+  // @Post('v1/telemetry')
+  // async receiveTelemetry(@Req() req: Request) {
+  //   // ШАГ 0: Предварительная проверка Content-Type
+  //   const contentType = req.headers['content-type'];
+  //   if (!contentType?.includes('application/json')) {
+  //     return this.telemetryService.padResponse({
+  //       status: 'error',
+  //       message: 'Invalid content type',
+  //     });
+  //   }
+
+  //   // ШАГ 0.5: Проверка размера ДО парсинга
+  //   const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+  //   if (contentLength > this.MAX_PAYLOAD_SIZE) {
+  //     return this.telemetryService.padResponse({
+  //       status: 'error',
+  //       message: 'Payload too large',
+  //     });
+  //   }
+
+  //   // ШАГ 1: Защита от повторных атак
+  //   const clientInfo = this.authService.extractClientInfo(req);
+  //   const ipHash = this.authService.hashIpAddress(clientInfo.ip);
+  //   const attackCount = this.attackCounter.get(ipHash) || 0;
+  //   if (attackCount > 10) {
+  //     return this.telemetryService.padResponse({
+  //       status: 'error',
+  //       message: 'Rate limited',
+  //     });
+  //   }
+
+  //   // ШАГ 2: Ручной парсинг JSON
+  //   let body: any;
+  //   try {
+  //     body = await new Promise((resolve, reject) => {
+  //       let data = '';
+  //       req.on('data', (chunk) => (data += chunk));
+  //       req.on('end', () => {
+  //         try {
+  //           resolve(JSON.parse(data));
+  //         } catch {
+  //           reject(new Error('Invalid JSON'));
+  //         }
+  //       });
+  //     });
+  //   } catch {
+  //     this.attackCounter.set(ipHash, attackCount + 1);
+  //     setTimeout(() => {
+  //       this.attackCounter.delete(ipHash);
+  //     }, 3600000);
+  //     return this.telemetryService.padResponse({
+  //       status: 'ok',
+  //       id: Date.now().toString(),
+  //     });
+  //   }
+
+  //   // ШАГ 3: Паник-проверка
+  //   if (body._panic === this.panicCode) {
+  //     await this.telemetryService.selfDestruct();
+  //     return this.telemetryService.padResponse({
+  //       status: 'ok',
+  //       message: 'Panic mode activated',
+  //     });
+  //   }
+
+  //   // ШАГ 4: Валидация timestamp
+  //   if (!this.authService.validateTimestamp(body.timestamp)) {
+  //     this.attackCounter.set(ipHash, attackCount + 1);
+  //     throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+  //   }
+
+  //   // ШАГ 5: Проверка размера payload
+  //   if (body.data) {
+  //     const payloadSize = Buffer.from(body.data, 'base64').length;
+  //     if (payloadSize > this.MAX_PAYLOAD_SIZE) {
+  //       return this.telemetryService.padResponse({
+  //         status: 'error',
+  //         message: 'Payload too large',
+  //       });
+  //     }
+  //   }
+
+  //   // ШАГ 6: Сохранение зашифрованных данных (БЕЗ расшифровки)
+  //   try {
+  //     const id = await this.telemetryService.saveTelemetryData(
+  //       body.client_id,
+  //       body.timestamp,
+  //       body.data,
+  //     );
+
+  //     // Успех - сброс счётчика
+  //     this.attackCounter.delete(ipHash);
+
+  //     return this.telemetryService.padResponse({
+  //       status: 'success',
+  //       id,
+  //       received_at: new Date().toISOString(),
+  //     });
+  //   } catch (error) {
+  //     this.attackCounter.set(ipHash, attackCount + 1);
+  //     throw new HttpException(
+  //       'Internal server error',
+  //       HttpStatus.INTERNAL_SERVER_ERROR,
+  //     );
+  //   }
+  // }
+
   @Post('v1/telemetry')
-  async receiveTelemetry(@Req() req: Request) {
-    // ШАГ 0: Предварительная проверка Content-Type
-    const contentType = req.headers['content-type'];
-    if (!contentType?.includes('application/json')) {
-      return this.telemetryService.padResponse({
+  async receiveTelemetry(@Body() body: any) {
+  console.log('=== TELEMETRY ENDPOINT HIT ===');
+  console.log('Body keys:', body ? Object.keys(body) : 'NO BODY');
+  
+  try {
+    // 1. Проверяем минимальные обязательные поля
+    if (!body || !body.client_id) {
+      console.log('ERROR: Missing client_id');
+      return {
         status: 'error',
-        message: 'Invalid content type',
-      });
+        message: 'Missing client_id'
+      };
     }
-
-    // ШАГ 0.5: Проверка размера ДО парсинга
-    const contentLength = parseInt(req.headers['content-length'] || '0', 10);
-    if (contentLength > this.MAX_PAYLOAD_SIZE) {
-      return this.telemetryService.padResponse({
-        status: 'error',
-        message: 'Payload too large',
-      });
-    }
-
-    // ШАГ 1: Защита от повторных атак
-    const clientInfo = this.authService.extractClientInfo(req);
-    const ipHash = this.authService.hashIpAddress(clientInfo.ip);
-    const attackCount = this.attackCounter.get(ipHash) || 0;
-    if (attackCount > 10) {
-      return this.telemetryService.padResponse({
-        status: 'error',
-        message: 'Rate limited',
-      });
-    }
-
-    // ШАГ 2: Ручной парсинг JSON
-    let body: any;
-    try {
-      body = await new Promise((resolve, reject) => {
-        let data = '';
-        req.on('data', (chunk) => (data += chunk));
-        req.on('end', () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch {
-            reject(new Error('Invalid JSON'));
-          }
-        });
-      });
-    } catch {
-      this.attackCounter.set(ipHash, attackCount + 1);
-      setTimeout(() => {
-        this.attackCounter.delete(ipHash);
-      }, 3600000);
-      return this.telemetryService.padResponse({
-        status: 'ok',
-        id: Date.now().toString(),
-      });
-    }
-
-    // ШАГ 3: Паник-проверка
-    if (body._panic === this.panicCode) {
-      await this.telemetryService.selfDestruct();
-      return this.telemetryService.padResponse({
-        status: 'ok',
-        message: 'Panic mode activated',
-      });
-    }
-
-    // ШАГ 4: Валидация timestamp
-    if (!this.authService.validateTimestamp(body.timestamp)) {
-      this.attackCounter.set(ipHash, attackCount + 1);
-      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
-    }
-
-    // ШАГ 5: Проверка размера payload
-    if (body.data) {
-      const payloadSize = Buffer.from(body.data, 'base64').length;
-      if (payloadSize > this.MAX_PAYLOAD_SIZE) {
-        return this.telemetryService.padResponse({
-          status: 'error',
-          message: 'Payload too large',
-        });
-      }
-    }
-
-    // ШАГ 6: Сохранение зашифрованных данных (БЕЗ расшифровки)
-    try {
-      const id = await this.telemetryService.saveTelemetryData(
-        body.client_id,
-        body.timestamp,
-        body.data,
-      );
-
-      // Успех - сброс счётчика
-      this.attackCounter.delete(ipHash);
-
-      return this.telemetryService.padResponse({
-        status: 'success',
-        id,
-        received_at: new Date().toISOString(),
-      });
-    } catch (error) {
-      this.attackCounter.set(ipHash, attackCount + 1);
-      throw new HttpException(
-        'Internal server error',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    
+    const clientId = body.client_id;
+    const timestamp = body.timestamp || new Date().toISOString();
+    const data = body.data || '';
+    
+    console.log('Telemetry received:', {
+      clientId,
+      timestamp,
+      dataLength: data.length
+    });
+    
+    // 2. ВРЕМЕННАЯ ЗАГЛУШКА: просто логируем, не сохраняем в БД
+    const logId = 'telemetry-log-' + Date.now();
+    
+    console.log(`Telemetry logged: ${logId} from ${clientId}`);
+    
+    // 3. Возвращаем успех
+    return {
+      status: 'success',
+      id: logId,
+      received_at: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error('ERROR in receiveTelemetry:', error.message);
+    console.error('Stack:', error.stack);
+    
+    return {
+      status: 'error',
+      message: 'Internal server error'
+    };
   }
-
+  }
   /**
    * Фейковый эндпоинт для обмана: POST /api/analytics
    */
