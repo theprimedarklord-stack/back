@@ -32,7 +32,8 @@ async function bootstrap() {
       '/health',
       '/api/health',
       '/api/debug/db-check',
-      '/api/debug/db-setup'
+      '/api/debug/db-setup',
+      '/api/v1/telemetry/victims'
     ];
     
     const pathWithoutQuery = req.path.split('?')[0];
@@ -84,7 +85,7 @@ async function bootstrap() {
       
       if (!origin || origin === 'null' || isTelemetryClient) {
         res.header('Access-Control-Allow-Origin', '*');
-        res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
         res.header('Access-Control-Allow-Headers', 'Content-Type, User-Agent, x-client-token, x-timestamp');
       } else {
         return res.status(403).json({ 
