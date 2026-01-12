@@ -33,6 +33,7 @@ async function bootstrap() {
       '/api/analytics',
       '/health',
       '/api/health',
+      '/api/debug/db-check'
     ];
     // Проверяем путь без query параметров
     const pathWithoutQuery = req.path.split('?')[0];
