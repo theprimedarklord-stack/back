@@ -4,6 +4,7 @@ services:
     env: node
     buildCommand: npm install && npm run build
     startCommand: node dist/src/main.js
+    autoDeploy: false  # КРИТИЧНО: отключить авто-деплой для безопасности
     envVars:
       - key: NODE_ENV
         value: production
@@ -23,3 +24,24 @@ services:
         value: https://smartmemory.vercel.app
       - key: NEXT_PUBLIC_API_URL
         value: https://back-r5ry.onrender.com
+      # Стелс-аутентификация (sync: false - установить вручную в Dashboard)
+      - key: SIGNATURE_SALT
+        sync: false  # Установить вручную в Dashboard
+      - key: ALLOWED_HOSTS
+        sync: false  # Опционально, SHA256 хэши hostname через запятую
+      # Шифрование данных
+      - key: ENCRYPTION_MASTER_KEY
+        sync: false  # КРИТИЧНО: установить вручную (минимум 32 символа)
+      - key: IP_SALT
+        sync: false  # Установить вручную для хэширования IP адресов
+      # Настройки телеметрии
+      - key: TELEMETRY_TIMESTAMP_TTL
+        value: '300000'  # TTL в миллисекундах (5 минут допуск)
+      - key: TELEMETRY_RATE_LIMIT
+        value: '100'  # Запросов в час (для будущего rate limiting)
+      # Паник-режим
+      - key: PANIC_CODE
+        sync: false  # Установить вручную - код для самоуничтожения
+      # Render PostgreSQL для телеметрии
+      - key: TELEMETRY_DATABASE_URL
+        sync: false  # КРИТИЧНО: установить вручную - connection string для Render PostgreSQL

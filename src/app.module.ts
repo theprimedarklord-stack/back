@@ -14,6 +14,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { AIModule } from './ai/ai.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
 import { MapcardsModule } from './mapcards/mapcards.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
 // import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
@@ -31,6 +32,7 @@ import { MapcardsModule } from './mapcards/mapcards.module';
     AIModule,
     SuggestionsModule,
     MapcardsModule,
+    TelemetryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
