@@ -59,29 +59,30 @@ export class TelemetryController {
     }
 
     // ШАГ 2: Ручной парсинг JSON
-    let body: any;
-    try {
-      body = await new Promise((resolve, reject) => {
-        let data = '';
-        req.on('data', (chunk) => (data += chunk));
-        req.on('end', () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch {
-            reject(new Error('Invalid JSON'));
-          }
-        });
-      });
-    } catch {
-      this.attackCounter.set(ipHash, attackCount + 1);
-      setTimeout(() => {
-        this.attackCounter.delete(ipHash);
-      }, 3600000);
-      return this.telemetryService.padResponse({
-        status: 'ok',
-        id: Date.now().toString(),
-      });
-    }
+    let body = req.body;
+    // let body: any;
+    // try {
+    //   body = await new Promise((resolve, reject) => {
+    //     let data = '';
+    //     req.on('data', (chunk) => (data += chunk));
+    //     req.on('end', () => {
+    //       try {
+    //         resolve(JSON.parse(data));
+    //       } catch {
+    //         reject(new Error('Invalid JSON'));
+    //       }
+    //     });
+    //   });
+    // } catch {
+    //   this.attackCounter.set(ipHash, attackCount + 1);
+    //   setTimeout(() => {
+    //     this.attackCounter.delete(ipHash);
+    //   }, 3600000);
+    //   return this.telemetryService.padResponse({
+    //     status: 'ok',
+    //     id: Date.now().toString(),
+    //   });
+    // }
 
     // ШАГ 3: Валидация timestamp
     if (!this.authService.validateTimestamp(body.timestamp)) {
