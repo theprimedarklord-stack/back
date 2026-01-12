@@ -102,7 +102,21 @@ async function bootstrap() {
       res.header('Access-Control-Allow-Credentials', 'true');
       res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Pragma');
+      
+      // Обработка preflight OPTIONS запросов
+      if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+      }
     } else {
+      // Разрешаем запросы без origin (например, из curl, Postman)
+      if (!origin) {
+        res.header('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') {
+          return res.status(200).end();
+        }
+        return next();
+      }
+      
       return res.status(403).json({ 
         status: 'error', 
         message: 'Forbidden' 
