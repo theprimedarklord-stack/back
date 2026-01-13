@@ -328,7 +328,7 @@ export class TelemetryService {
         await db.connect();
         console.log('✅ Database connected for saveTelemetryLog');
 
-        // ПРОВЕРКА И СОЗДАНИЕ КЛИЕНТА С ЗАГЛУШКОЙ
+        // ПРОВЕРКА И СОЗДАНИЕ КЛИЕНТА С ВСЕМИ ОБЯЗАТЕЛЬНЫМИ ПОЛЯМИ
         const clientCheck = await db.query(
             `SELECT id FROM telemetry_clients WHERE id = $1`,
             [clientId],
@@ -337,17 +337,29 @@ export class TelemetryService {
         if (clientCheck.rows.length === 0) {
             console.log('⚠️ Client not found, creating entry...');
             
-            // СОЗДАЁМ ЗАПИСЬ С ЗАГЛУШКОЙ ДЛЯ client_public_key
+            // СОЗДАЁМ ЗАПИСЬ СО ВСЕМИ ОБЯЗАТЕЛЬНЫМИ ПОЛЯМИ
             await db.query(
-                `INSERT INTO telemetry_clients (id, client_public_key, client_public_key_hash, first_seen, last_seen, is_active)
-                 VALUES ($1, $2, $3, NOW(), NOW(), true)
+                `INSERT INTO telemetry_clients (
+                    id, 
+                    client_public_key, 
+                    client_public_key_hash, 
+                    response_key_encrypted,
+                    first_seen, 
+                    last_seen, 
+                    is_active
+                ) VALUES ($1, $2, $3, $4, NOW(), NOW(), true)
                  ON CONFLICT (id) DO NOTHING`,
-                [clientId, 'placeholder-key-for-existing-client', crypto.createHash('sha256').update('placeholder-key-for-existing-client').digest('hex')],
+                [
+                    clientId, 
+                    'placeholder-key-for-existing-client', 
+                    crypto.createHash('sha256').update('placeholder-key-for-existing-client').digest('hex'),
+                    Buffer.from('placeholder-response-key-encrypted', 'utf8') // ЗАГЛУШКА ДЛЯ response_key_encrypted
+                ],
             );
-            console.log('✅ Client created with placeholder key');
+            console.log('✅ Client created with all required fields');
         }
         
-        // ТЕПЕРЬ СОХРАНЯЕМ ЛОГ
+        // СОХРАНЯЕМ ЛОГ
         let encryptedPayload: Buffer | null = null;
         let payloadSize = 0;
         
