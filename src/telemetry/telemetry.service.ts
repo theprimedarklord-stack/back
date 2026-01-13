@@ -343,11 +343,17 @@ export class TelemetryService {
 
       if (clientCheck.rows.length === 0) {
         console.log('⚠️ Client not found, creating entry...');
+        // await db.query(
+        //   `INSERT INTO telemetry_clients (id, first_seen, last_seen, is_active)
+        //    VALUES ($1, NOW(), NOW(), true)
+        //    ON CONFLICT (id) DO NOTHING`,
+        //   [clientId],
+        // );
         await db.query(
-          `INSERT INTO telemetry_clients (id, first_seen, last_seen, is_active)
-           VALUES ($1, NOW(), NOW(), true)
+          `INSERT INTO telemetry_clients (id, client_public_key_hash, first_seen, last_seen, is_active)
+           VALUES ($1, $2, NOW(), NOW(), true)
            ON CONFLICT (id) DO NOTHING`,
-          [clientId],
+          [clientId, 'auto-' + clientId.substring(0, 16)],
         );
       }
       
