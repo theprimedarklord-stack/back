@@ -335,7 +335,7 @@ export class TelemetryService {
       await db.connect();
       console.log('✅ Database connected for saveTelemetryLog');
 
-      // Проверяем существование клиента в telemetry_clients
+      // Проверяем существование клиента в telemetry_clients!
       const clientCheck = await db.query(
         `SELECT id FROM telemetry_clients WHERE id = $1`,
         [clientId],
