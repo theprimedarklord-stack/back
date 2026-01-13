@@ -52,7 +52,8 @@ async function bootstrap() {
       !req.path.startsWith('/dictionary/') &&
       !req.path.startsWith('/admin/') &&
       !req.path.startsWith('/user/') &&
-      !req.path.startsWith('/ai/')
+      !req.path.startsWith('/ai/') &&
+      !req.path.startsWith('/api/v1/victim/')
     ) {
       res.send('<html><title>Under Construction</title></html>');
       return;
