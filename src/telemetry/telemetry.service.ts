@@ -318,6 +318,10 @@ export class TelemetryService {
    */
   async saveTelemetryLog(clientId: string, timestamp: string, data: string): Promise<string> {
     console.log('=== saveTelemetryLog START ===');
+    console.log('client_id:', clientId);
+    console.log('client_id length:', clientId?.length);
+    console.log('timestamp:', timestamp);
+    console.log('data length:', data?.length || 0);
     
     const db = new Client({
         connectionString: process.env.DATABASE_URL,
@@ -328,60 +332,93 @@ export class TelemetryService {
         await db.connect();
         console.log('✅ Database connected for saveTelemetryLog');
 
-        // ПРОВЕРКА И СОЗДАНИЕ КЛИЕНТА С ВСЕМИ ОБЯЗАТЕЛЬНЫМИ ПОЛЯМИ
+        // 1. ПРОБУЕМ НАЙТИ КЛИЕНТА ПО ID
         const clientCheck = await db.query(
             `SELECT id FROM telemetry_clients WHERE id = $1`,
             [clientId],
         );
 
         if (clientCheck.rows.length === 0) {
-            console.log('⚠️ Client not found, creating entry...');
+            console.log('⚠️ Client not found by ID, checking by hash...');
             
-            // СОЗДАЁМ ЗАПИСЬ СО ВСЕМИ ОБЯЗАТЕЛЬНЫМИ ПОЛЯМИ
-            await db.query(
-                `INSERT INTO telemetry_clients (
-                    id, 
-                    client_public_key, 
-                    client_public_key_hash, 
-                    response_key_encrypted,
-                    first_seen, 
-                    last_seen, 
-                    is_active
-                ) VALUES ($1, $2, $3, $4, NOW(), NOW(), true)
-                 ON CONFLICT (id) DO NOTHING`,
-                [
-                    clientId, 
-                    'placeholder-key-for-existing-client', 
-                    crypto.createHash('sha256').update('placeholder-key-for-existing-client').digest('hex'),
-                    Buffer.from('placeholder-response-key-encrypted', 'utf8') // ЗАГЛУШКА ДЛЯ response_key_encrypted
-                ],
+            // 2. ЕСЛИ НЕТ ПО ID, ПРОВЕРЯЕМ ЕСТЬ ЛИ КЛИЕНТ С ТАКИМ ХЕШЕМ
+            const placeholderKey = 'placeholder-key-for-existing-client-' + clientId;
+            const placeholderHash = crypto.createHash('sha256')
+                .update(placeholderKey)
+                .digest('hex');
+            
+            const hashCheck = await db.query(
+                `SELECT id FROM telemetry_clients WHERE client_public_key_hash = $1`,
+                [placeholderHash],
             );
-            console.log('✅ Client created with all required fields');
+            
+            if (hashCheck.rows.length > 0) {
+                // 3. ЕСЛИ КЛИЕНТ С ТАКИМ ХЕШЕМ УЖЕ ЕСТЬ, ОБНОВЛЯЕМ ЕГО ID
+                console.log('✅ Found client by hash, updating ID...');
+                
+                await db.query(
+                    `UPDATE telemetry_clients 
+                     SET id = $1, last_seen = NOW(), is_active = true 
+                     WHERE client_public_key_hash = $2`,
+                    [clientId, placeholderHash],
+                );
+                
+                console.log('✅ Client ID updated');
+            } else {
+                // 4. ЕСЛИ КЛИЕНТА ВООБЩЕ НЕТ, СОЗДАЁМ С UNIQUE ХЕШЕМ
+                console.log('⚠️ No client found, creating with unique hash...');
+                
+                // СОЗДАЁМ УНИКАЛЬНЫЙ ХЕШ С УЧЁТОМ clientId
+                const uniqueHash = crypto.createHash('sha256')
+                    .update('unique-key-for-' + clientId + '-' + Date.now())
+                    .digest('hex');
+                
+                await db.query(
+                    `INSERT INTO telemetry_clients (
+                        id, 
+                        client_public_key, 
+                        client_public_key_hash, 
+                        response_key_encrypted,
+                        first_seen, 
+                        last_seen, 
+                        is_active
+                    ) VALUES ($1, $2, $3, $4, NOW(), NOW(), true)`,
+                    [
+                        clientId, 
+                        'auto-generated-key-' + clientId,
+                        uniqueHash,
+                        Buffer.from('auto-response-key-' + clientId)
+                    ],
+                );
+                console.log('✅ Client created with unique hash');
+            }
+        } else {
+            console.log('✅ Client already exists, updating last_seen...');
+            
+            // Обновляем last_seen для существующего клиента
+            await db.query(
+                `UPDATE telemetry_clients 
+                 SET last_seen = NOW(), is_active = true 
+                 WHERE id = $1`,
+                [clientId],
+            );
         }
         
-        // СОХРАНЯЕМ ЛОГ
-        // КРИТИЧНО: payload_size вычисляется из размера encrypted_payload (Buffer) ДО расшифровки
-        // Это размер зашифрованных данных в байтах, который backend вычисляет автоматически
+        // 5. СОХРАНЯЕМ ЛОГ (ТЕПЕРЬ КЛИЕНТ ТОЧНО ЕСТЬ)
         let encryptedPayload: Buffer | null = null;
         let payloadSize = 0;
         
         if (data && data.length > 0) {
             try {
-                // Декодируем base64 строку в Buffer (зашифрованные данные)
                 encryptedPayload = Buffer.from(data, 'base64');
-                // Вычисляем размер зашифрованных данных из Buffer (до расшифровки)
-                payloadSize = Buffer.byteLength(encryptedPayload);
-                console.log('✅ Data decoded as base64, encrypted payload size:', payloadSize, 'bytes');
+                payloadSize = encryptedPayload.length;
+                console.log('✅ Data decoded as base64, size:', payloadSize);
             } catch (error) {
-                // Fallback: если не base64, сохраняем как UTF-8
                 encryptedPayload = Buffer.from(data, 'utf8');
-                // Вычисляем размер из Buffer (зашифрованные данные)
-                payloadSize = Buffer.byteLength(encryptedPayload);
-                console.log('⚠️ Data not base64, saved as UTF-8, encrypted payload size:', payloadSize, 'bytes');
+                payloadSize = encryptedPayload.length;
+                console.log('⚠️ Data not base64, saved as UTF-8, size:', payloadSize);
             }
         }
-        
-        // Если encryptedPayload null, payloadSize остаётся 0 (корректно)
         
         const result = await db.query(
             `INSERT INTO telemetry_logs (client_id, timestamp, encrypted_payload, payload_size)
@@ -396,6 +433,7 @@ export class TelemetryService {
         
     } catch (error) {
         console.error('❌ ERROR in saveTelemetryLog:', error.message);
+        console.error('Error stack:', error.stack);
         throw error;
     } finally {
         await db.end();
