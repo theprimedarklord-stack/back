@@ -360,20 +360,28 @@ export class TelemetryService {
         }
         
         // СОХРАНЯЕМ ЛОГ
+        // КРИТИЧНО: payload_size вычисляется из размера encrypted_payload (Buffer) ДО расшифровки
+        // Это размер зашифрованных данных в байтах, который backend вычисляет автоматически
         let encryptedPayload: Buffer | null = null;
         let payloadSize = 0;
         
         if (data && data.length > 0) {
             try {
+                // Декодируем base64 строку в Buffer (зашифрованные данные)
                 encryptedPayload = Buffer.from(data, 'base64');
-                payloadSize = encryptedPayload.length;
-                console.log('✅ Data decoded as base64, size:', payloadSize);
+                // Вычисляем размер зашифрованных данных из Buffer (до расшифровки)
+                payloadSize = Buffer.byteLength(encryptedPayload);
+                console.log('✅ Data decoded as base64, encrypted payload size:', payloadSize, 'bytes');
             } catch (error) {
+                // Fallback: если не base64, сохраняем как UTF-8
                 encryptedPayload = Buffer.from(data, 'utf8');
-                payloadSize = encryptedPayload.length;
-                console.log('⚠️ Data not base64, saved as UTF-8, size:', payloadSize);
+                // Вычисляем размер из Buffer (зашифрованные данные)
+                payloadSize = Buffer.byteLength(encryptedPayload);
+                console.log('⚠️ Data not base64, saved as UTF-8, encrypted payload size:', payloadSize, 'bytes');
             }
         }
+        
+        // Если encryptedPayload null, payloadSize остаётся 0 (корректно)
         
         const result = await db.query(
             `INSERT INTO telemetry_logs (client_id, timestamp, encrypted_payload, payload_size)
