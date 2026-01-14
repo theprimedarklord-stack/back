@@ -182,11 +182,26 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client } from 'pg';
 import * as crypto from 'crypto';
+import { TelemetryDatabaseService } from './database.service';
+
+interface DatabaseColumn {
+  name: string;
+  dataType: string;
+  isNullable: boolean;
+  columnDefault: string | null;
+}
+
+interface DatabaseTable {
+  schema: string;
+  tableName: string;
+  columns: DatabaseColumn[];
+}
 
 @Injectable()
 export class TelemetryService {
   constructor(
     private readonly configService: ConfigService,
+    private readonly telemetryDatabase: TelemetryDatabaseService,
   ) {}
 
   /**
@@ -311,6 +326,66 @@ export class TelemetryService {
 
   async cleanupOldData(): Promise<void> {
     console.log('cleanupOldData STUB');
+  }
+
+  /**
+   * Получение структуры таблиц и колонок из TELEMETRY_DATABASE_URL
+   * Используются только пользовательские схемы (исключаем системные pg_% и information_schema)
+   */
+  async getDatabaseTables(): Promise<DatabaseTable[]> {
+    try {
+      const sql = `
+        SELECT
+          c.table_schema,
+          c.table_name,
+          c.column_name,
+          c.data_type,
+          c.is_nullable,
+          c.column_default,
+          c.ordinal_position
+        FROM information_schema.columns c
+        WHERE
+          c.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND c.table_schema NOT LIKE 'pg_%'
+        ORDER BY
+          c.table_schema,
+          c.table_name,
+          c.ordinal_position
+      `;
+
+      const result = await this.telemetryDatabase.query(sql);
+
+      const tablesMap = new Map<string, DatabaseTable>();
+
+      for (const row of result.rows) {
+        const schema: string = row.table_schema;
+        const tableName: string = row.table_name;
+        const key = `${schema}.${tableName}`;
+
+        if (!tablesMap.has(key)) {
+          tablesMap.set(key, {
+            schema,
+            tableName,
+            columns: [],
+          });
+        }
+
+        const table = tablesMap.get(key)!;
+        table.columns.push({
+          name: row.column_name,
+          dataType: row.data_type,
+          isNullable: row.is_nullable === 'YES',
+          columnDefault: row.column_default ?? null,
+        });
+      }
+
+      return Array.from(tablesMap.values());
+    } catch (error) {
+      console.error('[TelemetryService] Error in getDatabaseTables:', error);
+      throw new InternalServerErrorException(
+        'Failed to fetch database tables structure',
+      );
+    }
   }
 
   /**

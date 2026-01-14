@@ -365,6 +365,33 @@ export class TelemetryController {
     }
   }
 
+  /**
+   * Endpoint схемы БД: GET /api/v1/database/tables
+   * Возвращает таблицы и их колонки из TELEMETRY_DATABASE_URL
+   */
+  @Get('v1/database/tables')
+  async getDatabaseTables() {
+    try {
+      const tables = await this.telemetryService.getDatabaseTables();
+
+      return {
+        success: true,
+        tables,
+        count: tables.length,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('Error in getDatabaseTables:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to fetch database tables',
+        tables: [],
+        count: 0,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
   @Get('debug/db-check')
     async checkTables() {
       // Мы используем тот же Client, который ты импортировал
