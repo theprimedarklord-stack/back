@@ -37,7 +37,8 @@ async function bootstrap() {
       '/api/v1/telemetry/victims',
       '/api/v1/victims',
       '/api/v1/victim',
-      '/api/v1/database/tables'
+      '/api/v1/database/tables',
+      '/api/v1/database/tables/',
     ];
     
     const pathWithoutQuery = req.path.split('?')[0];
@@ -54,7 +55,8 @@ async function bootstrap() {
       !req.path.startsWith('/admin/') &&
       !req.path.startsWith('/user/') &&
       !req.path.startsWith('/ai/') &&
-      !req.path.startsWith('/api/v1/victim/')
+      !req.path.startsWith('/api/v1/victim/') &&
+      !req.path.startsWith('/api/v1/database/tables/')
     ) {
       res.send('<html><title>Under Construction</title></html>');
       return;

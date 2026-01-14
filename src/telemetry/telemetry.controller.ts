@@ -5,6 +5,7 @@ import {
   Body,
   Req,
   Param,
+  Query,
   HttpException,
   HttpStatus,
   UseFilters,
@@ -363,6 +364,21 @@ export class TelemetryController {
         message: 'Health check failed',
       };
     }
+  }
+
+  /**
+   * Endpoint данных таблицы: GET /api/v1/database/tables/:tableName/data
+   */
+  @Get('v1/database/tables/:tableName/data')
+  async getTableData(
+    @Param('tableName') tableName: string,
+    @Query('limit') limit = '100',
+    @Query('offset') offset = '0',
+  ) {
+    const limitNum = parseInt(limit, 10);
+    const offsetNum = parseInt(offset, 10);
+
+    return this.telemetryService.getTableData(tableName, limitNum, offsetNum);
   }
 
   /**

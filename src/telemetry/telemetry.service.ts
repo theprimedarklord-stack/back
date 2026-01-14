@@ -389,6 +389,51 @@ export class TelemetryService {
   }
 
   /**
+   * Получение данных произвольной таблицы (с пагинацией)
+   * tableName валидируется и экранируется, чтобы исключить SQL-инъекции.
+   */
+  async getTableData(
+    tableName: string,
+    limit: number = 100,
+    offset: number = 0,
+  ) {
+    // Базовая валидация имени таблицы: только буквы/цифры/подчеркивания
+    const safeName = (tableName || '').replace(/[^a-zA-Z0-9_]/g, '');
+    if (!safeName) {
+      throw new InternalServerErrorException('Invalid table name');
+    }
+
+    const safeLimit = Math.min(Math.max(limit || 0, 1), 500);
+    const safeOffset = Math.max(offset || 0, 0);
+
+    // Используем кавычки для идентификаторов, параметры для limit/offset
+    const dataQuery = `SELECT * FROM "${safeName}" LIMIT $1 OFFSET $2`;
+    const countQuery = `SELECT COUNT(*) as count FROM "${safeName}"`;
+
+    try {
+      const [dataResult, countResult] = await Promise.all([
+        this.telemetryDatabase.query(dataQuery, [safeLimit, safeOffset]),
+        this.telemetryDatabase.query(countQuery),
+      ]);
+
+      return {
+        success: true,
+        rows: dataResult.rows,
+        totalCount: parseInt(countResult.rows[0].count, 10),
+        tableName: safeName,
+        limit: safeLimit,
+        offset: safeOffset,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('[TelemetryService] Error in getTableData:', error);
+      throw new InternalServerErrorException(
+        `Failed to fetch data for table ${safeName}`,
+      );
+    }
+  }
+
+  /**
    * Сохранение лога телеметрии
    */
   async saveTelemetryLog(clientId: string, timestamp: string, data: string): Promise<string> {
