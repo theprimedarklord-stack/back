@@ -36,7 +36,8 @@ async function bootstrap() {
       '/api/debug/victims-check',
       '/api/v1/telemetry/victims',
       '/api/v1/victims',
-      '/api/v1/victim'
+      '/api/v1/victim',
+      '/api/v1/database/tables'
     ];
     
     const pathWithoutQuery = req.path.split('?')[0];
