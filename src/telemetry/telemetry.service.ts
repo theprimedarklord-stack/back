@@ -184,14 +184,14 @@ import { Client } from 'pg';
 import * as crypto from 'crypto';
 import { TelemetryDatabaseService } from './database.service';
 
-interface DatabaseColumn {
+export interface DatabaseColumn {
   name: string;
   dataType: string;
   isNullable: boolean;
   columnDefault: string | null;
 }
 
-interface DatabaseTable {
+export interface DatabaseTable {
   schema: string;
   tableName: string;
   columns: DatabaseColumn[];

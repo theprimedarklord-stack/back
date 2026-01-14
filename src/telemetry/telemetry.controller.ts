@@ -10,7 +10,7 @@ import {
   UseFilters,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { TelemetryService } from './telemetry.service';
+import { TelemetryService, DatabaseTable } from './telemetry.service';
 import { TelemetryAuthService } from './telemetry-auth.service';
 import { InitTelemetryDto } from './dto/init-telemetry.dto';
 import { TelemetryDataDto } from './dto/telemetry-data.dto';
@@ -370,7 +370,13 @@ export class TelemetryController {
    * Возвращает таблицы и их колонки из TELEMETRY_DATABASE_URL
    */
   @Get('v1/database/tables')
-  async getDatabaseTables() {
+  async getDatabaseTables(): Promise<{
+    success: boolean;
+    tables: DatabaseTable[];
+    count: number;
+    timestamp: string;
+    error?: string;
+  }> {
     try {
       const tables = await this.telemetryService.getDatabaseTables();
 
