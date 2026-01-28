@@ -15,6 +15,8 @@ import { AIModule } from './ai/ai.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
 import { MapcardsModule } from './mapcards/mapcards.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
+import { OrganizationsModule } from './organizations/organizations.module';
+import { OrgProjectsModule } from './org-projects/org-projects.module';
 // import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
@@ -33,6 +35,9 @@ import { TelemetryModule } from './telemetry/telemetry.module';
     SuggestionsModule,
     MapcardsModule,
     TelemetryModule,
+    // New org-based modules
+    OrganizationsModule,
+    OrgProjectsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

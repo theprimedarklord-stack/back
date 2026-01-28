@@ -1,0 +1,206 @@
+# =====================================================
+# Organizations & Projects API Test File
+# =====================================================
+# 
+# Використовуй з VS Code REST Client extension
+# 
+# ЯК ОТРИМАТИ ТОКЕН:
+# 1. Залогінься через фронтенд або викликай POST /auth/login нижче
+# 2. Скопіюй access_token з відповіді
+# 3. Встав його в @token нижче
+# =====================================================
+
+@baseUrl = http://localhost:3000
+
+# === ВСТАВ СВІЙ ТОКЕН ТУТ (отримай через login нижче) ===
+@token = YOUR_JWT_TOKEN_HERE
+
+# === Ці ID заповни після створення org/project ===
+@orgId = YOUR_ORG_UUID
+@projectId = YOUR_PROJECT_UUID
+
+### =====================================
+### 0. LOGIN - Отримати токен
+### =====================================
+
+### Login (заміни email/password на свої)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "your-email@example.com",
+  "password": "your-password"
+}
+
+### =====================================
+### 1. Organizations Endpoints
+### =====================================
+
+### 1.1 Get all organizations for current user
+# @name getOrgs
+GET {{baseUrl}}/organizations
+Authorization: Bearer {{token}}
+
+### 1.2 Create new organization
+# @name createOrg
+POST {{baseUrl}}/organizations
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "My Organization"
+}
+
+### Switch active organization (sets cookie)
+POST {{baseUrl}}/organizations/switch
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "organizationId": "{{orgId}}"
+}
+
+### Get single organization
+GET {{baseUrl}}/organizations/{{orgId}}
+Authorization: Bearer {{token}}
+
+### Update organization (owner only)
+PATCH {{baseUrl}}/organizations/{{orgId}}
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+Content-Type: application/json
+
+{
+  "name": "Updated Organization Name"
+}
+
+### Delete organization (owner only)
+DELETE {{baseUrl}}/organizations/{{orgId}}
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+
+### =====================================
+### Organization Members Endpoints
+### =====================================
+
+### Get organization members
+GET {{baseUrl}}/organizations/{{orgId}}/members
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+
+### Add member to organization (owner/admin only)
+POST {{baseUrl}}/organizations/{{orgId}}/members
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+Content-Type: application/json
+
+{
+  "email": "newmember@example.com",
+  "role": "member"
+}
+
+### Update member role (owner only)
+PATCH {{baseUrl}}/organizations/{{orgId}}/members/member-user-uuid
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+Content-Type: application/json
+
+{
+  "role": "admin"
+}
+
+### Remove member from organization
+DELETE {{baseUrl}}/organizations/{{orgId}}/members/member-user-uuid
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+
+### =====================================
+### Org Projects Endpoints
+### =====================================
+
+### Get all projects in active organization
+GET {{baseUrl}}/org_projects
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+
+### Create project in active organization
+POST {{baseUrl}}/org_projects
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+Content-Type: application/json
+
+{
+  "name": "My Project"
+}
+
+### Switch active project (sets cookie)
+POST {{baseUrl}}/org_projects/switch
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+Content-Type: application/json
+
+{
+  "projectId": "{{projectId}}"
+}
+
+### Get single project
+GET {{baseUrl}}/org_projects/{{projectId}}
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+
+### Update project (project_owner/project_admin only)
+PATCH {{baseUrl}}/org_projects/{{projectId}}
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+x-project-id: {{projectId}}
+Content-Type: application/json
+
+{
+  "name": "Updated Project Name"
+}
+
+### Delete project (project_owner only)
+DELETE {{baseUrl}}/org_projects/{{projectId}}
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+x-project-id: {{projectId}}
+
+### =====================================
+### Project Members Endpoints
+### =====================================
+
+### Get project members
+GET {{baseUrl}}/org_projects/{{projectId}}/members
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+x-project-id: {{projectId}}
+
+### Add member to project (project_owner/project_admin only)
+POST {{baseUrl}}/org_projects/{{projectId}}/members
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+x-project-id: {{projectId}}
+Content-Type: application/json
+
+{
+  "email": "projectmember@example.com",
+  "role": "project_member"
+}
+
+### Update project member role (project_owner only)
+PATCH {{baseUrl}}/org_projects/{{projectId}}/members/member-user-uuid
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+x-project-id: {{projectId}}
+Content-Type: application/json
+
+{
+  "role": "project_admin"
+}
+
+### Remove member from project
+DELETE {{baseUrl}}/org_projects/{{projectId}}/members/member-user-uuid
+Authorization: Bearer {{token}}
+x-org-id: {{orgId}}
+x-project-id: {{projectId}}

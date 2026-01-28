@@ -32,7 +32,13 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const payload = jwt.verify(token, process.env.JWT_SECRET!) as UserPayload;
   
-      request.user = payload;
+      // Set user with both id and userId for compatibility
+      request.user = {
+        id: payload.id,
+        userId: payload.id,  // Alias for new code
+        email: payload.email,
+        role: payload.role,
+      };
       return true;
     } catch (err) {
       throw new UnauthorizedException('Недействительный токен');

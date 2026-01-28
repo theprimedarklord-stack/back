@@ -9,13 +9,8 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { UpdateSidebarSettingsDto } from './dto/update-sidebar-settings.dto';
 
-interface AuthenticatedRequest extends Request {
-  user: {
-    id: string;
-    email: string;
-    role?: string;
-  };
-}
+// Using unified AuthenticatedUser type from express.d.ts
+// No need for local interface - just use Request directly
 
 // Конфигурация для multer
 const multerConfig: MulterOptions = {
@@ -42,7 +37,7 @@ export class UserController {
   @UseInterceptors(FileInterceptor('avatar', multerConfig))
   async uploadAvatar(
     @UploadedFile() file: Express.Multer.File,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: Request,
   ) {
     try {
       if (!file) {
@@ -170,7 +165,7 @@ export class UserController {
 
   @Delete('avatar')
   @UseGuards(JwtAuthGuard)
-  async removeAvatar(@Req() req: AuthenticatedRequest) {
+  async removeAvatar(@Req() req: Request) {
     try {
       // Проверяем что user.id существует
       if (!req.user?.id) {
@@ -258,7 +253,7 @@ export class UserController {
 
   @Get('avatar')
   @UseGuards(JwtAuthGuard)
-  async getAvatar(@Req() req: AuthenticatedRequest) {
+  async getAvatar(@Req() req: Request) {
     try {
       if (!req.user?.id) {
         return {
@@ -328,7 +323,7 @@ export class UserController {
   
   @Get('theme')
   @UseGuards(JwtAuthGuard)
-  async getTheme(@Req() req: AuthenticatedRequest, @Res({ passthrough: true }) res: Response) {
+  async getTheme(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     try {
       if (!req.user?.id) {
         return {
@@ -377,7 +372,7 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async updateTheme(
     @Body() body: { theme: string },
-    @Req() req: AuthenticatedRequest,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     try {
@@ -433,7 +428,7 @@ export class UserController {
 
   @Get('sidebar')
   @UseGuards(JwtAuthGuard)
-  async getSidebarSettings(@Req() req: AuthenticatedRequest) {
+  async getSidebarSettings(@Req() req: Request) {
     try {
       if (!req.user?.id) {
         return {
@@ -479,7 +474,7 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async updateSidebarSettings(
     @Body() body: UpdateSidebarSettingsDto,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: Request,
   ) {
     try {
       if (!req.user?.id) {
@@ -542,7 +537,7 @@ export class UserController {
 
   @Get('language')
   @UseGuards(JwtAuthGuard)
-  async getLanguage(@Req() req: AuthenticatedRequest) {
+  async getLanguage(@Req() req: Request) {
     try {
       if (!req.user?.id) {
         return {
@@ -583,7 +578,7 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async updateLanguage(
     @Body() body: { language: string },
-    @Req() req: AuthenticatedRequest,
+    @Req() req: Request,
   ) {
     try {
       if (!req.user?.id) {
@@ -631,7 +626,7 @@ export class UserController {
 
   @Get('profile')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@Req() req: AuthenticatedRequest) {
+  async getProfile(@Req() req: Request) {
     try {
       if (!req.user?.id) {
         return {
@@ -688,7 +683,7 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async updateProfile(
     @Body() body: { username?: string; full_name?: string },
-    @Req() req: AuthenticatedRequest,
+    @Req() req: Request,
   ) {
     try {
       if (!req.user?.id) {
@@ -788,7 +783,7 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async updateEmail(
     @Body() body: { email: string },
-    @Req() req: AuthenticatedRequest,
+    @Req() req: Request,
   ) {
     try {
       if (!req.user?.id) {
