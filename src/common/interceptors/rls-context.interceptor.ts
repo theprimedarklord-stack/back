@@ -32,10 +32,12 @@ export class RlsContextInterceptor implements NestInterceptor {
   ): Promise<Observable<any>> {
     const request = context.switchToHttp().getRequest<Request>();
     
-    // Only set context if user is authenticated
-    if (request.user?.userId) {
+
+    // Only set context if user is authenticated (support both userId and id)
+    const userId = request.user?.userId || request.user?.id;
+    if (userId) {
       await this.setRlsContext(
-        request.user.userId,
+        userId,
         request.context?.org?.id,
       );
     }

@@ -2,21 +2,41 @@
 # Organizations & Projects API Test File
 # =====================================================
 # 
-# Використовуй з VS Code REST Client extension
+# Використовуй з VS Code REST Client extension (встанови якщо нема)
+# Extension ID: humao.rest-client
 # 
-# ЯК ОТРИМАТИ ТОКЕН:
-# 1. Залогінься через фронтенд або викликай POST /auth/login нижче
-# 2. Скопіюй access_token з відповіді
-# 3. Встав його в @token нижче
+# =====================================================
+# ЯК ОТРИМАТИ ТОКЕН (3 способи):
+# =====================================================
+#
+# СПОСІБ 1 - Через DevTools браузера (НАЙПРОСТІШИЙ):
+# 1. Відкрий фронтенд і залогінься
+# 2. Відкрий DevTools (F12) → Application → Cookies
+# 3. Знайди cookie "sb-access-token" або "access_token"
+# 4. Скопіюй значення і встав в @token нижче
+#
+# СПОСІБ 2 - Через Network tab:
+# 1. Відкрий DevTools (F12) → Network
+# 2. Зроби будь-яку дію на сайті (наприклад відкрий сторінку)
+# 3. Знайди запит до API (наприклад /auth/profile)
+# 4. Подивись Headers → Authorization: Bearer <TOKEN>
+# 5. Скопіюй токен (все після "Bearer ")
+#
+# СПОСІБ 3 - Через localStorage:
+# 1. DevTools (F12) → Console
+# 2. Введи: localStorage.getItem('supabase.auth.token')
+# 3. Скопіюй access_token з JSON
+#
 # =====================================================
 
-@baseUrl = http://localhost:3000
+# === RENDER DEV SERVER ===
+@baseUrl = https://back-r5ry.onrender.com
 
-# === ВСТАВ СВІЙ ТОКЕН ТУТ (отримай через login нижче) ===
-@token = YOUR_JWT_TOKEN_HERE
+# === ВСТАВ СВІЙ ТОКЕН ТУТ ===
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjJiMWRhZGRjLTc0OWYtNDNkYS05ZGE2LTQwNWJiNTFmYjVmYSIsImVtYWlsIjoid2Fyd2Fyd2FyNTZAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzY5NjEyNjUxLCJleHAiOjE3NzIyMDQ2NTF9.19I29oQZ2dt4GPtfXv4InsmIjOESR857ZM6WDFtoco8
 
 # === Ці ID заповни після створення org/project ===
-@orgId = YOUR_ORG_UUID
+@orgId = 546d7a2e-f5e6-4eaa-947b-d6bf29710d18
 @projectId = YOUR_PROJECT_UUID
 
 ### =====================================
