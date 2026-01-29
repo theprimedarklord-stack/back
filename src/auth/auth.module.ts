@@ -43,6 +43,7 @@ import { ContextBuilderService } from './context-builder.service';
     PermissionsGuard,
     RolesGuard,
     ContextBuilderService,
+    DatabaseService,
   ],
 })
 export class AuthModule {}
