@@ -1,6 +1,7 @@
 // src/org-projects/org-projects.module.ts
 import { Module } from '@nestjs/common';
 import { SupabaseModule } from '../supabase/supabase.module';
+import { AuthModule } from '../auth/auth.module';
 import { OrgProjectsController } from './org-projects.controller';
 import { OrgProjectsService } from './org-projects.service';
 import { HybridAuthGuard } from '../auth/hybrid-auth.guard';
@@ -12,7 +13,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { RlsContextInterceptor } from '../common/interceptors/rls-context.interceptor';
 
 @Module({
-  imports: [SupabaseModule],
+  imports: [SupabaseModule, AuthModule],
   controllers: [OrgProjectsController],
   providers: [
     OrgProjectsService,

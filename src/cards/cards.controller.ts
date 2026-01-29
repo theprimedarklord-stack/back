@@ -20,7 +20,10 @@ export class CardsController {
   @Get()
   async getCards(@Req() req: Request) {
     try {
-      const userId = (req.user?.userId || req.user?.id) as string;
+      const userId = req.user?.userId || req.user?.id;
+      if (!userId) {
+        return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
+      }
       const client = this.getDbClient(req);
       const cards = await this.cardsService.getCards(userId, client);
       return { success: true, cards };
@@ -33,7 +36,10 @@ export class CardsController {
   @Post()
   async createCard(@Req() req: Request, @Body() body: any) {
     try {
-      const userId = (req.user?.userId || req.user?.id) as string;
+      const userId = req.user?.userId || req.user?.id;
+      if (!userId) {
+        return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
+      }
       const client = this.getDbClient(req);
       const card = await this.cardsService.createCard(userId, body, client);
       return { success: true, card };
@@ -46,7 +52,10 @@ export class CardsController {
   @Patch(':id')
   async updateCard(@Req() req: Request, @Param('id') id: string, @Body() body: any) {
     try {
-      const userId = (req.user?.userId || req.user?.id) as string;
+      const userId = req.user?.userId || req.user?.id;
+      if (!userId) {
+        return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
+      }
       const client = this.getDbClient(req);
       const card = await this.cardsService.updateCard(userId, id, body, client);
       return { success: true, card };
@@ -59,7 +68,10 @@ export class CardsController {
   @Delete(':id')
   async deleteCard(@Req() req: Request, @Param('id') id: string) {
     try {
-      const userId = (req.user?.userId || req.user?.id) as string;
+      const userId = req.user?.userId || req.user?.id;
+      if (!userId) {
+        return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
+      }
       const client = this.getDbClient(req);
       await this.cardsService.deleteCard(userId, id, client);
       return { success: true, message: 'Карточка видалена' };
@@ -76,7 +88,10 @@ export class CardsController {
     @Query('hours') hours: string = '24'
   ) {
     try {
-      const userId = (req.user?.userId || req.user?.id) as string;
+      const userId = req.user?.userId || req.user?.id;
+      if (!userId) {
+        return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
+      }
       const client = this.getDbClient(req);
       const hoursNumber = parseInt(hours, 10);
       
@@ -111,7 +126,10 @@ export class CardsController {
   @Post('reviews')
   async createCardReview(@Req() req: Request, @Body() body: any) {
     try {
-      const userId = (req.user?.userId || req.user?.id) as string;
+      const userId = req.user?.userId || req.user?.id;
+      if (!userId) {
+        return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
+      }
       const client = this.getDbClient(req);
       const review = await this.cardsService.createCardReview(userId, body, client);
       return { success: true, review };
@@ -128,7 +146,10 @@ export class CardsController {
   @Get(':id')
   async getCardById(@Req() req: Request, @Param('id') id: string) {
     try {
-      const userId = (req.user?.userId || req.user?.id) as string;
+      const userId = req.user?.userId || req.user?.id;
+      if (!userId) {
+        return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
+      }
       const client = this.getDbClient(req);
       const card = await this.cardsService.getCardById(id, client);
       return { success: true, card };

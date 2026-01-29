@@ -1,6 +1,7 @@
 // src/organizations/organizations.module.ts
 import { Module } from '@nestjs/common';
 import { SupabaseModule } from '../supabase/supabase.module';
+import { AuthModule } from '../auth/auth.module';
 import { OrganizationsController } from './organizations.controller';
 import { OrganizationsService } from './organizations.service';
 import { HybridAuthGuard } from '../auth/hybrid-auth.guard';
@@ -11,7 +12,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { RlsContextInterceptor } from '../common/interceptors/rls-context.interceptor';
 
 @Module({
-  imports: [SupabaseModule],
+  imports: [SupabaseModule, AuthModule],
   controllers: [OrganizationsController],
   providers: [
     OrganizationsService,

@@ -18,7 +18,10 @@ export class MeController {
   @UseGuards(CognitoAuthGuard)
   @Get('context')
   async getContext(@Req() req: Request) {
-    const userId = req.user?.userId as string;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return { success: false, error: 'userId is required' };
+    }
     const orgId = req.headers['x-org-id'] as string | undefined;
     const projectId = req.headers['x-project-id'] as string | undefined;
 
@@ -28,14 +31,20 @@ export class MeController {
   @UseGuards(CognitoAuthGuard)
   @Get('orgs')
   async getOrgs(@Req() req: Request) {
-    const userId = req.user?.userId as string;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return { success: false, error: 'userId is required' };
+    }
     return this.organizationsService.findAllForUser(userId);
   }
 
   @UseGuards(CognitoAuthGuard)
   @Get('projects')
   async getProjects(@Req() req: Request, @Query('orgId') orgId?: string) {
-    const userId = req.user?.userId as string;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return { success: false, error: 'userId is required' };
+    }
     if (!orgId) {
       // If orgId not provided, try header or let orgProjectsService handle validation
       orgId = req.headers['x-org-id'] as string | undefined;
@@ -73,7 +82,10 @@ export class MeController {
   @Post('switch-org')
   @HttpCode(HttpStatus.OK)
   async switchOrg(@Req() req: Request, @Body() dto: { organizationId: string }) {
-    const userId = req.user?.userId as string;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return { success: false, error: 'userId is required' };
+    }
     const orgId = dto.organizationId;
 
     // Verify membership
