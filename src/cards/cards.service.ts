@@ -15,7 +15,7 @@ export class CardsService {
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly databaseService: DatabaseService,
-  ) {}
+  ) { }
 
   /**
    * Get all cards for a user using proper RLS context
@@ -25,7 +25,7 @@ export class CardsService {
       return await this.databaseService.withUserContext(userId, async (client) => {
         try {
           const sql = `
-            SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
+            SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
             FROM public.cards
             WHERE user_id = $1::uuid
             ORDER BY created_at DESC
@@ -55,8 +55,8 @@ export class CardsService {
         return data;
       } catch (fallbackError) {
         this.logger.error('getCards failed completely', fallbackError);
-        throw fallbackError instanceof InternalServerErrorException 
-          ? fallbackError 
+        throw fallbackError instanceof InternalServerErrorException
+          ? fallbackError
           : new InternalServerErrorException('Failed to fetch cards');
       }
     }
@@ -68,13 +68,13 @@ export class CardsService {
   async createCard(userId: string, cardData: any) {
     try {
       const createdAt = new Date().toISOString();
-      
+
       return await this.databaseService.withUserContext(userId, async (client) => {
         try {
           const sql = `
-            INSERT INTO public.cards (user_id, name, description, card_class, zone, current_streak, created_at, updated_at)
+            INSERT INTO public.cards (user_id, name, description, card_class, zone, current_streak, created_at, last_edited_at)
             VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
+            RETURNING id, user_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
           `;
           const res = await client.query(sql, [
             userId,
@@ -101,7 +101,7 @@ export class CardsService {
           ...cardData,
           current_streak: 0,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          last_edited_at: new Date().toISOString(),
         };
 
         const { data, error: supabaseError } = await this.supabaseService
@@ -117,8 +117,8 @@ export class CardsService {
         return data;
       } catch (fallbackError) {
         this.logger.error('createCard failed completely', fallbackError);
-        throw fallbackError instanceof InternalServerErrorException 
-          ? fallbackError 
+        throw fallbackError instanceof InternalServerErrorException
+          ? fallbackError
           : new InternalServerErrorException('Failed to create card');
       }
     }
@@ -130,7 +130,7 @@ export class CardsService {
   async updateCard(userId: string, id: string, cardData: any) {
     try {
       const updatedAt = new Date().toISOString();
-      
+
       return await this.databaseService.withUserContext(userId, async (client) => {
         try {
           let streakValue = cardData.current_streak;
@@ -153,9 +153,9 @@ export class CardsService {
               card_class = COALESCE($5, card_class),
               zone = COALESCE($6, zone),
               current_streak = COALESCE($7, current_streak),
-              updated_at = $8
+              last_edited_at = $8
             WHERE id = $1::uuid AND user_id = $2::uuid
-            RETURNING id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
+            RETURNING id, user_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
           `;
           const res = await client.query(sql, [
             id,
@@ -177,9 +177,9 @@ export class CardsService {
       // Fallback to Supabase
       this.logger.warn('withUserContext failed, using Supabase fallback', error);
       try {
-        const updateData = {
+        const updateData: any = {
           ...cardData,
-          updated_at: new Date().toISOString(),
+          last_edited_at: new Date().toISOString(),
         };
 
         if ('success' in cardData) {
@@ -191,8 +191,8 @@ export class CardsService {
             .eq('user_id', userId)
             .single();
 
-          updateData.current_streak = cardData.success 
-            ? (currentCard?.current_streak || 0) + 1 
+          updateData.current_streak = cardData.success
+            ? (currentCard?.current_streak || 0) + 1
             : 0;
         }
 
@@ -211,8 +211,8 @@ export class CardsService {
         return data;
       } catch (fallbackError) {
         this.logger.error('updateCard failed completely', fallbackError);
-        throw fallbackError instanceof InternalServerErrorException 
-          ? fallbackError 
+        throw fallbackError instanceof InternalServerErrorException
+          ? fallbackError
           : new InternalServerErrorException('Failed to update card');
       }
     }
@@ -253,8 +253,8 @@ export class CardsService {
         return true;
       } catch (fallbackError) {
         this.logger.error('deleteCard failed completely', fallbackError);
-        throw fallbackError instanceof InternalServerErrorException 
-          ? fallbackError 
+        throw fallbackError instanceof InternalServerErrorException
+          ? fallbackError
           : new InternalServerErrorException('Failed to delete card');
       }
     }
@@ -307,8 +307,8 @@ export class CardsService {
         return data;
       } catch (fallbackError) {
         this.logger.error('getCardHistory failed completely', fallbackError);
-        throw fallbackError instanceof InternalServerErrorException 
-          ? fallbackError 
+        throw fallbackError instanceof InternalServerErrorException
+          ? fallbackError
           : new InternalServerErrorException('Failed to fetch card history');
       }
     }
@@ -366,8 +366,8 @@ export class CardsService {
         return data;
       } catch (fallbackError) {
         this.logger.error('createCardReview failed completely', fallbackError);
-        throw fallbackError instanceof InternalServerErrorException 
-          ? fallbackError 
+        throw fallbackError instanceof InternalServerErrorException
+          ? fallbackError
           : new InternalServerErrorException('Failed to create card review');
       }
     }
@@ -381,7 +381,7 @@ export class CardsService {
       return await this.databaseService.withUserContext(userId, async (client) => {
         try {
           const sql = `
-            SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
+            SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
             FROM public.cards
             WHERE id = $1::uuid AND user_id = $2::uuid
           `;
@@ -414,8 +414,8 @@ export class CardsService {
         return data;
       } catch (fallbackError) {
         this.logger.error('getCardById failed completely', fallbackError);
-        throw fallbackError instanceof InternalServerErrorException 
-          ? fallbackError 
+        throw fallbackError instanceof InternalServerErrorException
+          ? fallbackError
           : new InternalServerErrorException('Failed to fetch card');
       }
     }

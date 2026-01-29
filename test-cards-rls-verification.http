@@ -36,7 +36,7 @@ Content-Type: application/json
   "name": "Тестова картка RLS перевірка",
   "description": "Створена під час RLS enforcement тесту",
   "card_class": "test",
-  "zone": "zone-1"
+  "zone": "5"
 }
 
 ### ============================================
