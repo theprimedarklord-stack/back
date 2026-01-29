@@ -34,17 +34,37 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   /**
    * Run callback inside a transaction with app.org_id set locally for RLS.
    * The callback receives a connected client and may run multiple queries.
+   * 
+   * Использует SET LOCAL паттерн для Session Context:
+   * 1. SET LOCAL search_path - гарантирует видимость таблиц в public схеме
+   * 2. SET LOCAL "app.org_id" - устанавливает контекст организации для RLS
+   * 
+   * Преимущества:
+   * - Работает везде (Supabase, AWS RDS, Docker)
+   * - Не требует прав суперпользователя
+   * - Автоматически удаляется при завершении транзакции
    */
   async withOrgContext<T>(orgId: string, callback: (client: any) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query("SELECT set_config('app.org_id', $1, true)", [orgId]);
+      
+      // 1. Устанавливаем путь к схемам в этой транзакции
+      await client.query('SET LOCAL search_path TO public, extensions');
+      
+      // 2. Устанавливаем ID организации для RLS политик
+      // client.escapeLiteral() экранирует значение UUID
+      const escapedOrgId = client.escapeLiteral(orgId);
+      await client.query(`SET LOCAL "app.org_id" = ${escapedOrgId}`);
+      
+      // 3. Выполняем основной код
       const res = await callback(client);
+      
       await client.query('COMMIT');
       return res;
     } catch (err) {
       await client.query('ROLLBACK');
+      console.error('[DatabaseService] Transaction failed:', err.message);
       throw err;
     } finally {
       client.release();
@@ -55,28 +75,38 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
    * Run callback inside a transaction with app.user_id set locally for RLS.
    * The callback receives a connected client and may run multiple queries.
    * 
-   * Note: SET LOCAL search_path ensures that schema resolution works correctly
-   * when using transaction poolers (Supabase port 6543), which may reuse
-   * sessions and leave search_path uninitialized.
+   * Использует SET LOCAL паттерн для Session Context:
+   * 1. SET LOCAL search_path - гарантирует видимость таблиц в public схеме
+   * 2. SET LOCAL "app.user_id" - устанавливает контекст пользователя для RLS
+   * 
+   * Преимущества:
+   * - Работает везде (Supabase, AWS RDS, Docker)
+   * - Не требует прав суперпользователя
+   * - Автоматически удаляется при завершении транзакции
    */
   async withUserContext<T>(userId: string, callback: (client: any) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       
-      // ПРИНУДИТЕЛЬНО задаем схему. Это лечит ошибку "relation does not exist",
-      // так как транзакция иногда инициализируется с пустым путем поиска
-      // при использовании Transaction Pooler (порт 6543).
+      // 1. Устанавливаем путь к схемам в этой транзакции
+      // Без этого Postgres может "потерять" таблицы при переиспользовании сессий
       await client.query('SET LOCAL search_path TO public, extensions');
       
-      // Устанавливаем ID пользователя для RLS политик
-      await client.query("SELECT set_config('app.user_id', $1, true)", [userId]);
+      // 2. Устанавливаем ID пользователя для RLS политик
+      // Используем SET LOCAL вместо SELECT set_config - это безопаснее и надежнее
+      // client.escapeLiteral() экранирует значение UUID
+      const escapedUserId = client.escapeLiteral(userId);
+      await client.query(`SET LOCAL "app.user_id" = ${escapedUserId}`);
       
+      // 3. Выполняем основной код (SELECT, INSERT, UPDATE, DELETE)
       const res = await callback(client);
+      
       await client.query('COMMIT');
       return res;
     } catch (err) {
       await client.query('ROLLBACK');
+      console.error('[DatabaseService] Transaction failed:', err.message);
       throw err;
     } finally {
       client.release();

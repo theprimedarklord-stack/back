@@ -17,7 +17,7 @@ Authorization: Bearer {{token}}
 
 
 ### Очікувано: 200 OK з масивом картк
-GET https://back-r5ry.onrender.com/cards/333
+GET https://back-r5ry.onrender.com/cards/498
 Authorization: Bearer {{token}}
 
 
