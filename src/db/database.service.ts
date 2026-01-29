@@ -50,4 +50,24 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       client.release();
     }
   }
+
+  /**
+   * Run callback inside a transaction with app.user_id set locally for RLS.
+   * The callback receives a connected client and may run multiple queries.
+   */
+  async withUserContext<T>(userId: string, callback: (client: any) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT set_config('app.user_id', $1, true)", [userId]);
+      const res = await callback(client);
+      await client.query('COMMIT');
+      return res;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
 }

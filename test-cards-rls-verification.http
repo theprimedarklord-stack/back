@@ -3,8 +3,8 @@
 ### ============================================
 ### Використовуй цей файл щоб перевірити что cards модуль працює 100%
 
-@host = http://localhost:3333
-@token = ЗАМІНИТИ_НА_JWT
+@host = https://back-r5ry.onrender.com
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjJiMWRhZGRjLTc0OWYtNDNkYS05ZGE2LTQwNWJiNTFmYjVmYSIsImVtYWlsIjoid2Fyd2Fyd2FyNTZAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzY5NjEyNjUxLCJleHAiOjE3NzIyMDQ2NTF9.19I29oQZ2dt4GPtfXv4InsmIjOESR857ZM6WDFtoco8
 @org_id = ЗАМІНИТИ_НА_ORG_ID
 @card_id = ЗАМІНИТИ_НА_CARD_ID (після тесту create)
 
@@ -14,6 +14,12 @@
 ### Очікувано: 200 OK з масивом картк
 GET {{host}}/cards
 Authorization: Bearer {{token}}
+
+
+### Очікувано: 200 OK з масивом картк
+GET https://back-r5ry.onrender.com/cards/333
+Authorization: Bearer {{token}}
+
 
 ### ============================================
 ### 2. POST /cards - Створити нову картку
@@ -60,10 +66,10 @@ GET {{host}}/cards/{{card_id}}
 Authorization: Bearer {{token}}
 
 ### ============================================
-### 6. POST /cards/card-reviews - Створити огляд
+### 6. POST /cards/reviews - Створити огляд
 ### ============================================
 ### Очікувано: 201 Created з об'єктом огляду
-POST {{host}}/cards/card-reviews
+POST {{host}}/cards/reviews
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -74,10 +80,10 @@ Content-Type: application/json
 }
 
 ### ============================================
-### 7. GET /cards/card-history - Отримати історію
+### 7. GET /cards/history - Отримати історію
 ### ============================================
 ### Очікувано: 200 OK з масивом оглядів
-GET {{host}}/cards/card-history?zoneId=zone-1&hours=24
+GET {{host}}/cards/history?zoneId=zone-1&hours=24
 Authorization: Bearer {{token}}
 
 ### ============================================

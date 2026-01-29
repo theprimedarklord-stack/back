@@ -1,23 +1,30 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { lastValueFrom } from 'rxjs';
 import { DatabaseService } from '../db/database.service';
 
 @Injectable()
 export class RlsContextInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(RlsContextInterceptor.name);
+
   constructor(private readonly db: DatabaseService) {}
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
     const req = context.switchToHttp().getRequest();
 
-    const orgId = req.context?.org?.id;
-    if (!orgId) {
+    // Extract user ID from JWT token (set by JwtAuthGuard)
+    const userId = req.user?.userId || req.user?.id;
+    
+    this.logger.debug(`RLS Context: userId=${userId}, user=${JSON.stringify(req.user)}`);
+    
+    if (!userId) {
+      this.logger.warn('No userId found, skipping RLS context');
       return next.handle();
     }
 
-    // Wrap request handling in a transaction with app.org_id set locally
+    // Wrap request handling in a transaction with app.user_id set locally
     return new Observable((subscriber) => {
-      this.db.withOrgContext(orgId, async (client) => {
+      this.db.withUserContext(userId, async (client) => {
         // expose client for downstream use if needed
         req.dbClient = client;
 
