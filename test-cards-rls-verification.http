@@ -6,7 +6,7 @@
 @host = https://back-r5ry.onrender.com
 @token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjJiMWRhZGRjLTc0OWYtNDNkYS05ZGE2LTQwNWJiNTFmYjVmYSIsImVtYWlsIjoid2Fyd2Fyd2FyNTZAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzY5NjEyNjUxLCJleHAiOjE3NzIyMDQ2NTF9.19I29oQZ2dt4GPtfXv4InsmIjOESR857ZM6WDFtoco8
 @org_id = ЗАМІНИТИ_НА_ORG_ID
-@card_id = ЗАМІНИТИ_НА_CARD_ID (після тесту create)
+@card_id = 333
 
 ### ============================================
 ### 1. GET /cards - Отримати всі картки користувача
