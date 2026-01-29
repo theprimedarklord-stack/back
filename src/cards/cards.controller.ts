@@ -10,13 +10,6 @@ export class CardsController {
 
   constructor(private readonly cardsService: CardsService) {}
 
-  /**
-   * Витяг dbClient з запиту (встановлено RlsContextInterceptor)
-   */
-  private getDbClient(req: Request): any {
-    return (req as any).dbClient;
-  }
-
   @Get()
   async getCards(@Req() req: Request) {
     try {
@@ -24,8 +17,7 @@ export class CardsController {
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const client = this.getDbClient(req);
-      const cards = await this.cardsService.getCards(userId, client);
+      const cards = await this.cardsService.getCards(userId);
       return { success: true, cards };
     } catch (error) {
       this.logger.error('Помилка отримання карточек:', error);
@@ -40,8 +32,7 @@ export class CardsController {
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const client = this.getDbClient(req);
-      const card = await this.cardsService.createCard(userId, body, client);
+      const card = await this.cardsService.createCard(userId, body);
       return { success: true, card };
     } catch (error) {
       this.logger.error('Помилка створення карточки:', error);
@@ -56,8 +47,7 @@ export class CardsController {
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const client = this.getDbClient(req);
-      const card = await this.cardsService.updateCard(userId, id, body, client);
+      const card = await this.cardsService.updateCard(userId, id, body);
       return { success: true, card };
     } catch (error) {
       this.logger.error('Помилка оновлення карточки:', error);
@@ -72,8 +62,7 @@ export class CardsController {
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const client = this.getDbClient(req);
-      await this.cardsService.deleteCard(userId, id, client);
+      await this.cardsService.deleteCard(userId, id);
       return { success: true, message: 'Карточка видалена' };
     } catch (error) {
       this.logger.error('Помилка видалення карточки:', error);
@@ -92,7 +81,6 @@ export class CardsController {
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const client = this.getDbClient(req);
       const hoursNumber = parseInt(hours, 10);
       
       if (!zoneId) {
@@ -111,7 +99,7 @@ export class CardsController {
         };
       }
 
-      const history = await this.cardsService.getCardHistory(userId, zoneId, hoursNumber, client);
+      const history = await this.cardsService.getCardHistory(userId, zoneId, hoursNumber);
       return { success: true, history };
     } catch (error) {
       this.logger.error('Помилка отримання історії карточки:', error);
@@ -130,8 +118,7 @@ export class CardsController {
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const client = this.getDbClient(req);
-      const review = await this.cardsService.createCardReview(userId, body, client);
+      const review = await this.cardsService.createCardReview(userId, body);
       return { success: true, review };
     } catch (error) {
       this.logger.error('Помилка створення review карточки:', error);
@@ -150,8 +137,7 @@ export class CardsController {
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const client = this.getDbClient(req);
-      const card = await this.cardsService.getCardById(id, client);
+      const card = await this.cardsService.getCardById(id, userId);
       return { success: true, card };
     } catch (error) {
       this.logger.error('Помилка отримання картки:', error);
