@@ -21,6 +21,18 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     await this.pool.query('SELECT 1');
+
+    // DEBUG: List all tables in public schema to verify visibility
+    try {
+      const res = await this.pool.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+      `);
+      console.log('[DatabaseService] Tables in public schema:', res.rows.map(r => r.table_name));
+    } catch (e) {
+      console.error('[DatabaseService] Failed to list tables:', e);
+    }
   }
 
   async onModuleDestroy() {
