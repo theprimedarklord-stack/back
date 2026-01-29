@@ -46,7 +46,10 @@ import { MeModule } from './me/me.module';
     OrgProjectsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
-  providers: [AppService, { provide: APP_INTERCEPTOR, useClass: RlsContextInterceptor }, DatabaseService],
+  providers: [
+    AppService,
+    DatabaseService,
+    { provide: APP_INTERCEPTOR, useClass: RlsContextInterceptor }
+  ],
 })
 export class AppModule {}

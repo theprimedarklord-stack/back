@@ -12,10 +12,10 @@ export class RequirePermissionGuard implements CanActivate {
     if (!required) return true;
 
     const req = context.switchToHttp().getRequest<Request>();
-    const perms: string[] = req.context?.permissions || [];
+    const perms: string[] = (req as any).context?.permissions || [];
 
-    if (!perms || !perms.includes(required)) {
-      throw new ForbiddenException(`Permission denied: ${required}`);
+    if (!perms?.length || !perms.includes(required)) {
+      throw new ForbiddenException(`Доступ заборонено: ${required}`);
     }
 
     return true;

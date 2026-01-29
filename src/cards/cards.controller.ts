@@ -11,7 +11,7 @@ export class CardsController {
   constructor(private readonly cardsService: CardsService) {}
 
   /**
-   * Extract dbClient from request (set by RlsContextInterceptor)
+   * Витяг dbClient з запиту (встановлено RlsContextInterceptor)
    */
   private getDbClient(req: Request): any {
     return (req as any).dbClient;
@@ -20,63 +20,63 @@ export class CardsController {
   @Get()
   async getCards(@Req() req: Request) {
     try {
-      const userId = req.user?.userId || req.user?.id;
+      const userId = (req.user?.userId || req.user?.id) as string;
       const client = this.getDbClient(req);
       const cards = await this.cardsService.getCards(userId, client);
       return { success: true, cards };
     } catch (error) {
-      this.logger.error('Get cards error:', error);
-      return { success: false, error: 'Ошибка получения карточек', status: HttpStatus.INTERNAL_SERVER_ERROR };
+      this.logger.error('Помилка отримання карточек:', error);
+      return { success: false, error: 'Помилка отримання карточек', status: HttpStatus.INTERNAL_SERVER_ERROR };
     }
   }
 
   @Post()
   async createCard(@Req() req: Request, @Body() body: any) {
     try {
-      const userId = req.user?.userId || req.user?.id;
+      const userId = (req.user?.userId || req.user?.id) as string;
       const client = this.getDbClient(req);
       const card = await this.cardsService.createCard(userId, body, client);
       return { success: true, card };
     } catch (error) {
-      this.logger.error('Create card error:', error);
-      return { success: false, error: 'Ошибка создания карточки', status: HttpStatus.INTERNAL_SERVER_ERROR };
+      this.logger.error('Помилка створення карточки:', error);
+      return { success: false, error: 'Помилка створення карточки', status: HttpStatus.INTERNAL_SERVER_ERROR };
     }
   }
 
   @Patch(':id')
   async updateCard(@Req() req: Request, @Param('id') id: string, @Body() body: any) {
     try {
-      const userId = req.user?.userId || req.user?.id;
+      const userId = (req.user?.userId || req.user?.id) as string;
       const client = this.getDbClient(req);
       const card = await this.cardsService.updateCard(userId, id, body, client);
       return { success: true, card };
     } catch (error) {
-      this.logger.error('Update card error:', error);
-      return { success: false, error: 'Ошибка обновления карточки', status: HttpStatus.INTERNAL_SERVER_ERROR };
+      this.logger.error('Помилка оновлення карточки:', error);
+      return { success: false, error: 'Помилка оновлення карточки', status: HttpStatus.INTERNAL_SERVER_ERROR };
     }
   }
 
   @Delete(':id')
   async deleteCard(@Req() req: Request, @Param('id') id: string) {
     try {
-      const userId = req.user?.userId || req.user?.id;
+      const userId = (req.user?.userId || req.user?.id) as string;
       const client = this.getDbClient(req);
       await this.cardsService.deleteCard(userId, id, client);
-      return { success: true, message: 'Карточка удалена' };
+      return { success: true, message: 'Карточка видалена' };
     } catch (error) {
-      this.logger.error('Delete card error:', error);
-      return { success: false, error: 'Ошибка удаления карточки', status: HttpStatus.INTERNAL_SERVER_ERROR };
+      this.logger.error('Помилка видалення карточки:', error);
+      return { success: false, error: 'Помилка видалення карточки', status: HttpStatus.INTERNAL_SERVER_ERROR };
     }
   }
 
-  @Get('card-history')
+  @Get('history')
   async getCardHistory(
     @Req() req: Request,
     @Query('zoneId') zoneId: string,
     @Query('hours') hours: string = '24'
   ) {
     try {
-      const userId = req.user?.userId || req.user?.id;
+      const userId = (req.user?.userId || req.user?.id) as string;
       const client = this.getDbClient(req);
       const hoursNumber = parseInt(hours, 10);
       
@@ -97,15 +97,26 @@ export class CardsController {
       }
 
       const history = await this.cardsService.getCardHistory(userId, zoneId, hoursNumber, client);
-  @Post('card-reviews')
+      return { success: true, history };
+    } catch (error) {
+      this.logger.error('Помилка отримання історії карточки:', error);
+      return { 
+        success: false, 
+        error: 'Помилка отримання історії карточки', 
+        status: HttpStatus.INTERNAL_SERVER_ERROR 
+      };
+    }
+  }
+
+  @Post('reviews')
   async createCardReview(@Req() req: Request, @Body() body: any) {
     try {
-      const userId = req.user?.userId || req.user?.id;
+      const userId = (req.user?.userId || req.user?.id) as string;
       const client = this.getDbClient(req);
       const review = await this.cardsService.createCardReview(userId, body, client);
       return { success: true, review };
     } catch (error) {
-      this.logger.error('Create card review error:', error);
+      this.logger.error('Помилка створення review карточки:', error);
       return { 
         success: false, 
         error: 'Помилка створення review карточки', 
@@ -113,13 +124,16 @@ export class CardsController {
       };
     }
   }
-}  @Get(':id')
-  async getCardById(@Req() req, @Param('id') id: string) {
+
+  @Get(':id')
+  async getCardById(@Req() req: Request, @Param('id') id: string) {
     try {
-      const card = await this.cardsService.getCardById(id);
+      const userId = (req.user?.userId || req.user?.id) as string;
+      const client = this.getDbClient(req);
+      const card = await this.cardsService.getCardById(id, client);
       return { success: true, card };
     } catch (error) {
-      console.error('Get card by id error:', error);
+      this.logger.error('Помилка отримання картки:', error);
       return { 
         success: false, 
         error: 'Помилка отримання картки', 

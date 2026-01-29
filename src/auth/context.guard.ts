@@ -18,6 +18,7 @@ export interface OrgContext {
 export interface RequestContext {
   org: OrgContext;
   userId: string;
+  permissions?: string[];
 }
 
 /**
