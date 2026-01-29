@@ -59,7 +59,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+      
+      // Set search_path to find tables in public schema
+      await client.query('SET LOCAL search_path TO public');
+      
+      // Set user context for RLS policies
       await client.query("SELECT set_config('app.user_id', $1, true)", [userId]);
+      
       const res = await callback(client);
       await client.query('COMMIT');
       return res;

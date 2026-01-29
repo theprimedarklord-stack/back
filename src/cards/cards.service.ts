@@ -24,10 +24,11 @@ export class CardsService {
         // Use transactional client (RLS-enabled)
         const sql = `
           SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
-          FROM cards
-          WHERE user_id = $1
+          FROM public.cards
+          WHERE user_id = $1::uuid
           ORDER BY created_at DESC
         `;
+        this.logger.debug(`Executing SQL: ${sql} with userId=${userId}`);
         const res = await client.query(sql, [userId]);
         return res.rows;
       }
@@ -60,8 +61,8 @@ export class CardsService {
       
       if (client) {
         const sql = `
-          INSERT INTO cards (user_id, name, description, card_class, zone, current_streak, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          INSERT INTO public.cards (user_id, name, description, card_class, zone, current_streak, created_at, updated_at)
+          VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
           RETURNING id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
         `;
         const res = await client.query(sql, [
@@ -117,7 +118,7 @@ export class CardsService {
         // If success flag provided, calculate new streak
         if ('success' in cardData) {
           const getStreakSql = `
-            SELECT current_streak FROM cards WHERE id = $1 AND user_id = $2
+            SELECT current_streak FROM public.cards WHERE id = $1::uuid AND user_id = $2::uuid
           `;
           const streakRes = await client.query(getStreakSql, [id, userId]);
           const currentStreak = streakRes.rows[0]?.current_streak || 0;
@@ -125,7 +126,7 @@ export class CardsService {
         }
 
         const sql = `
-          UPDATE cards
+          UPDATE public.cards
           SET 
             name = COALESCE($3, name),
             description = COALESCE($4, description),
@@ -133,7 +134,7 @@ export class CardsService {
             zone = COALESCE($6, zone),
             current_streak = COALESCE($7, current_streak),
             updated_at = $8
-          WHERE id = $1 AND user_id = $2
+          WHERE id = $1::uuid AND user_id = $2::uuid
           RETURNING id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
         `;
         const res = await client.query(sql, [
@@ -197,7 +198,7 @@ export class CardsService {
     try {
       if (client) {
         const sql = `
-          DELETE FROM cards WHERE id = $1 AND user_id = $2
+          DELETE FROM public.cards WHERE id = $1::uuid AND user_id = $2::uuid
           RETURNING id
         `;
         const res = await client.query(sql, [id, userId]);
@@ -236,8 +237,8 @@ export class CardsService {
       if (client) {
         const sql = `
           SELECT id, user_id, current_zone, started_at, finished_at, correct_answers, wrong_answers
-          FROM card_reviews
-          WHERE user_id = $1 AND current_zone = $2 AND started_at >= $3
+          FROM public.card_reviews
+          WHERE user_id = $1::uuid AND current_zone = $2 AND started_at >= $3
           ORDER BY started_at DESC
         `;
         const res = await client.query(sql, [userId, zoneId, startTimeIso]);
@@ -275,8 +276,8 @@ export class CardsService {
 
       if (client) {
         const sql = `
-          INSERT INTO card_reviews (user_id, current_zone, started_at, finished_at, correct_answers, wrong_answers)
-          VALUES ($1, $2, $3, $4, $5, $6)
+          INSERT INTO public.card_reviews (user_id, current_zone, started_at, finished_at, correct_answers, wrong_answers)
+          VALUES ($1::uuid, $2, $3, $4, $5, $6)
           RETURNING id, user_id, current_zone, started_at, finished_at, correct_answers, wrong_answers
         `;
         const res = await client.query(sql, [
@@ -325,8 +326,8 @@ export class CardsService {
       if (client) {
         const sql = `
           SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
-          FROM cards
-          WHERE id = $1
+          FROM public.cards
+          WHERE id = $1::uuid
         `;
         const res = await client.query(sql, [cardId]);
         return res.rows[0] || null;
