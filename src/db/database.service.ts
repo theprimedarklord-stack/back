@@ -54,16 +54,22 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   /**
    * Run callback inside a transaction with app.user_id set locally for RLS.
    * The callback receives a connected client and may run multiple queries.
+   * 
+   * Note: SET LOCAL search_path ensures that schema resolution works correctly
+   * when using transaction poolers (Supabase port 6543), which may reuse
+   * sessions and leave search_path uninitialized.
    */
   async withUserContext<T>(userId: string, callback: (client: any) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       
-      // Set search_path to find tables in public schema
-      await client.query('SET LOCAL search_path TO public');
+      // ПРИНУДИТЕЛЬНО задаем схему. Это лечит ошибку "relation does not exist",
+      // так как транзакция иногда инициализируется с пустым путем поиска
+      // при использовании Transaction Pooler (порт 6543).
+      await client.query('SET LOCAL search_path TO public, extensions');
       
-      // Set user context for RLS policies
+      // Устанавливаем ID пользователя для RLS политик
       await client.query("SELECT set_config('app.user_id', $1, true)", [userId]);
       
       const res = await callback(client);

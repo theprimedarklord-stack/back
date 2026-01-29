@@ -20,20 +20,7 @@ export class CardsService {
    */
   async getCards(userId: string, client?: any) {
     try {
-      if (client) {
-        // Use transactional client (RLS-enabled)
-        const sql = `
-          SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
-          FROM public.cards
-          WHERE user_id = $1::uuid
-          ORDER BY created_at DESC
-        `;
-        this.logger.debug(`Executing SQL: ${sql} with userId=${userId}`);
-        const res = await client.query(sql, [userId]);
-        return res.rows;
-      }
-
-      // Fallback: admin client (bypass RLS) - for legacy or admin flows
+      // Use Supabase admin client (RLS-aware)
       const { data, error } = await this.supabaseService
         .getClient()
         .from('cards')
