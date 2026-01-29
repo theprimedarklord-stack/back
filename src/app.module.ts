@@ -1,11 +1,11 @@
 import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { RlsContextInterceptor } from './auth/rls-context.interceptor';
-import { DatabaseService } from './db/database.service';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { SupabaseModule } from './supabase/supabase.module';
+import { DatabaseModule } from './db/database.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { DictionaryModule } from './dictionary/dictionary.module';
@@ -27,6 +27,7 @@ import { MeModule } from './me/me.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     SupabaseModule,
+    DatabaseModule,
     AuthModule,
     UserModule,
     DictionaryModule,
@@ -48,7 +49,6 @@ import { MeModule } from './me/me.module';
   controllers: [AppController],
   providers: [
     AppService,
-    DatabaseService,
     { provide: APP_INTERCEPTOR, useClass: RlsContextInterceptor }
   ],
 })
