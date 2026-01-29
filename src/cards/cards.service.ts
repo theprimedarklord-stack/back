@@ -311,24 +311,33 @@ export class CardsService {
   async getCardById(cardId: string, client?: any) {
     try {
       if (client) {
-        const sql = `
-          SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
-          FROM public.cards
-          WHERE id = $1::uuid
-        `;
-        const res = await client.query(sql, [cardId]);
-        return res.rows[0] || null;
+        try {
+          const sql = `
+            SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
+            FROM public.cards
+            WHERE id = $1::uuid
+          `;
+          const res = await client.query(sql, [cardId]);
+          return res.rows[0] || null;
+        } catch (sqlError) {
+          this.logger.warn('Direct SQL failed, falling back to Supabase client', sqlError);
+          // Fall through to admin client below
+        }
       }
 
-      // Fallback: admin client
+      // Fallback: admin client (always works)
       const { data, error } = await this.supabaseService
         .getClient()
         .from('cards')
-        .select('id, name, description, card_class, zone')
+        .select('*')
         .eq('id', cardId)
         .single();
 
       if (error) {
+        // If not found, return null instead of throwing
+        if (error.code === 'PGRST116') {
+          return null;
+        }
         throw new InternalServerErrorException(error.message);
       }
       return data;
