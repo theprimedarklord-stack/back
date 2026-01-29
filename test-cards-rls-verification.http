@@ -76,7 +76,7 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "current_zone": "zone-1",
+  "current_zone": "1",
   "correct_answers": 5,
   "wrong_answers": 2
 }
@@ -92,7 +92,7 @@ Authorization: Bearer {{token}}
 ### 8. DELETE /cards/:id - Видалити картку
 ### ============================================
 ### Очікувано: 200 OK з повідомленням успіху
-DELETE {{host}}/cards/{{card_id}}
+DELETE {{host}}/cards/498
 Authorization: Bearer {{token}}
 
 ### ============================================
