@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { SupabaseService } from '../supabase/supabase.service';
+import { ContextBuilderService } from './context-builder.service';
 
 export interface OrgContext {
   id: string;
@@ -32,7 +33,10 @@ export interface RequestContext {
  */
 @Injectable()
 export class ContextGuard implements CanActivate {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(
+    private supabaseService: SupabaseService,
+    private contextBuilder: ContextBuilderService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
@@ -44,40 +48,24 @@ export class ContextGuard implements CanActivate {
 
     const userId = request.user.userId;
     
-    // Get org_id from header or cookie
-    const orgId = this.extractOrgId(request);
-    
-    if (!orgId) {
-      throw new BadRequestException('Organization context required (x-org-id header or active_org_id cookie)');
-    }
+    // Build full context (uses fallback logic internally)
+    const headerOrgId = this.extractOrgId(request);
+    const headerProjectId = this.extractProjectId(request);
 
-    // Validate UUID format
-    if (!this.isValidUUID(orgId)) {
-      throw new BadRequestException('Invalid organization ID format');
-    }
-
-    // Check membership using admin client (bypass RLS for this check)
-    const admin = this.supabaseService.getAdminClient();
-    
-    const { data: membership, error } = await admin
-      .from('org_organization_members')
-      .select('role')
-      .eq('organization_id', orgId)
-      .eq('user_id', userId)
-      .single();
-
-    if (error || !membership) {
-      throw new ForbiddenException('Not a member of this organization');
-    }
-
-    // Set context on request
-    request.context = {
-      org: {
-        id: orgId,
-        role: membership.role as OrgContext['role'],
-      },
+    const ctx = await this.contextBuilder.build({
       userId,
-    };
+      orgId: headerOrgId || undefined,
+      projectId: headerProjectId || undefined,
+    });
+
+    if (!ctx || !ctx.org) {
+      throw new BadRequestException('Organization context could not be resolved');
+    }
+
+    request.context = {
+      org: { id: ctx.org.id, role: ctx.meta?.orgRole as OrgContext['role'] },
+      userId: ctx.actor.id,
+    } as RequestContext;
 
     return true;
   }
@@ -90,6 +78,12 @@ export class ContextGuard implements CanActivate {
     }
     
     return req.cookies?.active_org_id || null;
+  }
+
+  private extractProjectId(req: Request): string | null {
+    const header = req.headers['x-project-id'] as string;
+    if (header) return header;
+    return req.cookies?.active_project_id || null;
   }
 
   private isValidUUID(str: string): boolean {

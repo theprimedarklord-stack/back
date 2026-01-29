@@ -1,3 +1,40 @@
+@host = http://localhost:3333
+@token = REPLACE_WITH_JWT
+@org = REPLACE_WITH_ORG_ID
+@project = REPLACE_WITH_PROJECT_ID
+@impersonate = REPLACE_WITH_IMPERSONATED_USER_ID
+
+### Get current active context
+GET {{host}}/me/context
+Authorization: Bearer {{token}}
+x-org-id: {{org}}
+x-project-id: {{project}}
+x-impersonated-user-id: {{impersonate}}
+
+### Expected: 200
+### Response shape: { actor, org, project, permissions, limits, flags, meta }
+
+### List organizations for current user
+GET {{host}}/me/orgs
+Authorization: Bearer {{token}}
+
+### List projects for org
+GET {{host}}/me/projects?orgId={{org}}
+Authorization: Bearer {{token}}
+
+### Example: simulate missing org -> expect 409
+# Remove x-org-id header or set to invalid id
+GET {{host}}/me/context
+Authorization: Bearer {{token}}
+
+### Switch active organization (updates users.last_active_org_id)
+POST {{host}}/me/switch-org
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "organizationId": "{{org}}"
+}
 # =====================================================
 # Organizations & Projects API Test File
 # =====================================================
@@ -36,7 +73,7 @@
 @token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjJiMWRhZGRjLTc0OWYtNDNkYS05ZGE2LTQwNWJiNTFmYjVmYSIsImVtYWlsIjoid2Fyd2Fyd2FyNTZAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzY5NjEyNjUxLCJleHAiOjE3NzIyMDQ2NTF9.19I29oQZ2dt4GPtfXv4InsmIjOESR857ZM6WDFtoco8
 
 # === Ці ID заповни після створення org/project ===
-@orgId = 546d7a2e-f5e6-4eaa-947b-d6bf29710d18
+@orgId = fa0c558d-98a2-4f49-848c-c494b6b153e7
 @projectId = YOUR_PROJECT_UUID
 
 ### =====================================
@@ -49,8 +86,8 @@ POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "your-email@example.com",
-  "password": "your-password"
+  "email": "warwarwar56@gmail.com",
+  "password": "111111"
 }
 
 ### =====================================
@@ -116,7 +153,7 @@ x-org-id: {{orgId}}
 Content-Type: application/json
 
 {
-  "email": "newmember@example.com",
+  "email": "warezorwar@gmail.com",
   "role": "member"
 }
 
@@ -161,19 +198,19 @@ x-org-id: {{orgId}}
 Content-Type: application/json
 
 {
-  "projectId": "{{projectId}}"
+  "projectId": "4511cf74-044b-4c92-adba-aa57550894c5"
 }
 
 ### Get single project
-GET {{baseUrl}}/org_projects/{{projectId}}
+GET {{baseUrl}}/org_projects/4511cf74-044b-4c92-adba-aa57550894c5
 Authorization: Bearer {{token}}
 x-org-id: {{orgId}}
 
 ### Update project (project_owner/project_admin only)
-PATCH {{baseUrl}}/org_projects/{{projectId}}
+PATCH {{baseUrl}}/org_projects/d3b8fafe-3036-4161-9a78-3a24272ab06a
 Authorization: Bearer {{token}}
 x-org-id: {{orgId}}
-x-project-id: {{projectId}}
+x-project-id: d3b8fafe-3036-4161-9a78-3a24272ab06a
 Content-Type: application/json
 
 {
@@ -191,28 +228,28 @@ x-project-id: {{projectId}}
 ### =====================================
 
 ### Get project members
-GET {{baseUrl}}/org_projects/{{projectId}}/members
+GET {{baseUrl}}/org_projects/d3b8fafe-3036-4161-9a78-3a24272ab06a/members
 Authorization: Bearer {{token}}
 x-org-id: {{orgId}}
-x-project-id: {{projectId}}
+x-project-id: d3b8fafe-3036-4161-9a78-3a24272ab06a
 
 ### Add member to project (project_owner/project_admin only)
-POST {{baseUrl}}/org_projects/{{projectId}}/members
+POST {{baseUrl}}/org_projects/d3b8fafe-3036-4161-9a78-3a24272ab06a/members
 Authorization: Bearer {{token}}
 x-org-id: {{orgId}}
-x-project-id: {{projectId}}
+x-project-id: d3b8fafe-3036-4161-9a78-3a24272ab06a
 Content-Type: application/json
 
 {
-  "email": "projectmember@example.com",
+  "email": "warezorwar@gmail.com",
   "role": "project_member"
 }
 
 ### Update project member role (project_owner only)
-PATCH {{baseUrl}}/org_projects/{{projectId}}/members/member-user-uuid
+PATCH {{baseUrl}}/org_projects/d3b8fafe-3036-4161-9a78-3a24272ab06a/members/member-user-uuid
 Authorization: Bearer {{token}}
 x-org-id: {{orgId}}
-x-project-id: {{projectId}}
+x-project-id: d3b8fafe-3036-4161-9a78-3a24272ab06a
 Content-Type: application/json
 
 {

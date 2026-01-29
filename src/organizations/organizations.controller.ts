@@ -42,7 +42,8 @@ export class OrganizationsController {
   @Get()
   @UseGuards(HybridAuthGuard)
   async findAll(@Req() req: Request) {
-    const organizations = await this.organizationsService.findAllForUser(req.user!.userId);
+    const client = (req as any).dbClient;
+    const organizations = await this.organizationsService.findAllForUser(req.user!.userId, client);
     return { organizations };
   }
 

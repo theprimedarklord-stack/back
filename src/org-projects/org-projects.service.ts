@@ -42,7 +42,7 @@ export class OrgProjectsService {
   async findAllInOrganization(orgId: string, userId: string): Promise<OrgProjectWithRole[]> {
     const admin = this.supabaseService.getAdminClient();
 
-    // Get projects with user's role if they're a member
+    // Legacy path: admin client (bypass RLS)
     const { data, error } = await admin
       .from('org_projects')
       .select(`
@@ -52,7 +52,7 @@ export class OrgProjectsService {
         created_by_user_id,
         created_at,
         members:org_project_members!left (
-          role
+          role, user_id
         )
       `)
       .eq('organization_id', orgId);

@@ -32,7 +32,26 @@ export class OrganizationsService {
   /**
    * Get all organizations for a user
    */
-  async findAllForUser(userId: string): Promise<OrganizationWithRole[]> {
+  async findAllForUser(userId: string, client?: any): Promise<OrganizationWithRole[]> {
+    // If a transactional PG client is provided (req.dbClient), use it so RLS applies.
+    if (client) {
+      const sql = `
+        SELECT o.id, o.name, o.created_by_user_id, o.created_at, m.role
+        FROM org_organizations o
+        JOIN org_organization_members m ON m.organization_id = o.id
+        WHERE m.user_id = $1
+      `;
+      const res = await client.query(sql, [userId]);
+      return res.rows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        created_by_user_id: row.created_by_user_id,
+        created_at: row.created_at,
+        role: row.role,
+      }));
+    }
+
+    // Fallback: use admin client (bypass RLS) for legacy paths
     const admin = this.supabaseService.getAdminClient();
 
     const { data, error } = await admin

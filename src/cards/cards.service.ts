@@ -1,133 +1,301 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
+/**
+ * CardsService — refactored to use req.dbClient for RLS compliance
+ * 
+ * All methods now accept an optional `client` parameter:
+ * - If provided (from req.dbClient): queries run under RLS with app.org_id context
+ * - If not provided: falls back to admin client (should be avoided in production endpoints)
+ */
 @Injectable()
 export class CardsService {
+  private readonly logger = new Logger(CardsService.name);
+
   constructor(private readonly supabaseService: SupabaseService) {}
 
-  async getCards(userId: string) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('cards')
-      .select('*')
-      .eq('user_id', userId);
+  /**
+   * Get all cards for a user
+   * When using req.dbClient, this respects RLS policies
+   */
+  async getCards(userId: string, client?: any) {
+    try {
+      if (client) {
+        // Use transactional client (RLS-enabled)
+        const sql = `
+          SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
+          FROM cards
+          WHERE user_id = $1
+          ORDER BY created_at DESC
+        `;
+        const res = await client.query(sql, [userId]);
+        return res.rows;
+      }
 
-    if (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-
-    return data;
-  }
-
-  async createCard(userId: string, cardData: any) {
-    const newCard = {
-      user_id: userId,
-      ...cardData,
-      current_streak: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('cards')
-      .insert(newCard)
-      .select()
-      .single();
-
-    if (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-
-    return data;
-  }
-
-  async updateCard(userId: string, id: string, cardData: any) {
-    const updateData = {
-      ...cardData,
-      updated_at: new Date().toISOString(),
-    };
-
-    // Обработка логики серии при наличии поля success
-    if ('success' in cardData) {
-      // Получить текущую карточку для получения current_streak
-      const { data: currentCard } = await this.supabaseService
+      // Fallback: admin client (bypass RLS) - for legacy or admin flows
+      const { data, error } = await this.supabaseService
         .getClient()
         .from('cards')
-        .select('current_streak')
-        .eq('id', id)
-        .eq('user_id', userId)
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) {
+        throw new InternalServerErrorException(error.message);
+      }
+      return data;
+    } catch (error) {
+      this.logger.error('getCards failed', error);
+      throw error instanceof InternalServerErrorException 
+        ? error 
+        : new InternalServerErrorException('Failed to fetch cards');
+    }
+  }
+
+  /**
+   * Create a new card
+   */
+  async createCard(userId: string, cardData: any, client?: any) {
+    try {
+      const createdAt = new Date().toISOString();
+      
+      if (client) {
+        const sql = `
+          INSERT INTO cards (user_id, name, description, card_class, zone, current_streak, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          RETURNING id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
+        `;
+        const res = await client.query(sql, [
+          userId,
+          cardData.name,
+          cardData.description || null,
+          cardData.card_class || null,
+          cardData.zone || null,
+          0, // current_streak
+          createdAt,
+          createdAt,
+        ]);
+        return res.rows[0];
+      }
+
+      // Fallback: admin client
+      const newCard = {
+        user_id: userId,
+        ...cardData,
+        current_streak: 0,
+        created_at: createdAt,
+        updated_at: createdAt,
+      };
+
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .from('cards')
+        .insert(newCard)
+        .select()
         .single();
 
-      // Рассчитать новую серию
-      updateData.current_streak = cardData.success 
-        ? (currentCard?.current_streak || 0) + 1 
-        : 0;
+      if (error) {
+        throw new InternalServerErrorException(error.message);
+      }
+      return data;
+    } catch (error) {
+      this.logger.error('createCard failed', error);
+      throw error instanceof InternalServerErrorException 
+        ? error 
+        : new InternalServerErrorException('Failed to create card');
     }
-
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('cards')
-      .update(updateData)
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select()
-      .single();
-
-    if (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-
-    return data;
   }
 
-  async deleteCard(userId: string, id: string) {
-    const { error } = await this.supabaseService
-      .getClient()
-      .from('cards')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId);
-
-    if (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-
-    return true;
-  }
-
-  async getCardHistory(userId: string, zoneId: string, hours: number = 24) {
+  /**
+   * Update card and handle streak logic
+   */
+  async updateCard(userId: string, id: string, cardData: any, client?: any) {
     try {
-      // Розраховуємо час початку (скільки годин назад)
+      const updatedAt = new Date().toISOString();
+      let streakValue = cardData.current_streak;
+
+      if (client) {
+        // If success flag provided, calculate new streak
+        if ('success' in cardData) {
+          const getStreakSql = `
+            SELECT current_streak FROM cards WHERE id = $1 AND user_id = $2
+          `;
+          const streakRes = await client.query(getStreakSql, [id, userId]);
+          const currentStreak = streakRes.rows[0]?.current_streak || 0;
+          streakValue = cardData.success ? currentStreak + 1 : 0;
+        }
+
+        const sql = `
+          UPDATE cards
+          SET 
+            name = COALESCE($3, name),
+            description = COALESCE($4, description),
+            card_class = COALESCE($5, card_class),
+            zone = COALESCE($6, zone),
+            current_streak = COALESCE($7, current_streak),
+            updated_at = $8
+          WHERE id = $1 AND user_id = $2
+          RETURNING id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
+        `;
+        const res = await client.query(sql, [
+          id,
+          userId,
+          cardData.name || null,
+          cardData.description || null,
+          cardData.card_class || null,
+          cardData.zone || null,
+          streakValue !== undefined ? streakValue : null,
+          updatedAt,
+        ]);
+        return res.rows[0];
+      }
+
+      // Fallback: admin client
+      const updateData = {
+        ...cardData,
+        updated_at: updatedAt,
+      };
+
+      if ('success' in cardData) {
+        const { data: currentCard } = await this.supabaseService
+          .getClient()
+          .from('cards')
+          .select('current_streak')
+          .eq('id', id)
+          .eq('user_id', userId)
+          .single();
+
+        updateData.current_streak = cardData.success 
+          ? (currentCard?.current_streak || 0) + 1 
+          : 0;
+      }
+
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .from('cards')
+        .update(updateData)
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        throw new InternalServerErrorException(error.message);
+      }
+      return data;
+    } catch (error) {
+      this.logger.error('updateCard failed', error);
+      throw error instanceof InternalServerErrorException 
+        ? error 
+        : new InternalServerErrorException('Failed to update card');
+    }
+  }
+
+  /**
+   * Delete card by id
+   */
+  async deleteCard(userId: string, id: string, client?: any) {
+    try {
+      if (client) {
+        const sql = `
+          DELETE FROM cards WHERE id = $1 AND user_id = $2
+          RETURNING id
+        `;
+        const res = await client.query(sql, [id, userId]);
+        return res.rows.length > 0;
+      }
+
+      // Fallback: admin client
+      const { error } = await this.supabaseService
+        .getClient()
+        .from('cards')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId);
+
+      if (error) {
+        throw new InternalServerErrorException(error.message);
+      }
+      return true;
+    } catch (error) {
+      this.logger.error('deleteCard failed', error);
+      throw error instanceof InternalServerErrorException 
+        ? error 
+        : new InternalServerErrorException('Failed to delete card');
+    }
+  }
+
+  /**
+   * Get card history (reviews) for a user in a zone
+   */
+  async getCardHistory(userId: string, zoneId: string, hours: number = 24, client?: any) {
+    try {
       const startTime = new Date();
       startTime.setHours(startTime.getHours() - hours);
+      const startTimeIso = startTime.toISOString();
 
+      if (client) {
+        const sql = `
+          SELECT id, user_id, current_zone, started_at, finished_at, correct_answers, wrong_answers
+          FROM card_reviews
+          WHERE user_id = $1 AND current_zone = $2 AND started_at >= $3
+          ORDER BY started_at DESC
+        `;
+        const res = await client.query(sql, [userId, zoneId, startTimeIso]);
+        return res.rows;
+      }
+
+      // Fallback: admin client
       const { data, error } = await this.supabaseService
         .getClient()
         .from('card_reviews')
         .select('*')
         .eq('user_id', userId)
         .eq('current_zone', zoneId)
-        .gte('started_at', startTime.toISOString())
+        .gte('started_at', startTimeIso)
         .order('started_at', { ascending: false });
 
       if (error) {
         throw new InternalServerErrorException(error.message);
       }
-
       return data;
     } catch (error) {
-      throw new InternalServerErrorException(`Помилка отримання історії карток: ${error.message}`);
+      this.logger.error('getCardHistory failed', error);
+      throw error instanceof InternalServerErrorException 
+        ? error 
+        : new InternalServerErrorException('Failed to fetch card history');
     }
   }
 
-  async createCardReview(userId: string, reviewData: any) {
+  /**
+   * Create a card review (session)
+   */
+  async createCardReview(userId: string, reviewData: any, client?: any) {
     try {
+      const now = new Date().toISOString();
+
+      if (client) {
+        const sql = `
+          INSERT INTO card_reviews (user_id, current_zone, started_at, finished_at, correct_answers, wrong_answers)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING id, user_id, current_zone, started_at, finished_at, correct_answers, wrong_answers
+        `;
+        const res = await client.query(sql, [
+          userId,
+          reviewData.current_zone || null,
+          now,
+          now,
+          reviewData.correct_answers || 0,
+          reviewData.wrong_answers || 0,
+        ]);
+        return res.rows[0];
+      }
+
+      // Fallback: admin client
       const newReview = {
         user_id: userId,
         ...reviewData,
-        started_at: new Date().toISOString(),
-        finished_at: new Date().toISOString(),
+        started_at: now,
+        finished_at: now,
       };
 
       const { data, error } = await this.supabaseService
@@ -140,15 +308,31 @@ export class CardsService {
       if (error) {
         throw new InternalServerErrorException(error.message);
       }
-
       return data;
     } catch (error) {
-      throw new InternalServerErrorException(`Помилка створення review карточки: ${error.message}`);
+      this.logger.error('createCardReview failed', error);
+      throw error instanceof InternalServerErrorException 
+        ? error 
+        : new InternalServerErrorException('Failed to create card review');
     }
   }
 
-  async getCardById(cardId: string) {
+  /**
+   * Get card by id
+   */
+  async getCardById(cardId: string, client?: any) {
     try {
+      if (client) {
+        const sql = `
+          SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, updated_at
+          FROM cards
+          WHERE id = $1
+        `;
+        const res = await client.query(sql, [cardId]);
+        return res.rows[0] || null;
+      }
+
+      // Fallback: admin client
       const { data, error } = await this.supabaseService
         .getClient()
         .from('cards')
@@ -159,10 +343,12 @@ export class CardsService {
       if (error) {
         throw new InternalServerErrorException(error.message);
       }
-
       return data;
     } catch (error) {
-      throw new InternalServerErrorException(`Помилка отримання картки: ${error.message}`);
+      this.logger.error('getCardById failed', error);
+      throw error instanceof InternalServerErrorException 
+        ? error 
+        : new InternalServerErrorException('Failed to fetch card');
     }
   }
 }
