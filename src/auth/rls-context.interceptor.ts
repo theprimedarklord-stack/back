@@ -11,6 +11,21 @@ export class RlsContextInterceptor implements NestInterceptor {
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
     const req = context.switchToHttp().getRequest();
+    const path = req.path;
+
+    // Skip RLS logic and logging for public/health paths
+    // This prevents log spam from health checks
+    const isPublicPath =
+      path === '/' ||
+      path.startsWith('/health') ||
+      path.startsWith('/api/health') ||
+      path.startsWith('/api/v1/telemetry') ||
+      path.startsWith('/auth/') ||
+      req.method === 'OPTIONS';
+
+    if (isPublicPath) {
+      return next.handle();
+    }
 
     // Extract user ID from JWT token (set by JwtAuthGuard)
     const userId = req.user?.userId || req.user?.id;
@@ -18,18 +33,7 @@ export class RlsContextInterceptor implements NestInterceptor {
     this.logger.debug(`RLS Context: userId=${userId}, user=${JSON.stringify(req.user)}`);
 
     if (!userId) {
-      const path = req.path;
-      const isPublicPath =
-        path === '/' ||
-        path.startsWith('/health') ||
-        path.startsWith('/api/health') ||
-        path.startsWith('/api/v1/telemetry') ||
-        path.startsWith('/auth/') ||
-        req.method === 'OPTIONS';
-
-      if (!isPublicPath) {
-        this.logger.warn(`No userId found for ${req.method} ${path}, skipping RLS context`);
-      }
+      this.logger.warn(`No userId found for ${req.method} ${path}, skipping RLS context`);
       return next.handle();
     }
 
