@@ -6,6 +6,7 @@ import { CreateOrganizationDto, UpdateOrganizationDto, AddMemberDto, UpdateMembe
 export interface Organization {
   id: string;
   name: string;
+  color: string;
   created_by_user_id: string;
   created_at: string;
 }
@@ -27,7 +28,7 @@ export interface OrganizationWithRole extends Organization {
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(private supabaseService: SupabaseService) { }
 
   /**
    * Get all organizations for a user
@@ -45,6 +46,7 @@ export class OrganizationsService {
       return res.rows.map((row: any) => ({
         id: row.id,
         name: row.name,
+        color: row.color,
         created_by_user_id: row.created_by_user_id,
         created_at: row.created_at,
         role: row.role,
@@ -61,6 +63,7 @@ export class OrganizationsService {
         organization:org_organizations (
           id,
           name,
+          color,
           created_by_user_id,
           created_at
         )
@@ -90,6 +93,7 @@ export class OrganizationsService {
         organization:org_organizations (
           id,
           name,
+          color,
           created_by_user_id,
           created_at
         )
@@ -118,6 +122,7 @@ export class OrganizationsService {
       .from('org_organizations')
       .insert({
         name: dto.name,
+        color: dto.color || '#3b82f6', // Default blue
         created_by_user_id: userId,
       })
       .select()
@@ -139,9 +144,13 @@ export class OrganizationsService {
   ): Promise<Organization> {
     const admin = this.supabaseService.getAdminClient();
 
+    const updateData: any = {};
+    if (dto.name) updateData.name = dto.name;
+    if (dto.color) updateData.color = dto.color;
+
     const { data, error } = await admin
       .from('org_organizations')
-      .update({ name: dto.name })
+      .update(updateData)
       .eq('id', orgId)
       .select()
       .single();
