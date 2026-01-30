@@ -37,7 +37,7 @@ export class OrganizationsService {
     // If a transactional PG client is provided (req.dbClient), use it so RLS applies.
     if (client) {
       const sql = `
-        SELECT o.id, o.name, o.created_by_user_id, o.created_at, m.role
+        SELECT o.id, o.name, o.color, o.created_by_user_id, o.created_at, m.role
         FROM org_organizations o
         JOIN org_organization_members m ON m.organization_id = o.id
         WHERE m.user_id = $1

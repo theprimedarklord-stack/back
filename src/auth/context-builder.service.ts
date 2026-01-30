@@ -6,7 +6,7 @@ import { ContextDto } from './dto/context.dto';
 export class ContextBuilderService {
   private readonly logger = new Logger(ContextBuilderService.name);
 
-  constructor(private db: DatabaseService) {}
+  constructor(private db: DatabaseService) { }
 
   /**
    * Build full context for a user with optional org/project/impersonation
@@ -26,7 +26,7 @@ actor AS (
     u.user_id AS user_id,
     u.user_id AS real_user_id,
     FALSE AS is_impersonated
-  FROM users u
+  FROM public.users u
   WHERE u.user_id = $1::uuid
 
   UNION ALL
@@ -35,8 +35,8 @@ actor AS (
     iu.user_id AS user_id,
     u.user_id AS real_user_id,
     TRUE AS is_impersonated
-  FROM users u
-  JOIN users iu ON iu.user_id = $4::uuid
+  FROM public.users u
+  JOIN public.users iu ON iu.user_id = $4::uuid
   WHERE u.user_id = $1::uuid
     AND $4::uuid IS NOT NULL
 ),
@@ -49,7 +49,7 @@ candidate_orgs AS (
   SELECT
     om.organization_id AS org_id,
     1 AS priority
-  FROM org_organization_members om
+  FROM public.org_organization_members om
   WHERE om.user_id = (SELECT user_id FROM actor_final)
     AND om.organization_id = $2::uuid
 
@@ -58,7 +58,7 @@ candidate_orgs AS (
   SELECT
     u.last_active_org_id AS org_id,
     2 AS priority
-  FROM users u
+  FROM public.users u
   WHERE u.user_id = (SELECT user_id FROM actor_final)
     AND $2::uuid IS NULL
     AND u.last_active_org_id IS NOT NULL
@@ -68,7 +68,7 @@ candidate_orgs AS (
   SELECT
     om.organization_id AS org_id,
     3 AS priority
-  FROM org_organization_members om
+  FROM public.org_organization_members om
   WHERE om.user_id = (SELECT user_id FROM actor_final)
 ),
 
@@ -80,9 +80,10 @@ org_ctx AS (
   SELECT
     o.id,
     o.name,
+    o.color,
     om.role AS org_role
-  FROM org_organizations o
-  JOIN org_organization_members om ON om.organization_id = o.id
+  FROM public.org_organizations o
+  JOIN public.org_organization_members om ON om.organization_id = o.id
   WHERE o.id = (SELECT org_id FROM selected_org)
     AND om.user_id = (SELECT user_id FROM actor_final)
 ),
@@ -92,8 +93,8 @@ project_ctx AS (
     p.id,
     p.name,
     pm.role AS project_role
-  FROM org_projects p
-  JOIN org_project_members pm ON pm.project_id = p.id
+  FROM public.org_projects p
+  JOIN public.org_project_members pm ON pm.project_id = p.id
   WHERE p.id = $3::uuid
     AND p.organization_id = (SELECT id FROM org_ctx)
     AND pm.user_id = (SELECT user_id FROM actor_final)
@@ -101,21 +102,21 @@ project_ctx AS (
 
 permissions AS (
   SELECT DISTINCT p.action AS code
-  FROM org_permissions p
+  FROM public.org_permissions p
   WHERE (p.entity_type = 'organization' AND p.role = (SELECT org_role FROM org_ctx))
      OR (p.entity_type = 'project' AND p.role = (SELECT project_role FROM project_ctx))
 ),
 
 limits AS (
   SELECT COALESCE(ol.limits, '{}'::jsonb) AS limits
-  FROM org_limits ol
+  FROM public.org_limits ol
   WHERE ol.org_id = (SELECT id FROM org_ctx)
   LIMIT 1
 ),
 
 flags AS (
   SELECT COALESCE(of.flags, '{}'::jsonb) AS flags
-  FROM org_feature_flags of
+  FROM public.org_feature_flags of
   WHERE of.org_id = (SELECT id FROM org_ctx)
   LIMIT 1
 )
@@ -126,16 +127,14 @@ SELECT jsonb_build_object(
     'realUserId', af.real_user_id,
     'isImpersonated', af.is_impersonated
   ),
-  'org', jsonb_build_object('id', oc.id, 'name', oc.name),
-  'project', CASE WHEN (SELECT COUNT(*) FROM project_ctx) = 0 THEN NULL ELSE jsonb_build_object('id', pc.id, 'name', pc.name) END,
+  'org', CASE WHEN (SELECT COUNT(*) FROM org_ctx) = 0 THEN NULL ELSE (SELECT jsonb_build_object('id', id, 'name', name, 'color', color) FROM org_ctx) END,
+  'project', CASE WHEN (SELECT COUNT(*) FROM project_ctx) = 0 THEN NULL ELSE (SELECT jsonb_build_object('id', id, 'name', name) FROM project_ctx) END,
   'permissions', (SELECT jsonb_agg(code) FROM permissions),
   'limits', (SELECT limits FROM limits),
   'flags', (SELECT flags FROM flags),
-  'meta', jsonb_build_object('orgRole', oc.org_role, 'projectRole', pc.project_role)
+  'meta', jsonb_build_object('orgRole', (SELECT org_role FROM org_ctx), 'projectRole', (SELECT project_role FROM project_ctx))
 ) AS context
-FROM actor_final af
-JOIN org_ctx oc ON TRUE
-LEFT JOIN project_ctx pc ON TRUE;
+FROM actor_final af;
 `;
 
     try {
@@ -143,10 +142,11 @@ LEFT JOIN project_ctx pc ON TRUE;
       const row = res.rows?.[0];
       const ctx = row?.context as ContextDto | undefined;
 
-      if (!ctx || !ctx.org || !ctx.org.id) {
-        throw new ConflictException('Organization context could not be resolved');
+      if (!ctx) {
+        throw new ConflictException('Context could not be resolved');
       }
 
+      // Allow empty org (onboarding flow)
       return ctx;
     } catch (error) {
       this.logger.error('Failed to build context', error as any);
