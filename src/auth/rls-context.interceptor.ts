@@ -7,18 +7,29 @@ import { DatabaseService } from '../db/database.service';
 export class RlsContextInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RlsContextInterceptor.name);
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(private readonly db: DatabaseService) { }
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
     const req = context.switchToHttp().getRequest();
 
     // Extract user ID from JWT token (set by JwtAuthGuard)
     const userId = req.user?.userId || req.user?.id;
-    
+
     this.logger.debug(`RLS Context: userId=${userId}, user=${JSON.stringify(req.user)}`);
-    
+
     if (!userId) {
-      this.logger.warn('No userId found, skipping RLS context');
+      const path = req.path;
+      const isPublicPath =
+        path === '/' ||
+        path.startsWith('/health') ||
+        path.startsWith('/api/health') ||
+        path.startsWith('/api/v1/telemetry') ||
+        path.startsWith('/auth/') ||
+        req.method === 'OPTIONS';
+
+      if (!isPublicPath) {
+        this.logger.warn(`No userId found for ${req.method} ${path}, skipping RLS context`);
+      }
       return next.handle();
     }
 

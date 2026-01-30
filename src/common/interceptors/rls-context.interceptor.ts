@@ -24,14 +24,14 @@ import { SupabaseService } from '../../supabase/supabase.service';
  */
 @Injectable()
 export class RlsContextInterceptor implements NestInterceptor {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(private supabaseService: SupabaseService) { }
 
   async intercept(
     context: ExecutionContext,
     next: CallHandler,
   ): Promise<Observable<any>> {
     const request = context.switchToHttp().getRequest<Request>();
-    
+
 
     // Only set context if user is authenticated (support both userId and id)
     const userId = request.user?.userId || request.user?.id;
@@ -40,6 +40,22 @@ export class RlsContextInterceptor implements NestInterceptor {
         userId,
         request.context?.org?.id,
       );
+    } else {
+      // DEBUG: Determine if we should log warning.
+      // Skip warning for known public paths or if method is OPTIONS
+      const path = request.path;
+      const isPublicPath =
+        path === '/' ||
+        path.startsWith('/health') ||
+        path.startsWith('/api/health') ||
+        path.startsWith('/api/v1/telemetry') ||
+        path.startsWith('/auth/') ||
+        request.method === 'OPTIONS';
+
+      if (!isPublicPath) {
+        // Only log warnings for potential missing auth on protected routes
+        // console.warn(`[RlsContextInterceptor] No userId found for ${request.method} ${path}, skipping RLS context`);
+      }
     }
 
     return next.handle();
