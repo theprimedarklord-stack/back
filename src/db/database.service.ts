@@ -14,6 +14,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
     this.pool = new Pool({
       connectionString,
+      ssl: { rejectUnauthorized: false },
+      max: 20,
     });
   }
 
