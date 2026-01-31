@@ -7,9 +7,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool;
 
   constructor(private config: ConfigService) {
-    const connectionString = this.config.get<string>('DATABASE_URL');
+    const connectionString = this.config.get<string>('APP_DATABASE_URL');
     if (!connectionString) {
-      throw new Error('DATABASE_URL is required');
+      throw new Error('APP_DATABASE_URL is required');
     }
 
     this.pool = new Pool({
@@ -21,7 +21,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     await this.pool.query('SELECT 1');
-
+ 
     // DEBUG: List all tables in public schema to verify visibility
     try {
       const res = await this.pool.query(`
