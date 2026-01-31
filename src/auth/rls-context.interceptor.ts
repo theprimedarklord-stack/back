@@ -21,6 +21,7 @@ export class RlsContextInterceptor implements NestInterceptor {
       path.startsWith('/api/health') ||
       path.startsWith('/api/v1/telemetry') ||
       path.startsWith('/auth/') ||
+      path.startsWith('/me/') || // Skip RLS for /me endpoints which use Supabase Client
       req.method === 'OPTIONS';
 
     if (isPublicPath) {
