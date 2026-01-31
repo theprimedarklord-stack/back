@@ -1,12 +1,12 @@
 import { Injectable, Logger, ConflictException } from '@nestjs/common';
-import { DatabaseService } from '../db/database.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { ContextDto } from './dto/context.dto';
 
 @Injectable()
 export class ContextBuilderService {
   private readonly logger = new Logger(ContextBuilderService.name);
 
-  constructor(private db: DatabaseService) { }
+  constructor(private supabaseService: SupabaseService) { }
 
   /**
    * Build full context for a user with optional org/project/impersonation
@@ -19,135 +19,133 @@ export class ContextBuilderService {
   }): Promise<ContextDto> {
     const { userId, orgId, projectId, impersonatedUserId } = params;
 
-    const sql = `
-WITH
-actor AS (
-  SELECT
-    u.user_id AS user_id,
-    u.user_id AS real_user_id,
-    FALSE AS is_impersonated
-  FROM public.users u
-  WHERE u.user_id = $1::uuid
-
-  UNION ALL
-
-  SELECT
-    iu.user_id AS user_id,
-    u.user_id AS real_user_id,
-    TRUE AS is_impersonated
-  FROM public.users u
-  JOIN public.users iu ON iu.user_id = $4::uuid
-  WHERE u.user_id = $1::uuid
-    AND $4::uuid IS NOT NULL
-),
-
-actor_final AS (
-  SELECT * FROM actor ORDER BY is_impersonated DESC LIMIT 1
-),
-
-candidate_orgs AS (
-  SELECT
-    om.organization_id AS org_id,
-    1 AS priority
-  FROM public.org_organization_members om
-  WHERE om.user_id = (SELECT user_id FROM actor_final)
-    AND om.organization_id = $2::uuid
-
-  UNION ALL
-
-  SELECT
-    u.last_active_org_id AS org_id,
-    2 AS priority
-  FROM public.users u
-  WHERE u.user_id = (SELECT user_id FROM actor_final)
-    AND $2::uuid IS NULL
-    AND u.last_active_org_id IS NOT NULL
-
-  UNION ALL
-
-  SELECT
-    om.organization_id AS org_id,
-    3 AS priority
-  FROM public.org_organization_members om
-  WHERE om.user_id = (SELECT user_id FROM actor_final)
-),
-
-selected_org AS (
-  SELECT org_id FROM candidate_orgs ORDER BY priority LIMIT 1
-),
-
-org_ctx AS (
-  SELECT
-    o.id,
-    o.name,
-    o.color,
-    om.role AS org_role
-  FROM public.org_organizations o
-  JOIN public.org_organization_members om ON om.organization_id = o.id
-  WHERE o.id = (SELECT org_id FROM selected_org)
-    AND om.user_id = (SELECT user_id FROM actor_final)
-),
-
-project_ctx AS (
-  SELECT
-    p.id,
-    p.name,
-    pm.role AS project_role
-  FROM public.org_projects p
-  JOIN public.org_project_members pm ON pm.project_id = p.id
-  WHERE p.id = $3::uuid
-    AND p.organization_id = (SELECT id FROM org_ctx)
-    AND pm.user_id = (SELECT user_id FROM actor_final)
-),
-
-permissions AS (
-  SELECT DISTINCT p.action AS code
-  FROM public.org_permissions p
-  WHERE (p.entity_type = 'organization' AND p.role = (SELECT org_role FROM org_ctx))
-     OR (p.entity_type = 'project' AND p.role = (SELECT project_role FROM project_ctx))
-),
-
-limits AS (
-  SELECT COALESCE(ol.limits, '{}'::jsonb) AS limits
-  FROM public.org_limits ol
-  WHERE ol.org_id = (SELECT id FROM org_ctx)
-  LIMIT 1
-),
-
-flags AS (
-  SELECT COALESCE(of.flags, '{}'::jsonb) AS flags
-  FROM public.org_feature_flags of
-  WHERE of.org_id = (SELECT id FROM org_ctx)
-  LIMIT 1
-)
-
-SELECT jsonb_build_object(
-  'actor', jsonb_build_object(
-    'userId', af.user_id,
-    'realUserId', af.real_user_id,
-    'isImpersonated', af.is_impersonated
-  ),
-  'org', CASE WHEN (SELECT COUNT(*) FROM org_ctx) = 0 THEN NULL ELSE (SELECT jsonb_build_object('id', id, 'name', name, 'color', color) FROM org_ctx) END,
-  'project', CASE WHEN (SELECT COUNT(*) FROM project_ctx) = 0 THEN NULL ELSE (SELECT jsonb_build_object('id', id, 'name', name) FROM project_ctx) END,
-  'permissions', (SELECT jsonb_agg(code) FROM permissions),
-  'limits', (SELECT limits FROM limits),
-  'flags', (SELECT flags FROM flags),
-  'meta', jsonb_build_object('orgRole', (SELECT org_role FROM org_ctx), 'projectRole', (SELECT project_role FROM project_ctx))
-) AS context
-FROM actor_final af;
-`;
+    // Use Admin client to bypass RLS for context building (we are the system)
+    const supabase = this.supabaseService.getAdminClient();
 
     try {
-      const res = await this.db.query(sql, [userId, orgId || null, projectId || null, impersonatedUserId || null]);
-      const row = res.rows?.[0];
-      const ctx = row?.context as ContextDto | undefined;
+      // 1. Resolve Actor
+      const targetUserId = impersonatedUserId || userId;
 
-      if (!ctx) {
-        throw new ConflictException('Context could not be resolved');
+      // 2. Resolve Organization
+      let selectedOrg: any = null;
+      let orgRole: string | null = null;
+
+      if (orgId) {
+        // Specific org requested
+        const { data: member } = await supabase
+          .from('org_organization_members')
+          .select('role, organization:org_organizations(id, name, color)')
+          .eq('user_id', targetUserId)
+          .eq('organization_id', orgId)
+          .single();
+
+        if (member) {
+          selectedOrg = member.organization;
+          orgRole = member.role;
+        }
+      } else {
+        // Try last active org
+        const { data: user } = await supabase
+          .from('users')
+          .select('last_active_org_id')
+          .eq('user_id', targetUserId)
+          .single();
+
+        if (user?.last_active_org_id) {
+          const { data: member } = await supabase
+            .from('org_organization_members')
+            .select('role, organization:org_organizations(id, name, color)')
+            .eq('user_id', targetUserId)
+            .eq('organization_id', user.last_active_org_id)
+            .single();
+
+          if (member) {
+            selectedOrg = member.organization;
+            orgRole = member.role;
+          }
+        }
+
+        // Fallback: any org
+        if (!selectedOrg) {
+          const { data: member } = await supabase
+            .from('org_organization_members')
+            .select('role, organization:org_organizations(id, name, color)')
+            .eq('user_id', targetUserId)
+            .limit(1)
+            .maybeSingle(); // Use maybeSingle to avoid 406 if no rows
+
+          if (member) {
+            selectedOrg = member.organization;
+            orgRole = member.role;
+          }
+        }
       }
+
+      // 3. Resolve Project
+      let selectedProject: any = null;
+      let projectRole: string | null = null;
+
+      if (projectId && selectedOrg) {
+        const { data: member } = await supabase
+          .from('org_project_members')
+          .select('role, project:org_projects(id, name)')
+          .eq('user_id', targetUserId)
+          .eq('project_id', projectId)
+          .eq('project.organization_id', selectedOrg.id) // Ensure project belongs to org
+          .single();
+
+        if (member?.project) {
+          selectedProject = member.project;
+          projectRole = member.role;
+        }
+      }
+
+      // 4. Resolve Permissions
+      let permissions: string[] = [];
+      if (orgRole || projectRole) {
+        const { data: perms } = await supabase
+          .from('org_permissions')
+          .select('action')
+          .or(`role.eq.${orgRole},role.eq.${projectRole}`);
+
+        if (perms) {
+          permissions = [...new Set(perms.map(p => p.action))];
+        }
+      }
+
+      // 5. Limits & Flags
+      let limits = {};
+      let flags = {};
+
+      if (selectedOrg) {
+        const { data: l } = await supabase.from('org_limits').select('limits').eq('org_id', selectedOrg.id).single();
+        if (l) limits = l.limits;
+
+        const { data: f } = await supabase.from('org_feature_flags').select('flags').eq('org_id', selectedOrg.id).single();
+        if (f) flags = f.flags;
+      }
+
+      // Construct Result
+      const ctx: ContextDto = {
+        actor: {
+          userId: targetUserId,
+          realUserId: userId,
+          isImpersonated: !!impersonatedUserId,
+        },
+        org: selectedOrg ? { id: selectedOrg.id, name: selectedOrg.name, color: selectedOrg.color } : null,
+        project: selectedProject ? { id: selectedProject.id, name: selectedProject.name } : null,
+        permissions,
+        limits,
+        flags,
+        meta: {
+          orgRole,
+          projectRole
+        }
+      };
 
       // Allow empty org (onboarding flow)
       return ctx;
+
     } catch (error) {
       this.logger.error('Failed to build context', error as any);
       throw error;
