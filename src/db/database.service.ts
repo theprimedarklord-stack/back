@@ -17,11 +17,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       ssl: { rejectUnauthorized: false },
       max: 20,
     });
+
+    // Handle idle client errors to prevent crash
+    this.pool.on('error', (err: any, client: any) => {
+      console.error('Unexpected error on idle client', err);
+      // process.exit(-1); // Do not exit, just log
+    });
   }
 
   async onModuleInit() {
     await this.pool.query('SELECT 1');
- 
+
     // DEBUG: List all tables in public schema to verify visibility
     try {
       const res = await this.pool.query(`
