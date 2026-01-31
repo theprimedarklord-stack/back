@@ -37,18 +37,18 @@ export class ContextGuard implements CanActivate {
   constructor(
     private supabaseService: SupabaseService,
     private contextBuilder: ContextBuilderService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    
+
     // User must be authenticated first (CognitoAuthGuard should run before)
     if (!request.user?.userId) {
       throw new ForbiddenException('Authentication required');
     }
 
     const userId = request.user.userId;
-    
+
     // Build full context (uses fallback logic internally)
     const headerOrgId = this.extractOrgId(request);
     const headerProjectId = this.extractProjectId(request);
@@ -65,7 +65,7 @@ export class ContextGuard implements CanActivate {
 
     request.context = {
       org: { id: ctx.org.id, role: ctx.meta?.orgRole as OrgContext['role'] },
-      userId: ctx.actor.id,
+      userId: ctx.actor.userId,
     } as RequestContext;
 
     return true;
@@ -77,7 +77,7 @@ export class ContextGuard implements CanActivate {
     if (headerOrgId) {
       return headerOrgId;
     }
-    
+
     return req.cookies?.active_org_id || null;
   }
 
