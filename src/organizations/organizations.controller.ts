@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { HybridAuthGuard } from '../auth/hybrid-auth.guard';
@@ -33,7 +34,7 @@ import {
 @Controller('organizations')
 @UseInterceptors(RlsContextInterceptor)
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(private readonly organizationsService: OrganizationsService) { }
 
   /**
    * GET /organizations
@@ -88,8 +89,8 @@ export class OrganizationsController {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       organizationId: dto.organizationId,
       message: 'Organization switched successfully',
     };
@@ -140,8 +141,14 @@ export class OrganizationsController {
    * Get all members of an organization
    */
   @Get(':orgId/members')
-  @UseGuards(HybridAuthGuard, ContextGuard)
-  async getMembers(@Param('orgId') orgId: string) {
+  @UseGuards(HybridAuthGuard) // ContextGuard removed as it blocks access if not "switched" into org
+  async getMembers(@Param('orgId') orgId: string, @Req() req: Request) {
+    // Verify membership manually
+    const isMember = await this.organizationsService.canSwitchTo(orgId, req.user!.userId);
+    if (!isMember) {
+      throw new ForbiddenException('Not a member of this organization');
+    }
+
     const members = await this.organizationsService.getMembers(orgId);
     return { members };
   }
