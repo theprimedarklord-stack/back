@@ -6,6 +6,7 @@ import { CreateOrganizationDto, UpdateOrganizationDto, AddMemberDto, UpdateMembe
 export interface Organization {
   id: string;
   name: string;
+  slug: string;
   color: string;
   created_by_user_id: string;
   created_at: string;
@@ -29,6 +30,18 @@ export interface OrganizationWithRole extends Organization {
 @Injectable()
 export class OrganizationsService {
   constructor(private supabaseService: SupabaseService) { }
+
+  private slugify(text: string): string {
+    return text
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')     // Replace spaces with -
+      .replace(/[^\w\-]+/g, '') // Remove all non-word chars
+      .replace(/\-\-+/g, '-')   // Replace multiple - with single -
+      .replace(/^-+/, '')       // Trim - from start of text
+      .replace(/-+$/, '');      // Trim - from end of text
+  }
 
   /**
    * Get all organizations for a user
@@ -63,6 +76,7 @@ export class OrganizationsService {
         organization:org_organizations (
           id,
           name,
+          slug,
           color,
           created_by_user_id,
           created_at
@@ -93,6 +107,7 @@ export class OrganizationsService {
         organization:org_organizations (
           id,
           name,
+          slug,
           color,
           created_by_user_id,
           created_at
@@ -113,15 +128,44 @@ export class OrganizationsService {
   }
 
   /**
+   * Find organization by slug (public/protected logic handled by controller)
+   */
+  async findBySlug(slug: string): Promise<Organization> {
+    const admin = this.supabaseService.getAdminClient();
+
+    const { data, error } = await admin
+      .from('org_organizations')
+      .select('*')
+      .eq('slug', slug)
+      .single();
+
+    if (error || !data) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return data;
+  }
+
+  /**
    * Create new organization (user becomes owner via trigger)
    */
   async create(dto: CreateOrganizationDto, userId: string): Promise<Organization> {
     const admin = this.supabaseService.getAdminClient();
 
+    let slug = this.slugify(dto.name);
+    // Determine uniqueness (simple approach: append random string if exists, 
+    // but for now let's hope for best or rely on DB constraint error to retry)
+    // To be robust: check existence.
+    const { data: existing } = await admin.from('org_organizations').select('id').eq('slug', slug).single();
+    if (existing) {
+      slug = `${slug}-${Math.floor(Math.random() * 10000)}`;
+    }
+
     const { data, error } = await admin
       .from('org_organizations')
       .insert({
         name: dto.name,
+        slug: slug,
         color: dto.color || '#3b82f6', // Default blue
         created_by_user_id: userId,
       })

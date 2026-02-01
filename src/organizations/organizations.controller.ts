@@ -97,6 +97,18 @@ export class OrganizationsController {
   }
 
   /**
+   * GET /organizations/by-slug/:slug
+   * Resolve organization by slug (publicly accessible for routing, or protected?)
+   * For now protected by HybridAuthGuard to ensure user is logged in.
+   */
+  @Get('by-slug/:slug')
+  @UseGuards(HybridAuthGuard)
+  async findBySlug(@Param('slug') slug: string) {
+    const organization = await this.organizationsService.findBySlug(slug);
+    return { organization };
+  }
+
+  /**
    * GET /organizations/:orgId
    * Get single organization details
    */
