@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, Delete, Req, Res, UseGuards, HttpStatus, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SupabaseService } from '../supabase/supabase.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { Response, Request } from 'express';
 import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import * as multer from 'multer';
@@ -30,10 +30,10 @@ const multerConfig: MulterOptions = {
 
 @Controller('user')
 export class UserController {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(private readonly supabaseService: SupabaseService) { }
 
   @Post('avatar')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   @UseInterceptors(FileInterceptor('avatar', multerConfig))
   async uploadAvatar(
     @UploadedFile() file: Express.Multer.File,
@@ -57,18 +57,18 @@ export class UserController {
         };
       }
 
-  
+
 
       // Генерируем уникальное имя файла
       const fileExtension = path.extname(file.originalname);
       const fileName = `avatar_${req.user.id}_${crypto.randomUUID()}${fileExtension}`;
       const filePath = `${req.user.id}/${fileName}`;
 
-      
+
 
       // Используем админ клиент для операций с хранилищем
       const adminClient = this.supabaseService.getAdminClient();
-      
+
       const { data: uploadData, error: uploadError } = await adminClient
         .storage
         .from('card-images')
@@ -87,7 +87,7 @@ export class UserController {
         };
       }
 
-      
+
 
       // Получаем публичный URL файла
       const { data: urlData } = adminClient
@@ -96,7 +96,7 @@ export class UserController {
         .getPublicUrl(filePath);
 
       const avatarUrl = urlData.publicUrl;
-      
+
 
       // Получаем текущий аватар для удаления старого файла
       const { data: currentUser } = await this.supabaseService
@@ -120,7 +120,7 @@ export class UserController {
           .storage
           .from('card-images')
           .remove([filePath]);
-        
+
         return {
           success: false,
           error: 'Не удалось обновить профиль пользователя',
@@ -134,7 +134,7 @@ export class UserController {
         try {
           const oldFilePath = this.extractFilePathFromUrl(currentUser.avatar_url);
           if (oldFilePath) {
-    
+
             await adminClient
               .storage
               .from('card-images')
@@ -164,7 +164,7 @@ export class UserController {
   }
 
   @Delete('avatar')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async removeAvatar(@Req() req: Request) {
     try {
       // Проверяем что user.id существует
@@ -214,8 +214,8 @@ export class UserController {
         try {
           const filePath = this.extractFilePathFromUrl(currentUser.avatar_url);
           if (filePath) {
-    
-            
+
+
             // ИСПРАВЛЕНИЕ: Используем админ клиент для удаления файлов
             const adminClient = this.supabaseService.getAdminClient();
             const { error: deleteError } = await adminClient
@@ -227,7 +227,7 @@ export class UserController {
               console.error('File deletion error:', deleteError);
               // Не возвращаем ошибку, так как основная операция прошла успешно
             } else {
-      
+
             }
           }
         } catch (error) {
@@ -252,7 +252,7 @@ export class UserController {
   }
 
   @Get('avatar')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getAvatar(@Req() req: Request) {
     try {
       if (!req.user?.id) {
@@ -301,18 +301,18 @@ export class UserController {
       const urlParts = url.split('/');
       const publicIndex = urlParts.findIndex(part => part === 'public');
       const bucketIndex = urlParts.findIndex(part => part === 'card-images');
-      
+
       if (publicIndex !== -1 && bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
         // Возвращаем путь после названия bucket
         return urlParts.slice(bucketIndex + 1).join('/');
       }
-      
+
       // Альтернативный способ - ищем после card-images
       const cardImagesIndex = urlParts.findIndex(part => part === 'card-images');
       if (cardImagesIndex !== -1 && cardImagesIndex < urlParts.length - 1) {
         return urlParts.slice(cardImagesIndex + 1).join('/');
       }
-      
+
       console.error('Could not extract file path from URL:', url);
       return null;
     } catch (error) {
@@ -320,9 +320,9 @@ export class UserController {
       return null;
     }
   }
-  
+
   @Get('theme')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getTheme(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     try {
       if (!req.user?.id) {
@@ -369,7 +369,7 @@ export class UserController {
   }
 
   @Post('theme')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async updateTheme(
     @Body() body: { theme: string },
     @Req() req: Request,
@@ -427,7 +427,7 @@ export class UserController {
   }
 
   @Get('sidebar')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getSidebarSettings(@Req() req: Request) {
     try {
       if (!req.user?.id) {
@@ -454,8 +454,8 @@ export class UserController {
         };
       }
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         sidebar_mode: settingsData?.sidebar_mode || 'expanded',
         sidebar_width: settingsData?.sidebar_width || 234,
         on_this_page_display_mode: settingsData?.on_this_page_display_mode || null
@@ -471,7 +471,7 @@ export class UserController {
   }
 
   @Post('sidebar')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async updateSidebarSettings(
     @Body() body: UpdateSidebarSettingsDto,
     @Req() req: Request,
@@ -517,8 +517,8 @@ export class UserController {
         };
       }
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         settings: {
           sidebar_mode,
           sidebar_width,
@@ -536,7 +536,7 @@ export class UserController {
   }
 
   @Get('language')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getLanguage(@Req() req: Request) {
     try {
       if (!req.user?.id) {
@@ -575,7 +575,7 @@ export class UserController {
   }
 
   @Post('language')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async updateLanguage(
     @Body() body: { language: string },
     @Req() req: Request,
@@ -597,7 +597,7 @@ export class UserController {
           status: HttpStatus.BAD_REQUEST,
         };
       }
-      
+
       const { error } = await this.supabaseService
         .getAdminClient()
         .from('user_settings')
@@ -625,7 +625,7 @@ export class UserController {
   }
 
   @Get('profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getProfile(@Req() req: Request) {
     try {
       if (!req.user?.id) {
@@ -680,7 +680,7 @@ export class UserController {
   }
 
   @Post('profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async updateProfile(
     @Body() body: { username?: string; full_name?: string },
     @Req() req: Request,
@@ -695,7 +695,7 @@ export class UserController {
       }
 
       const { username, full_name } = body;
-      
+
       // Валидация данных
       if (username !== undefined && (typeof username !== 'string' || username.trim().length < 2 || username.trim().length > 50)) {
         return {
@@ -760,8 +760,8 @@ export class UserController {
         };
       }
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         profile: {
           username: data.username,
           full_name: data.full_name,
@@ -780,7 +780,7 @@ export class UserController {
   }
 
   @Post('email')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async updateEmail(
     @Body() body: { email: string },
     @Req() req: Request,
@@ -795,7 +795,7 @@ export class UserController {
       }
 
       const { email } = body;
-      
+
       // Валидация email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!email || !emailRegex.test(email)) {
@@ -855,8 +855,8 @@ export class UserController {
         };
       }
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         email: email.toLowerCase(),
         message: 'Email updated successfully'
       };
@@ -870,5 +870,5 @@ export class UserController {
       };
     }
   }
-  
+
 }

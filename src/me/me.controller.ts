@@ -1,6 +1,6 @@
 import { Controller, Get, Req, UseGuards, Query, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { Request } from 'express';
-import { HybridAuthGuard } from '../auth/hybrid-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { ContextBuilderService } from '../auth/context-builder.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { OrgProjectsService } from '../org-projects/org-projects.service';
@@ -15,7 +15,7 @@ export class MeController {
     private supabaseService: SupabaseService,
   ) { }
 
-  @UseGuards(HybridAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   @Get('context')
   async getContext(@Req() req: Request) {
     const userId = req.user?.userId;
@@ -28,7 +28,7 @@ export class MeController {
     return this.contextBuilder.build({ userId, orgId, projectId });
   }
 
-  @UseGuards(HybridAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   @Get('orgs')
   async getOrgs(@Req() req: Request) {
     const userId = req.user?.userId;
@@ -38,7 +38,7 @@ export class MeController {
     return this.organizationsService.findAllForUser(userId);
   }
 
-  @UseGuards(HybridAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   @Get('projects')
   async getProjects(@Req() req: Request, @Query('orgId') orgId?: string) {
     const userId = req.user?.userId;
@@ -78,7 +78,7 @@ export class MeController {
     return this.orgProjectsService.findAllInOrganization(orgId, userId);
   }
 
-  @UseGuards(HybridAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   @Post('switch-org')
   @HttpCode(HttpStatus.OK)
   async switchOrg(@Req() req: Request, @Body() dto: { organizationId: string }) {

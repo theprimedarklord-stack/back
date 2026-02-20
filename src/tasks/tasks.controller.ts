@@ -1,13 +1,13 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
-  Req, 
-  UseGuards, 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Req,
+  UseGuards,
   HttpStatus,
   HttpException,
   Query
@@ -15,26 +15,26 @@ import {
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 
 @Controller('tasks')
-@UseGuards(JwtAuthGuard)
+@UseGuards(CognitoAuthGuard)
 export class TasksController {
-  constructor(private readonly tasksService: TasksService) {}
+  constructor(private readonly tasksService: TasksService) { }
 
   @Post()
   async create(@Body() createTaskDto: CreateTaskDto, @Req() req) {
     try {
       const userId = req.user.id;
-      
+
       // Валидация deadline
       if (createTaskDto.deadline && new Date(createTaskDto.deadline) < new Date()) {
         throw new HttpException(
-          'Deadline не может быть в прошлом', 
+          'Deadline не может быть в прошлом',
           HttpStatus.BAD_REQUEST
         );
       }
-      
+
       const task = await this.tasksService.create(createTaskDto, userId);
       return { success: true, task };
     } catch (error) {
@@ -43,7 +43,7 @@ export class TasksController {
         throw error;
       }
       throw new HttpException(
-        'Ошибка создания задачи', 
+        'Ошибка создания задачи',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -62,7 +62,7 @@ export class TasksController {
         throw error;
       }
       throw new HttpException(
-        'Ошибка получения задач', 
+        'Ошибка получения задач',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -80,7 +80,7 @@ export class TasksController {
         throw error;
       }
       throw new HttpException(
-        'Ошибка получения задачи', 
+        'Ошибка получения задачи',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -90,15 +90,15 @@ export class TasksController {
   async update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto, @Req() req) {
     try {
       const userId = req.user.id;
-      
+
       // Валидация deadline
       if (updateTaskDto.deadline && new Date(updateTaskDto.deadline) < new Date()) {
         throw new HttpException(
-          'Deadline не может быть в прошлом', 
+          'Deadline не может быть в прошлом',
           HttpStatus.BAD_REQUEST
         );
       }
-      
+
       const task = await this.tasksService.update(id, updateTaskDto, userId);
       return { success: true, task };
     } catch (error) {
@@ -107,7 +107,7 @@ export class TasksController {
         throw error;
       }
       throw new HttpException(
-        'Ошибка обновления задачи', 
+        'Ошибка обновления задачи',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -125,7 +125,7 @@ export class TasksController {
         throw error;
       }
       throw new HttpException(
-        'Ошибка удаления задачи', 
+        'Ошибка удаления задачи',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -139,7 +139,7 @@ export class TasksController {
     } catch (error) {
       console.error('Get statuses error:', error);
       throw new HttpException(
-        'Ошибка получения статусов', 
+        'Ошибка получения статусов',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -153,7 +153,7 @@ export class TasksController {
     } catch (error) {
       console.error('Get priorities error:', error);
       throw new HttpException(
-        'Ошибка получения приоритетов', 
+        'Ошибка получения приоритетов',
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

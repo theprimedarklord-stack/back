@@ -17,12 +17,12 @@ import { UpdateAIChatSettingsDto } from './dto/ai-chat-settings.dto';
 import { UpdateAIOutlineSettingsDto } from './dto/ai-outline-settings.dto';
 import { GenerateRecommendationsDto } from './dto/generate-recommendations.dto';
 import { ChatDto } from './dto/chat.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 
 @Controller('ai')
-@UseGuards(JwtAuthGuard)
+@UseGuards(CognitoAuthGuard)
 export class AIController {
-  constructor(private readonly aiService: AIService) {}
+  constructor(private readonly aiService: AIService) { }
 
   @Get('settings')
   async getSettings(@Req() req) {
@@ -188,7 +188,7 @@ export class AIController {
     try {
       const userId = req.user.id;
       const goalIdNum = parseInt(goalId, 10);
-      
+
       if (isNaN(goalIdNum)) {
         throw new HttpException(
           'Некорректный ID цели',
@@ -197,9 +197,9 @@ export class AIController {
       }
 
       const cached = await this.aiService.getCachedRecommendations(userId, goalIdNum);
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         recommendations: cached?.recommendations || null,
         cached: !!cached,
         modelUsed: cached?.model_used,
@@ -240,7 +240,7 @@ export class AIController {
     try {
       const userId = req.user.id;
       const goalIdNum = parseInt(goalId, 10);
-      
+
       if (isNaN(goalIdNum)) {
         throw new HttpException(
           'Некорректный ID цели',

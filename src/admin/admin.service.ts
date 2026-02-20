@@ -1,10 +1,20 @@
 // src/admin/admin.service.ts
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import {
+  CognitoIdentityProviderClient,
+  AdminDeleteUserCommand,
+} from '@aws-sdk/client-cognito-identity-provider';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  private cognitoClient: CognitoIdentityProviderClient;
+
+  constructor(private readonly supabaseService: SupabaseService) {
+    this.cognitoClient = new CognitoIdentityProviderClient({
+      region: process.env.COGNITO_REGION,
+    });
+  }
 
   // Проверка роли администратора
   async checkAdminRole(userId: string): Promise<boolean> {
@@ -35,7 +45,7 @@ export class AdminService {
     const total = users.length;
     const admins = users.filter(u => u.role === 'admin').length;
     const regularUsers = users.filter(u => u.role === 'user').length;
-    
+
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const recentUsers = users.filter(u => {
       if (!u.created_at) return false;
@@ -155,11 +165,16 @@ export class AdminService {
       throw new Error('Не удалось удалить пользователя');
     }
 
-    // 4. Удаляем из Supabase Auth
+    // 4. Удаляем из AWS Cognito
     try {
-      await supabase.auth.admin.deleteUser(userId);
+      // userId в нашей таблице users — это cognito_sub
+      const command = new AdminDeleteUserCommand({
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        Username: userId,
+      });
+      await this.cognitoClient.send(command);
     } catch (authDeleteError) {
-      console.error('Ошибка удаления Auth пользователя:', authDeleteError);
+      console.error('Ошибка удаления Cognito пользователя:', authDeleteError);
     }
 
     // Логируем действие

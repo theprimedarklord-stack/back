@@ -14,15 +14,15 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { SuggestionsService } from './suggestions.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { SaveSuggestionsDto } from './dto/create-suggestion.dto';
 import { UpdateSuggestionStatusDto } from './dto/update-suggestion-status.dto';
 import { GetSuggestionsQueryDto } from './dto/get-suggestions-query.dto';
 
 @Controller('suggestions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(CognitoAuthGuard)
 export class SuggestionsController {
-  constructor(private readonly suggestionsService: SuggestionsService) {}
+  constructor(private readonly suggestionsService: SuggestionsService) { }
 
   /**
    * POST /suggestions - ручне збереження рекомендацій (батчинг)

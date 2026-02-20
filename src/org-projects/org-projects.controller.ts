@@ -16,7 +16,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { HybridAuthGuard } from '../auth/hybrid-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { ContextGuard } from '../auth/context.guard';
 import { ProjectGuard } from '../auth/project.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -35,7 +35,7 @@ import {
 @Controller('org_projects')
 @UseInterceptors(RlsContextInterceptor)
 export class OrgProjectsController {
-  constructor(private readonly orgProjectsService: OrgProjectsService) {}
+  constructor(private readonly orgProjectsService: OrgProjectsService) { }
 
   /**
    * GET /org_projects
@@ -43,7 +43,7 @@ export class OrgProjectsController {
    * Requires: CognitoAuthGuard + ContextGuard (x-org-id header)
    */
   @Get()
-  @UseGuards(HybridAuthGuard, ContextGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard)
   async findAll(@Req() req: Request) {
     const projects = await this.orgProjectsService.findAllInOrganization(
       req.context!.org.id,
@@ -58,7 +58,7 @@ export class OrgProjectsController {
    * Requires: owner/admin role in org
    */
   @Post()
-  @UseGuards(HybridAuthGuard, ContextGuard, PermissionsGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, PermissionsGuard)
   @Permission('projects.create')
   async create(@Body() dto: CreateOrgProjectDto, @Req() req: Request) {
     const project = await this.orgProjectsService.create(
@@ -74,7 +74,7 @@ export class OrgProjectsController {
    * Switch active project (sets cookie)
    */
   @Post('switch')
-  @UseGuards(HybridAuthGuard, ContextGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard)
   @HttpCode(HttpStatus.OK)
   async switchProject(
     @Body() dto: SwitchProjectDto,
@@ -88,8 +88,8 @@ export class OrgProjectsController {
     );
 
     if (!canSwitch) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         message: 'Not a member of this project or project not in active organization',
       };
     }
@@ -115,10 +115,10 @@ export class OrgProjectsController {
    * Get single project details
    */
   @Get(':projectId')
-  @UseGuards(HybridAuthGuard, ContextGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard)
   async findOne(@Param('projectId') projectId: string, @Req() req: Request) {
     const project = await this.orgProjectsService.findOne(projectId, req.user!.userId);
-    
+
     // Verify project belongs to active org
     if (project.organization_id !== req.context!.org.id) {
       throw new ForbiddenException('Project not in active organization');
@@ -132,7 +132,7 @@ export class OrgProjectsController {
    * Update project (project_owner/project_admin only)
    */
   @Patch(':projectId')
-  @UseGuards(HybridAuthGuard, ContextGuard, ProjectGuard, PermissionsGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, ProjectGuard, PermissionsGuard)
   @Permission('content.edit', 'project')
   async update(
     @Param('projectId') projectId: string,
@@ -147,7 +147,7 @@ export class OrgProjectsController {
    * Delete project (project_owner only)
    */
   @Delete(':projectId')
-  @UseGuards(HybridAuthGuard, ContextGuard, ProjectGuard, RolesGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, ProjectGuard, RolesGuard)
   @Roles('project_owner')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('projectId') projectId: string) {
@@ -161,7 +161,7 @@ export class OrgProjectsController {
    * Get all members of a project
    */
   @Get(':projectId/members')
-  @UseGuards(HybridAuthGuard, ContextGuard, ProjectGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, ProjectGuard)
   async getMembers(@Param('projectId') projectId: string) {
     const members = await this.orgProjectsService.getMembers(projectId);
     return { members };
@@ -172,7 +172,7 @@ export class OrgProjectsController {
    * Add member to project (project_owner/project_admin only)
    */
   @Post(':projectId/members')
-  @UseGuards(HybridAuthGuard, ContextGuard, ProjectGuard, RolesGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, ProjectGuard, RolesGuard)
   @Roles('project_owner', 'project_admin')
   async addMember(
     @Param('projectId') projectId: string,
@@ -192,7 +192,7 @@ export class OrgProjectsController {
    * Update project member role (project_owner only)
    */
   @Patch(':projectId/members/:memberId')
-  @UseGuards(HybridAuthGuard, ContextGuard, ProjectGuard, RolesGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, ProjectGuard, RolesGuard)
   @Roles('project_owner')
   async updateMemberRole(
     @Param('projectId') projectId: string,
@@ -212,7 +212,7 @@ export class OrgProjectsController {
    * Remove member from project (project_owner or self)
    */
   @Delete(':projectId/members/:memberId')
-  @UseGuards(HybridAuthGuard, ContextGuard, ProjectGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, ProjectGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeMember(
     @Param('projectId') projectId: string,

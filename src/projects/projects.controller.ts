@@ -15,20 +15,20 @@ import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { AddGeneratedStructureDto } from './dto/add-generated-structure.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { AIService } from '../ai/ai.service';
 import { SuggestionsService } from '../suggestions/suggestions.service';
 import { GenerateGoalsForProjectDto } from '../ai/dto/generate-goals.dto';
 import { GenerateFullStructureDto } from '../ai/dto/generate-full-structure.dto';
 
 @Controller('projects')
-@UseGuards(JwtAuthGuard)
+@UseGuards(CognitoAuthGuard)
 export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly aiService: AIService,
     private readonly suggestionsService: SuggestionsService,
-  ) {}
+  ) { }
 
   @Post()
   async create(@Body() createProjectDto: CreateProjectDto, @Req() req) {
@@ -214,7 +214,7 @@ export class ProjectsController {
       // 2. Якщо не вистачає до targetCount - генерує додаткові через AI
       // 3. Фільтрує дублікати
       // 4. Повертає потрібну кількість рекомендацій
-      
+
       const result = await this.suggestionsService.getOrFillPendingSuggestions(
         userId,
         Number(projectId),

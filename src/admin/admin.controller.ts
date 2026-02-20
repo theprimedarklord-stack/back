@@ -1,7 +1,7 @@
 // src/admin/admin.controller.ts
 import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, HttpStatus } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -13,7 +13,7 @@ interface AuthenticatedRequest extends Request {
 
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(private readonly supabaseService: SupabaseService) { }
 
   // Проверка роли администратора
   private async checkAdminRole(userId: string) {
@@ -32,7 +32,7 @@ export class AdminController {
 
   // Получение статистики пользователей
   @Get('stats')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getUserStats(@Req() req: AuthenticatedRequest) {
     try {
       // Проверяем права администратора
@@ -64,7 +64,7 @@ export class AdminController {
       const total = users.length;
       const admins = users.filter(u => u.role === 'admin').length;
       const regularUsers = users.filter(u => u.role === 'user').length;
-      
+
       // Пользователи за последнюю неделю
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const recentUsers = users.filter(u => {
@@ -93,7 +93,7 @@ export class AdminController {
 
   // Получение списка всех пользователей
   @Get('users')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getAllUsers(@Req() req: AuthenticatedRequest) {
     try {
       // Проверяем права администратора
@@ -138,7 +138,7 @@ export class AdminController {
 
   // Изменение роли пользователя
   @Patch('users/:userId/role')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async changeUserRole(
     @Param('userId') userId: string,
     @Body() body: { role: string },
@@ -206,7 +206,7 @@ export class AdminController {
         };
       }
 
-      
+
 
       return {
         success: true,
@@ -229,7 +229,7 @@ export class AdminController {
 
   // Удаление пользователя
   @Delete('users/:userId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async deleteUser(
     @Param('userId') userId: string,
     @Req() req: AuthenticatedRequest,
@@ -274,7 +274,7 @@ export class AdminController {
       const supabase = this.supabaseService.getClient();
 
       // Удаляем связанные данные
-      
+
 
       // 1. Удаляем настройки пользователя
       const { error: settingsError } = await supabase
@@ -323,7 +323,7 @@ export class AdminController {
         // Не критично, пользователь уже удален из основной таблицы
       }
 
-      
+
 
       return {
         success: true,
@@ -345,7 +345,7 @@ export class AdminController {
 
   // Получение информации о конкретном пользователе
   @Get('users/:userId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getUserById(
     @Param('userId') userId: string,
     @Req() req: AuthenticatedRequest,
@@ -393,7 +393,7 @@ export class AdminController {
 
   // Блокировка/разблокировка пользователя
   @Patch('users/:userId/status')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async toggleUserStatus(
     @Param('userId') userId: string,
     @Body() body: { is_blocked: boolean },
@@ -461,7 +461,7 @@ export class AdminController {
       }
 
       const action = is_blocked ? 'заблокирован' : 'разблокирован';
-      
+
 
       return {
         success: true,
@@ -484,7 +484,7 @@ export class AdminController {
 
   // Получение логов действий (если есть таблица логов)
   @Get('logs')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getAdminLogs(@Req() req: AuthenticatedRequest) {
     try {
       // Проверяем права администратора

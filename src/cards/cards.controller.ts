@@ -1,14 +1,14 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, HttpStatus, Query, Logger } from '@nestjs/common';
 import { Request } from 'express';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { CardsService } from './cards.service';
 
 @Controller('cards')
-@UseGuards(JwtAuthGuard)
+@UseGuards(CognitoAuthGuard)
 export class CardsController {
   private readonly logger = new Logger(CardsController.name);
 
-  constructor(private readonly cardsService: CardsService) {}
+  constructor(private readonly cardsService: CardsService) { }
 
   @Get()
   async getCards(@Req() req: Request) {
@@ -82,20 +82,20 @@ export class CardsController {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
       const hoursNumber = parseInt(hours, 10);
-      
+
       if (!zoneId) {
-        return { 
-          success: false, 
-          error: 'Параметр zoneId є обов\'язковим', 
-          status: HttpStatus.BAD_REQUEST 
+        return {
+          success: false,
+          error: 'Параметр zoneId є обов\'язковим',
+          status: HttpStatus.BAD_REQUEST
         };
       }
 
       if (isNaN(hoursNumber) || hoursNumber <= 0) {
-        return { 
-          success: false, 
-          error: 'Параметр hours має бути позитивним числом', 
-          status: HttpStatus.BAD_REQUEST 
+        return {
+          success: false,
+          error: 'Параметр hours має бути позитивним числом',
+          status: HttpStatus.BAD_REQUEST
         };
       }
 
@@ -103,10 +103,10 @@ export class CardsController {
       return { success: true, history };
     } catch (error) {
       this.logger.error('Помилка отримання історії карточки:', error);
-      return { 
-        success: false, 
-        error: 'Помилка отримання історії карточки', 
-        status: HttpStatus.INTERNAL_SERVER_ERROR 
+      return {
+        success: false,
+        error: 'Помилка отримання історії карточки',
+        status: HttpStatus.INTERNAL_SERVER_ERROR
       };
     }
   }
@@ -122,10 +122,10 @@ export class CardsController {
       return { success: true, review };
     } catch (error) {
       this.logger.error('Помилка створення review карточки:', error);
-      return { 
-        success: false, 
-        error: 'Помилка створення review карточки', 
-        status: HttpStatus.INTERNAL_SERVER_ERROR 
+      return {
+        success: false,
+        error: 'Помилка створення review карточки',
+        status: HttpStatus.INTERNAL_SERVER_ERROR
       };
     }
   }
@@ -141,10 +141,10 @@ export class CardsController {
       return { success: true, card };
     } catch (error) {
       this.logger.error('Помилка отримання картки:', error);
-      return { 
-        success: false, 
-        error: 'Помилка отримання картки', 
-        status: HttpStatus.INTERNAL_SERVER_ERROR 
+      return {
+        success: false,
+        error: 'Помилка отримання картки',
+        status: HttpStatus.INTERNAL_SERVER_ERROR
       };
     }
   }

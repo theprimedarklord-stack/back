@@ -16,7 +16,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { HybridAuthGuard } from '../auth/hybrid-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { ContextGuard } from '../auth/context.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard, Roles } from '../auth/roles.guard';
@@ -41,7 +41,7 @@ export class OrganizationsController {
    * Get all organizations for the authenticated user
    */
   @Get()
-  @UseGuards(HybridAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async findAll(@Req() req: Request) {
     const client = (req as any).dbClient;
     const organizations = await this.organizationsService.findAllForUser(req.user!.userId, client);
@@ -53,7 +53,7 @@ export class OrganizationsController {
    * Create a new organization (user becomes owner)
    */
   @Post()
-  @UseGuards(HybridAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async create(@Body() dto: CreateOrganizationDto, @Req() req: Request) {
     const organization = await this.organizationsService.create(dto, req.user!.userId);
     return { organization };
@@ -64,7 +64,7 @@ export class OrganizationsController {
    * Switch active organization (sets cookie)
    */
   @Post('switch')
-  @UseGuards(HybridAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   @HttpCode(HttpStatus.OK)
   async switchOrganization(
     @Body() dto: SwitchOrganizationDto,
@@ -99,10 +99,10 @@ export class OrganizationsController {
   /**
    * GET /organizations/by-slug/:slug
    * Resolve organization by slug (publicly accessible for routing, or protected?)
-   * For now protected by HybridAuthGuard to ensure user is logged in.
+   * For now protected by CognitoAuthGuard to ensure user is logged in.
    */
   @Get('by-slug/:slug')
-  @UseGuards(HybridAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async findBySlug(@Param('slug') slug: string) {
     const organization = await this.organizationsService.findBySlug(slug);
     return { organization };
@@ -113,7 +113,7 @@ export class OrganizationsController {
    * Get single organization details
    */
   @Get(':orgId')
-  @UseGuards(HybridAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async findOne(@Param('orgId') orgId: string, @Req() req: Request) {
     const organization = await this.organizationsService.findOne(orgId, req.user!.userId);
     return { organization };
@@ -124,7 +124,7 @@ export class OrganizationsController {
    * Update organization (owner only)
    */
   @Patch(':orgId')
-  @UseGuards(HybridAuthGuard, ContextGuard, RolesGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, RolesGuard)
   @Roles('owner')
   async update(
     @Param('orgId') orgId: string,
@@ -139,7 +139,7 @@ export class OrganizationsController {
    * Delete organization (owner only)
    */
   @Delete(':orgId')
-  @UseGuards(HybridAuthGuard, ContextGuard, RolesGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, RolesGuard)
   @Roles('owner')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('orgId') orgId: string) {
@@ -153,7 +153,7 @@ export class OrganizationsController {
    * Get all members of an organization
    */
   @Get(':orgId/members')
-  @UseGuards(HybridAuthGuard) // ContextGuard removed as it blocks access if not "switched" into org
+  @UseGuards(CognitoAuthGuard) // ContextGuard removed as it blocks access if not "switched" into org
   async getMembers(@Param('orgId') orgId: string, @Req() req: Request) {
     // Verify membership manually
     const isMember = await this.organizationsService.canSwitchTo(orgId, req.user!.userId);
@@ -170,7 +170,7 @@ export class OrganizationsController {
    * Add member to organization (owner/admin only)
    */
   @Post(':orgId/members')
-  @UseGuards(HybridAuthGuard, ContextGuard, PermissionsGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, PermissionsGuard)
   @Permission('members.invite')
   async addMember(
     @Param('orgId') orgId: string,
@@ -185,7 +185,7 @@ export class OrganizationsController {
    * Update member role (owner only)
    */
   @Patch(':orgId/members/:memberId')
-  @UseGuards(HybridAuthGuard, ContextGuard, RolesGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, RolesGuard)
   @Roles('owner')
   async updateMemberRole(
     @Param('orgId') orgId: string,
@@ -201,7 +201,7 @@ export class OrganizationsController {
    * Remove member from organization (owner or self)
    */
   @Delete(':orgId/members/:memberId')
-  @UseGuards(HybridAuthGuard, ContextGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeMember(
     @Param('orgId') orgId: string,

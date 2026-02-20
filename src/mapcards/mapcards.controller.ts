@@ -15,12 +15,12 @@ import {
 import { MapcardsService } from './mapcards.service';
 import { CreateMapCardDto } from './dto/create-mapcard.dto';
 import { UpdateMapCardDto } from './dto/update-mapcard.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 
 @Controller('mapcards')
-@UseGuards(JwtAuthGuard)
+@UseGuards(CognitoAuthGuard)
 export class MapcardsController {
-  constructor(private readonly mapcardsService: MapcardsService) {}
+  constructor(private readonly mapcardsService: MapcardsService) { }
 
   @Post()
   async create(@Body() createMapCardDto: CreateMapCardDto, @Req() req) {

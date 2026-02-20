@@ -4,7 +4,7 @@ import { SupabaseModule } from '../supabase/supabase.module';
 import { AuthModule } from '../auth/auth.module';
 import { OrgProjectsController } from './org-projects.controller';
 import { OrgProjectsService } from './org-projects.service';
-import { HybridAuthGuard } from '../auth/hybrid-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { ContextGuard } from '../auth/context.guard';
 import { ProjectGuard } from '../auth/project.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -17,7 +17,7 @@ import { RlsContextInterceptor } from '../common/interceptors/rls-context.interc
   controllers: [OrgProjectsController],
   providers: [
     OrgProjectsService,
-    HybridAuthGuard,
+    CognitoAuthGuard,
     ContextGuard,
     ProjectGuard,
     PermissionsGuard,
@@ -27,4 +27,4 @@ import { RlsContextInterceptor } from '../common/interceptors/rls-context.interc
   ],
   exports: [OrgProjectsService],
 })
-export class OrgProjectsModule {}
+export class OrgProjectsModule { }
