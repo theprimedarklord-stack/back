@@ -110,26 +110,26 @@ export class AuthController {
         throw new InternalServerErrorException('Access token not returned from auth service');
       }
 
-      const isProd = process.env.NODE_ENV === 'production';
       const maxAge = body.rememberMe ? 30 * 24 * 60 * 60 : 60 * 60; // 30 days or 1 hour
+
+      const cookieOptions = {
+        httpOnly: true,
+        secure: true, // Обязательно true для HTTPS (Особенно на Render)
+        sameSite: 'none' as const, // Обязательно 'none' для кросс-доменных кук
+        path: '/',
+      };
 
       // Set Cognito access_token as HttpOnly cookie
       res.cookie('access_token', result.accessToken, {
-        httpOnly: true,
-        secure: isProd,
-        sameSite: isProd ? 'none' : 'lax',
+        ...cookieOptions,
         maxAge: maxAge * 1000,
-        path: '/',
       });
 
       // Set refresh_token as HttpOnly cookie (longer lived)
       if (result.refreshToken) {
         res.cookie('refresh_token', result.refreshToken, {
-          httpOnly: true,
-          secure: isProd,
-          sameSite: isProd ? 'none' : 'lax',
+          ...cookieOptions,
           maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-          path: '/',
         });
       }
 
@@ -181,11 +181,10 @@ export class AuthController {
 
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
-    const isProd = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: isProd,
-      sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+      secure: true,
+      sameSite: 'none' as const,
       path: '/',
     };
 

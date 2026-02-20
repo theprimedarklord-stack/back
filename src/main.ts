@@ -39,6 +39,7 @@ async function bootstrap() {
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true, // Важно для кук и сессий
+    exposedHeaders: ['set-cookie'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept', 'Origin', 'X-Requested-With', 'x-org-id', 'x-project-id'],
   });
