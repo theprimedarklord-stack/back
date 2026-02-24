@@ -29,7 +29,7 @@ export class CognitoAuthGuard implements CanActivate {
   ) {
     const region = this.configService.get<string>('COGNITO_REGION') || 'eu-central-1';
     const userPoolId = this.configService.get<string>('COGNITO_USER_POOL_ID');
-    
+
     if (!userPoolId) {
       console.warn('COGNITO_USER_POOL_ID not set - CognitoAuthGuard will reject all requests');
     }
@@ -58,6 +58,7 @@ export class CognitoAuthGuard implements CanActivate {
       const { payload } = await jose.jwtVerify(token, this.jwks, {
         issuer: this.issuer,
         audience: this.audience || undefined,
+        algorithms: ['RS256'],
       });
 
       // Extract claims
