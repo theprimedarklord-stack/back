@@ -57,7 +57,7 @@ export class CognitoAuthGuard implements CanActivate {
       // Verify JWT with Cognito JWKS
       const { payload } = await jose.jwtVerify(token, this.jwks, {
         issuer: this.issuer,
-        // audience: this.audience || undefined,
+        audience: this.audience || undefined,
         algorithms: ['RS256'],
       });
 

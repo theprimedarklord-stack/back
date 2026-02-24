@@ -120,7 +120,8 @@ export class AuthController {
       };
 
       // Set Cognito access_token as HttpOnly cookie
-      res.cookie('access_token', result.accessToken, {
+      // res.cookie('access_token', result.accessToken, {
+      res.cookie('access_token', result.idToken, {
         ...cookieOptions,
         maxAge: maxAge * 1000,
       });
