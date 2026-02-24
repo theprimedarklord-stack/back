@@ -135,6 +135,16 @@ export class CognitoAuthGuard implements CanActivate {
       throw new UnauthorizedException('Failed to initialize user');
     }
 
+    // Create default user_settings row (avoids PGRST116 on getProfile)
+    const { error: settingsError } = await admin
+      .from('user_settings')
+      .insert({ user_id: newUser.user_id });
+
+    if (settingsError) {
+      console.error('Failed to create user_settings:', settingsError);
+      // Not fatal — getProfile will handle fallback
+    }
+
     return newUser.user_id;
   }
 }

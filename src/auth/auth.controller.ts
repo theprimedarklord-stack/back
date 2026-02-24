@@ -217,13 +217,27 @@ export class AuthController {
         throw new InternalServerErrorException('Ошибка загрузки данных пользователя');
       }
 
-      const { data: settingsData, error: settingsError } = await supabase
+      let { data: settingsData, error: settingsError } = await supabase
         .from('user_settings')
         .select('*')
         .eq('user_id', req.user.id)
         .single();
 
-      if (settingsError) {
+      // If no settings row exists — auto-create default one (self-heal for old users)
+      if (settingsError && settingsError.code === 'PGRST116') {
+        const { data: newSettings, error: insertError } = await supabase
+          .from('user_settings')
+          .insert({ user_id: req.user.id })
+          .select('*')
+          .single();
+
+        if (insertError) {
+          console.error('Failed to auto-create user_settings:', insertError);
+          throw new InternalServerErrorException('Ошибка загрузки настроек пользователя');
+        }
+        settingsData = newSettings;
+        settingsError = null;
+      } else if (settingsError) {
         console.error('Settings data error:', settingsError);
         throw new InternalServerErrorException('Ошибка загрузки настроек пользователя');
       }
@@ -257,25 +271,39 @@ export class AuthController {
           .eq('user_id', req.user.id)
           .single();
 
-        if (fetchError) {
+        if (fetchError && fetchError.code === 'PGRST116') {
+          // No settings row yet — create one with the provided settings
+          const { error: insertError } = await supabase
+            .from('user_settings')
+            .insert({
+              user_id: req.user.id,
+              ...body.settings,
+              updated_at: new Date().toISOString(),
+            });
+
+          if (insertError) {
+            console.error('Ошибка создания настроек:', insertError);
+            throw new InternalServerErrorException('Ошибка создания настроек');
+          }
+        } else if (fetchError) {
           console.error('Ошибка получения текущих настроек:', fetchError);
           throw new InternalServerErrorException('Ошибка получения настроек');
-        }
+        } else {
+          const updatedSettings = {
+            ...currentSettings,
+            ...body.settings,
+            updated_at: new Date().toISOString(),
+          };
 
-        const updatedSettings = {
-          ...currentSettings,
-          ...body.settings,
-          updated_at: new Date().toISOString(),
-        };
+          const { error: updateError } = await supabase
+            .from('user_settings')
+            .update(updatedSettings)
+            .eq('user_id', req.user.id);
 
-        const { error: updateError } = await supabase
-          .from('user_settings')
-          .update(updatedSettings)
-          .eq('user_id', req.user.id);
-
-        if (updateError) {
-          console.error('Ошибка обновления настроек:', updateError);
-          throw new InternalServerErrorException('Ошибка обновления настроек');
+          if (updateError) {
+            console.error('Ошибка обновления настроек:', updateError);
+            throw new InternalServerErrorException('Ошибка обновления настроек');
+          }
         }
       }
 
