@@ -121,6 +121,7 @@ export class CognitoAuthGuard implements CanActivate {
     const { data: newUser, error } = await admin
       .from('users')
       .insert({
+        user_id: cognitoSub,
         email,
         cognito_sub: cognitoSub,
         username: email.split('@')[0],
