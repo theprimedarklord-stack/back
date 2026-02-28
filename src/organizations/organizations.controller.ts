@@ -22,6 +22,7 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard, Roles } from '../auth/roles.guard';
 import { Permission } from '../auth/permission.decorator';
 import { RlsContextInterceptor } from '../common/interceptors/rls-context.interceptor';
+import { RequireOrg } from '../common/decorators/require-org.decorator';
 import { OrganizationsService } from './organizations.service';
 import {
   CreateOrganizationDto,
@@ -41,6 +42,7 @@ export class OrganizationsController {
    * Get all organizations for the authenticated user
    */
   @Get()
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async findAll(@Req() req: Request) {
     const client = (req as any).dbClient;
@@ -53,6 +55,7 @@ export class OrganizationsController {
    * Create a new organization (user becomes owner)
    */
   @Post()
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async create(@Body() dto: CreateOrganizationDto, @Req() req: Request) {
     const organization = await this.organizationsService.create(dto, req.user!.userId);
@@ -64,6 +67,7 @@ export class OrganizationsController {
    * Switch active organization (sets cookie)
    */
   @Post('switch')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   @HttpCode(HttpStatus.OK)
   async switchOrganization(
