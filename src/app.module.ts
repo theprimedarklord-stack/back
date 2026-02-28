@@ -52,4 +52,4 @@ import { MeModule } from './me/me.module';
     { provide: APP_INTERCEPTOR, useClass: RlsContextInterceptor }
   ],
 })
-export class AppModule {}
+export class AppModule { }

@@ -21,7 +21,7 @@ import { ContextGuard } from '../auth/context.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard, Roles } from '../auth/roles.guard';
 import { Permission } from '../auth/permission.decorator';
-import { RlsContextInterceptor } from '../common/interceptors/rls-context.interceptor';
+import { RlsContextInterceptor } from '../auth/rls-context.interceptor';
 import { RequireOrg } from '../common/decorators/require-org.decorator';
 import { OrganizationsService } from './organizations.service';
 import {

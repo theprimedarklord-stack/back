@@ -22,7 +22,7 @@ import { ProjectGuard } from '../auth/project.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard, Roles } from '../auth/roles.guard';
 import { Permission } from '../auth/permission.decorator';
-import { RlsContextInterceptor } from '../common/interceptors/rls-context.interceptor';
+import { RlsContextInterceptor } from '../auth/rls-context.interceptor';
 import { OrgProjectsService } from './org-projects.service';
 import {
   CreateOrgProjectDto,

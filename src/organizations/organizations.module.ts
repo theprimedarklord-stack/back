@@ -9,7 +9,7 @@ import { ContextGuard } from '../auth/context.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { PermissionsService } from '../auth/permissions.service';
 import { RolesGuard } from '../auth/roles.guard';
-import { RlsContextInterceptor } from '../common/interceptors/rls-context.interceptor';
+import { RlsContextInterceptor } from '../auth/rls-context.interceptor';
 
 @Module({
   imports: [SupabaseModule, AuthModule],
