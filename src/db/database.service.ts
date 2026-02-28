@@ -90,36 +90,55 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Run callback inside a transaction with app.user_id set locally for RLS.
+   * Run callback inside a transaction with app.user_id (and optionally app.org_id) set locally for RLS.
    * The callback receives a connected client and may run multiple queries.
+   * 
+   * Supports two call signatures:
+   *   withUserContext(userId, callback)          — sets only app.user_id
+   *   withUserContext(userId, orgId, callback)   — sets app.user_id AND app.org_id
    * 
    * Использует SET LOCAL паттерн для Session Context:
    * 1. SET LOCAL search_path - гарантирует видимость таблиц в public схеме
    * 2. SET LOCAL "app.user_id" - устанавливает контекст пользователя для RLS
-   * 
-   * Преимущества:
-   * - Работает везде (Supabase, AWS RDS, Docker)
-   * - Не требует прав суперпользователя
-   * - Автоматически удаляется при завершении транзакции
+   * 3. SET LOCAL "app.org_id" - устанавливает контекст организации для RLS (если передан)
    */
-  async withUserContext<T>(userId: string, callback: (client: any) => Promise<T>): Promise<T> {
+  async withUserContext<T>(
+    userId: string,
+    orgIdOrCallback: string | null | ((client: any) => Promise<T>),
+    callback?: (client: any) => Promise<T>,
+  ): Promise<T> {
+    // Support both 2-arg and 3-arg overloads
+    let orgId: string | null = null;
+    let cb: (client: any) => Promise<T>;
+
+    if (typeof orgIdOrCallback === 'function') {
+      cb = orgIdOrCallback;
+    } else {
+      orgId = orgIdOrCallback;
+      cb = callback!;
+    }
+
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
 
       // 1. Устанавливаем путь к схемам в этой транзакции
-      // Без этого Postgres может "потерять" таблицы при переиспользовании сессий
       await client.query('SET LOCAL search_path TO public, extensions');
 
       // 2. Устанавливаем ID пользователя для RLS политик
-      // Используем SELECT set_config(..., true) вместо SET LOCAL
-      // Третий параметр true означает "is_local" - переменная существует только в транзакции
       if (userId) {
         await client.query("SELECT set_config('app.user_id', $1, true)", [userId]);
       }
 
-      // 3. Выполняем основной код (SELECT, INSERT, UPDATE, DELETE)
-      const res = await callback(client);
+      // 3. Устанавливаем ID организации для RLS политик
+      if (orgId) {
+        await client.query("SELECT set_config('app.org_id', $1, true)", [orgId]);
+      } else {
+        await client.query("SELECT set_config('app.org_id', '', true)");
+      }
+
+      // 4. Выполняем основной код (SELECT, INSERT, UPDATE, DELETE)
+      const res = await cb(client);
 
       await client.query('COMMIT');
       return res;

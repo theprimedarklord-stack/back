@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, HttpStatus, Query, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, HttpStatus, Query, Logger, Headers } from '@nestjs/common';
 import { Request } from 'express';
 import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { CardsService } from './cards.service';
@@ -11,13 +11,16 @@ export class CardsController {
   constructor(private readonly cardsService: CardsService) { }
 
   @Get()
-  async getCards(@Req() req: Request) {
+  async getCards(
+    @Req() req: Request,
+    @Headers('x-org-id') orgId: string,
+  ) {
     try {
       const userId = req.user?.userId || req.user?.id;
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const cards = await this.cardsService.getCards(userId);
+      const cards = await this.cardsService.getCards(userId, orgId);
       return { success: true, cards };
     } catch (error) {
       this.logger.error('Помилка отримання карточек:', error);
@@ -26,13 +29,17 @@ export class CardsController {
   }
 
   @Post()
-  async createCard(@Req() req: Request, @Body() body: any) {
+  async createCard(
+    @Req() req: Request,
+    @Body() body: any,
+    @Headers('x-org-id') orgId: string,
+  ) {
     try {
       const userId = req.user?.userId || req.user?.id;
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const card = await this.cardsService.createCard(userId, body);
+      const card = await this.cardsService.createCard(userId, orgId, body);
       return { success: true, card };
     } catch (error) {
       this.logger.error('Помилка створення карточки:', error);
@@ -41,13 +48,18 @@ export class CardsController {
   }
 
   @Patch(':id')
-  async updateCard(@Req() req: Request, @Param('id') id: string, @Body() body: any) {
+  async updateCard(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: any,
+    @Headers('x-org-id') orgId: string,
+  ) {
     try {
       const userId = req.user?.userId || req.user?.id;
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const card = await this.cardsService.updateCard(userId, id, body);
+      const card = await this.cardsService.updateCard(userId, orgId, id, body);
       return { success: true, card };
     } catch (error) {
       this.logger.error('Помилка оновлення карточки:', error);
@@ -56,13 +68,17 @@ export class CardsController {
   }
 
   @Delete(':id')
-  async deleteCard(@Req() req: Request, @Param('id') id: string) {
+  async deleteCard(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Headers('x-org-id') orgId: string,
+  ) {
     try {
       const userId = req.user?.userId || req.user?.id;
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      await this.cardsService.deleteCard(userId, id);
+      await this.cardsService.deleteCard(userId, orgId, id);
       return { success: true, message: 'Карточка видалена' };
     } catch (error) {
       this.logger.error('Помилка видалення карточки:', error);
@@ -74,7 +90,8 @@ export class CardsController {
   async getCardHistory(
     @Req() req: Request,
     @Query('zoneId') zoneId: string,
-    @Query('hours') hours: string = '24'
+    @Query('hours') hours: string = '24',
+    @Headers('x-org-id') orgId: string,
   ) {
     try {
       const userId = req.user?.userId || req.user?.id;
@@ -99,7 +116,7 @@ export class CardsController {
         };
       }
 
-      const history = await this.cardsService.getCardHistory(userId, zoneId, hoursNumber);
+      const history = await this.cardsService.getCardHistory(userId, orgId, zoneId, hoursNumber);
       return { success: true, history };
     } catch (error) {
       this.logger.error('Помилка отримання історії карточки:', error);
@@ -112,13 +129,17 @@ export class CardsController {
   }
 
   @Post('reviews')
-  async createCardReview(@Req() req: Request, @Body() body: any) {
+  async createCardReview(
+    @Req() req: Request,
+    @Body() body: any,
+    @Headers('x-org-id') orgId: string,
+  ) {
     try {
       const userId = req.user?.userId || req.user?.id;
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const review = await this.cardsService.createCardReview(userId, body);
+      const review = await this.cardsService.createCardReview(userId, orgId, body);
       return { success: true, review };
     } catch (error) {
       this.logger.error('Помилка створення review карточки:', error);
@@ -131,13 +152,17 @@ export class CardsController {
   }
 
   @Get(':id')
-  async getCardById(@Req() req: Request, @Param('id') id: string) {
+  async getCardById(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Headers('x-org-id') orgId: string,
+  ) {
     try {
       const userId = req.user?.userId || req.user?.id;
       if (!userId) {
         return { success: false, error: 'userId is required', status: HttpStatus.UNAUTHORIZED };
       }
-      const card = await this.cardsService.getCardById(id, userId);
+      const card = await this.cardsService.getCardById(id, userId, orgId);
       return { success: true, card };
     } catch (error) {
       this.logger.error('Помилка отримання картки:', error);

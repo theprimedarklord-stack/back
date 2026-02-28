@@ -80,11 +80,41 @@ export class AuthService {
 
     try {
       const response = await this.cognitoClient.send(command);
+      const cognitoSub = response.UserSub;
+
+      // Строгая очередность создания записей:
+      // 1. Создаем пользователя в users (чтобы удовлетворить Foreign Key)
+      if (cognitoSub) {
+        const { error: insertUserError } = await admin
+          .from('users')
+          .insert({
+            user_id: cognitoSub,
+            email: email,
+            cognito_sub: cognitoSub,
+            username: username,
+            created_at: new Date().toISOString(),
+          });
+
+        if (insertUserError) {
+          console.error('Ошибка создания пользователя в БД:', insertUserError);
+          // Не прерываем поток, если нужно вернуть успех Cognito,
+          // но логируем, так как это важно для FK-зависимостей.
+        } else {
+          // 2. Только после успешного создания в users создаем user_settings
+          const { error: insertSettingsError } = await admin
+            .from('user_settings')
+            .insert({ user_id: cognitoSub });
+
+          if (insertSettingsError) {
+            console.error('Ошибка автоматического создания user_settings:', insertSettingsError);
+          }
+        }
+      }
 
       return {
         success: true,
         userConfirmed: response.UserConfirmed ?? false,
-        cognitoSub: response.UserSub,
+        cognitoSub: cognitoSub,
         message: response.UserConfirmed
           ? 'Регистрация завершена'
           : 'Требуется подтверждение email',

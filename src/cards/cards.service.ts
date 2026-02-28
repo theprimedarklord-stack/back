@@ -3,10 +3,11 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { DatabaseService } from '../db/database.service';
 
 /**
- * CardsService — refactored to use DatabaseService.withUserContext for RLS compliance
+ * CardsService — refactored for B2B multi-tenant isolation
  * 
- * All methods now use withUserContext to establish proper RLS session context
- * before executing SQL queries against the database.
+ * All methods now accept orgId and use withUserContext(userId, orgId, callback)
+ * to establish proper RLS session context (app.user_id + app.org_id).
+ * SQL queries include organization_id in WHERE/INSERT for defense-in-depth.
  */
 @Injectable()
 export class CardsService {
@@ -18,24 +19,23 @@ export class CardsService {
   ) { }
 
   /**
-   * Get all cards for a user using proper RLS context
+   * Get all cards for a user within an organization
    */
-  async getCards(userId: string) {
+  async getCards(userId: string, orgId: string) {
     try {
-      return await this.databaseService.withUserContext(userId, async (client) => {
+      return await this.databaseService.withUserContext(userId, orgId, async (client) => {
         try {
           const sql = `
-            SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
+            SELECT id, user_id, organization_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
             FROM public.cards
-            WHERE user_id = $1::uuid
+            WHERE user_id = $1::uuid AND organization_id = $2::uuid
             ORDER BY created_at DESC
           `;
-          this.logger.debug(`Executing SQL: ${sql} with userId=${userId}`);
-          const res = await client.query(sql, [userId]);
+          this.logger.debug(`Executing SQL: ${sql} with userId=${userId}, orgId=${orgId}`);
+          const res = await client.query(sql, [userId, orgId]);
           return res.rows;
         } catch (sqlError) {
           this.logger.warn('Direct SQL failed, falling back to Supabase', sqlError);
-          // Fall through to Supabase
           throw sqlError;
         }
       });
@@ -47,7 +47,8 @@ export class CardsService {
           .getClient()
           .from('cards')
           .select('*')
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .eq('organization_id', orgId);
 
         if (supabaseError) {
           throw new InternalServerErrorException(supabaseError.message);
@@ -63,28 +64,30 @@ export class CardsService {
   }
 
   /**
-   * Create a new card using proper RLS context
+   * Create a new card within an organization
    */
-  async createCard(userId: string, cardData: any) {
-    try {
-      const createdAt = new Date().toISOString();
+  async createCard(userId: string, orgId: string, cardData: any) {
+    // Игнорируем/удаляем createdAt от фронтенда, БД сама проставит время
+    delete cardData.createdAt;
+    delete cardData.created_at;
 
-      return await this.databaseService.withUserContext(userId, async (client) => {
+    try {
+      return await this.databaseService.withUserContext(userId, orgId, async (client) => {
         try {
           const sql = `
-            INSERT INTO public.cards (user_id, name, description, card_class, zone, current_streak, created_at, last_edited_at)
-            VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING id, user_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
+            INSERT INTO public.cards (user_id, organization_id, name, description, card_class, zone, current_streak, last_edited_at)
+            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8)
+            RETURNING id, user_id, organization_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
           `;
           const res = await client.query(sql, [
             userId,
+            orgId,
             cardData.name,
             cardData.description || null,
             cardData.card_class || null,
             cardData.zone || null,
             0, // current_streak
-            createdAt,
-            createdAt,
+            new Date().toISOString(), // last_edited_at
           ]);
           return res.rows[0];
         } catch (sqlError) {
@@ -98,9 +101,12 @@ export class CardsService {
       try {
         const newCard = {
           user_id: userId,
-          ...cardData,
+          organization_id: orgId,
+          name: cardData.name,
+          description: cardData.description || null,
+          card_class: cardData.card_class || null,
+          zone: cardData.zone || null,
           current_streak: 0,
-          created_at: new Date().toISOString(),
           last_edited_at: new Date().toISOString(),
         };
 
@@ -125,22 +131,23 @@ export class CardsService {
   }
 
   /**
-   * Update card and handle streak logic using proper RLS context
+   * Update card and handle streak logic within an organization
    */
-  async updateCard(userId: string, id: string, cardData: any) {
+  async updateCard(userId: string, orgId: string, id: string, cardData: any) {
     try {
       const updatedAt = new Date().toISOString();
 
-      return await this.databaseService.withUserContext(userId, async (client) => {
+      return await this.databaseService.withUserContext(userId, orgId, async (client) => {
         try {
           let streakValue = cardData.current_streak;
 
           // If success flag provided, calculate new streak
           if ('success' in cardData) {
             const getStreakSql = `
-              SELECT current_streak FROM public.cards WHERE id = $1::uuid AND user_id = $2::uuid
+              SELECT current_streak FROM public.cards
+              WHERE id = $1::uuid AND user_id = $2::uuid AND organization_id = $3::uuid
             `;
-            const streakRes = await client.query(getStreakSql, [id, userId]);
+            const streakRes = await client.query(getStreakSql, [id, userId, orgId]);
             const currentStreak = streakRes.rows[0]?.current_streak || 0;
             streakValue = cardData.success ? currentStreak + 1 : 0;
           }
@@ -148,18 +155,19 @@ export class CardsService {
           const sql = `
             UPDATE public.cards
             SET 
-              name = COALESCE($3, name),
-              description = COALESCE($4, description),
-              card_class = COALESCE($5, card_class),
-              zone = COALESCE($6, zone),
-              current_streak = COALESCE($7, current_streak),
-              last_edited_at = $8
-            WHERE id = $1::uuid AND user_id = $2::uuid
-            RETURNING id, user_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
+              name = COALESCE($4, name),
+              description = COALESCE($5, description),
+              card_class = COALESCE($6, card_class),
+              zone = COALESCE($7, zone),
+              current_streak = COALESCE($8, current_streak),
+              last_edited_at = $9
+            WHERE id = $1::uuid AND user_id = $2::uuid AND organization_id = $3::uuid
+            RETURNING id, user_id, organization_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
           `;
           const res = await client.query(sql, [
             id,
             userId,
+            orgId,
             cardData.name || null,
             cardData.description || null,
             cardData.card_class || null,
@@ -178,9 +186,12 @@ export class CardsService {
       this.logger.warn('withUserContext failed, using Supabase fallback', error);
       try {
         const updateData: any = {
-          ...cardData,
           last_edited_at: new Date().toISOString(),
         };
+        if (cardData.name !== undefined) updateData.name = cardData.name;
+        if (cardData.description !== undefined) updateData.description = cardData.description;
+        if (cardData.card_class !== undefined) updateData.card_class = cardData.card_class;
+        if (cardData.zone !== undefined) updateData.zone = cardData.zone;
 
         if ('success' in cardData) {
           const { data: currentCard } = await this.supabaseService
@@ -189,6 +200,7 @@ export class CardsService {
             .select('current_streak')
             .eq('id', id)
             .eq('user_id', userId)
+            .eq('organization_id', orgId)
             .single();
 
           updateData.current_streak = cardData.success
@@ -202,6 +214,7 @@ export class CardsService {
           .update(updateData)
           .eq('id', id)
           .eq('user_id', userId)
+          .eq('organization_id', orgId)
           .select()
           .single();
 
@@ -219,17 +232,18 @@ export class CardsService {
   }
 
   /**
-   * Delete card by id using proper RLS context
+   * Delete card by id within an organization
    */
-  async deleteCard(userId: string, id: string) {
+  async deleteCard(userId: string, orgId: string, id: string) {
     try {
-      return await this.databaseService.withUserContext(userId, async (client) => {
+      return await this.databaseService.withUserContext(userId, orgId, async (client) => {
         try {
           const sql = `
-            DELETE FROM public.cards WHERE id = $1::uuid AND user_id = $2::uuid
+            DELETE FROM public.cards
+            WHERE id = $1::uuid AND user_id = $2::uuid AND organization_id = $3::uuid
             RETURNING id
           `;
-          const res = await client.query(sql, [id, userId]);
+          const res = await client.query(sql, [id, userId, orgId]);
           return res.rows.length > 0;
         } catch (sqlError) {
           this.logger.warn('Direct SQL failed, falling back to Supabase', sqlError);
@@ -245,7 +259,8 @@ export class CardsService {
           .from('cards')
           .delete()
           .eq('id', id)
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .eq('organization_id', orgId);
 
         if (supabaseError) {
           throw new InternalServerErrorException(supabaseError.message);
@@ -261,23 +276,23 @@ export class CardsService {
   }
 
   /**
-   * Get card history (reviews) for a user in a zone using proper RLS context
+   * Get card history (reviews) for a user in a zone within an organization
    */
-  async getCardHistory(userId: string, zoneId: string, hours: number = 24) {
+  async getCardHistory(userId: string, orgId: string, zoneId: string, hours: number = 24) {
     try {
       const startTime = new Date();
       startTime.setHours(startTime.getHours() - hours);
       const startTimeIso = startTime.toISOString();
 
-      return await this.databaseService.withUserContext(userId, async (client) => {
+      return await this.databaseService.withUserContext(userId, orgId, async (client) => {
         try {
           const sql = `
-            SELECT id, user_id, current_zone, started_at, finished_at, correct_answers, wrong_answers
+            SELECT id, user_id, organization_id, current_zone, started_at, finished_at, correct_answers, wrong_answers
             FROM public.card_reviews
-            WHERE user_id = $1::uuid AND current_zone = $2 AND started_at >= $3
+            WHERE user_id = $1::uuid AND organization_id = $2::uuid AND current_zone = $3 AND started_at >= $4
             ORDER BY started_at DESC
           `;
-          const res = await client.query(sql, [userId, zoneId, startTimeIso]);
+          const res = await client.query(sql, [userId, orgId, zoneId, startTimeIso]);
           return res.rows;
         } catch (sqlError) {
           this.logger.warn('Direct SQL failed, falling back to Supabase', sqlError);
@@ -315,21 +330,22 @@ export class CardsService {
   }
 
   /**
-   * Create a card review (session) using proper RLS context
+   * Create a card review (session) within an organization
    */
-  async createCardReview(userId: string, reviewData: any) {
+  async createCardReview(userId: string, orgId: string, reviewData: any) {
     try {
       const now = new Date().toISOString();
 
-      return await this.databaseService.withUserContext(userId, async (client) => {
+      return await this.databaseService.withUserContext(userId, orgId, async (client) => {
         try {
           const sql = `
-            INSERT INTO public.card_reviews (user_id, current_zone, started_at, finished_at, correct_answers, wrong_answers)
-            VALUES ($1::uuid, $2, $3, $4, $5, $6)
-            RETURNING id, user_id, current_zone, started_at, finished_at, correct_answers, wrong_answers
+            INSERT INTO public.card_reviews (user_id, organization_id, current_zone, started_at, finished_at, correct_answers, wrong_answers)
+            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7)
+            RETURNING id, user_id, organization_id, current_zone, started_at, finished_at, correct_answers, wrong_answers
           `;
           const res = await client.query(sql, [
             userId,
+            orgId,
             reviewData.current_zone || null,
             now,
             now,
@@ -348,7 +364,9 @@ export class CardsService {
       try {
         const newReview = {
           user_id: userId,
-          ...reviewData,
+          current_zone: reviewData.current_zone || null,
+          correct_answers: reviewData.correct_answers || 0,
+          wrong_answers: reviewData.wrong_answers || 0,
           started_at: new Date().toISOString(),
           finished_at: new Date().toISOString(),
         };
@@ -374,18 +392,18 @@ export class CardsService {
   }
 
   /**
-   * Get card by id using proper RLS context
+   * Get card by id within an organization
    */
-  async getCardById(cardId: string, userId: string) {
+  async getCardById(cardId: string, userId: string, orgId: string) {
     try {
-      return await this.databaseService.withUserContext(userId, async (client) => {
+      return await this.databaseService.withUserContext(userId, orgId, async (client) => {
         try {
           const sql = `
-            SELECT id, user_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
+            SELECT id, user_id, organization_id, name, description, card_class, zone, current_streak, created_at, last_edited_at
             FROM public.cards
-            WHERE id = $1::uuid AND user_id = $2::uuid
+            WHERE id = $1::uuid AND user_id = $2::uuid AND organization_id = $3::uuid
           `;
-          const res = await client.query(sql, [cardId, userId]);
+          const res = await client.query(sql, [cardId, userId, orgId]);
           return res.rows[0] || null;
         } catch (sqlError) {
           this.logger.warn('Direct SQL failed, falling back to Supabase', sqlError);
@@ -402,6 +420,7 @@ export class CardsService {
           .select('*')
           .eq('id', cardId)
           .eq('user_id', userId)
+          .eq('organization_id', orgId)
           .single();
 
         if (supabaseError) {
