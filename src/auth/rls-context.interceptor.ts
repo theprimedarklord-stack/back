@@ -1,4 +1,4 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Observable, lastValueFrom } from 'rxjs';
 import { DatabaseService } from '../db/database.service';
 
@@ -40,7 +40,7 @@ export class RlsContextInterceptor implements NestInterceptor {
 
     if (!orgId) {
       this.logger.warn(`No x-org-id header found. Workspace isolation requires it.`);
-      throw new UnauthorizedException('Organization ID is required in headers (x-org-id)');
+      throw new BadRequestException('Organization ID is required in headers (x-org-id)');
     }
 
     // 🔒 БЕЗОПАСНОСТЬ B2B: Проверяем, что юзер реально состоит в этой организации
