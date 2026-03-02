@@ -1,7 +1,5 @@
 // src/auth/auth.controller.ts
-import { Response } from 'express';
 import {
-  Res,
   Req,
   Body,
   Patch,
@@ -95,10 +93,7 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(
-    @Body() body: LoginDto,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async login(@Body() body: LoginDto) {
     try {
       if (!body || !body.email || !body.password) {
         throw new BadRequestException('Отсутствуют обязательные поля: email и password');
@@ -110,34 +105,15 @@ export class AuthController {
         throw new InternalServerErrorException('Access token not returned from auth service');
       }
 
-      const maxAge = body.rememberMe ? 30 * 24 * 60 * 60 : 60 * 60; // 30 days or 1 hour
-
-      const cookieOptions = {
-        httpOnly: true,
-        secure: true, // Обязательно true для HTTPS (Особенно на Render)
-        sameSite: 'none' as const, // Обязательно 'none' для кросс-доменных кук
-        path: '/',
-      };
-
-      // Set Cognito access_token as HttpOnly cookie
-      // res.cookie('access_token', result.accessToken, {
-      res.cookie('access_token', result.idToken, {
-        ...cookieOptions,
-        maxAge: maxAge * 1000,
-      });
-
-      // Set refresh_token as HttpOnly cookie (longer lived)
-      if (result.refreshToken) {
-        res.cookie('refresh_token', result.refreshToken, {
-          ...cookieOptions,
-          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        });
-      }
-
+      // Возвращаем токены в формате JSON.
+      // NestJS больше не трогает куки! BFF сам их прочитает и сохранит.
       return {
         success: true,
         theme: result.theme,
         user_id: result.user_id,
+        accessToken: result.accessToken,
+        idToken: result.idToken,
+        refreshToken: result.refreshToken,
       };
     } catch (error) {
       console.error('Login error:', error.message);
@@ -181,18 +157,8 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@Res({ passthrough: true }) res: Response) {
-    const cookieOptions = {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none' as const,
-      path: '/',
-    };
-
-    res.clearCookie('access_token', cookieOptions);
-    res.clearCookie('refresh_token', cookieOptions);
-    res.clearCookie('active_org_id', cookieOptions);
-
+  async logout() {
+    // Куки не трогаем — BFF сам удалит auth_acc_{sub}_access при вызове этого эндпоинта.
     return { success: true, message: 'Выход выполнен успешно' };
   }
 
