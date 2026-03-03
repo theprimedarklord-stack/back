@@ -8,6 +8,7 @@ import * as multer from 'multer';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { UpdateSidebarSettingsDto } from './dto/update-sidebar-settings.dto';
+import { RequireOrg } from '../common/decorators/require-org.decorator';
 
 // Using unified AuthenticatedUser type from express.d.ts
 // No need for local interface - just use Request directly
@@ -33,6 +34,7 @@ export class UserController {
   constructor(private readonly supabaseService: SupabaseService) { }
 
   @Post('avatar')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   @UseInterceptors(FileInterceptor('avatar', multerConfig))
   async uploadAvatar(
@@ -164,6 +166,7 @@ export class UserController {
   }
 
   @Delete('avatar')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async removeAvatar(@Req() req: Request) {
     try {
@@ -252,6 +255,7 @@ export class UserController {
   }
 
   @Get('avatar')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async getAvatar(@Req() req: Request) {
     try {
@@ -322,6 +326,7 @@ export class UserController {
   }
 
   @Get('theme')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async getTheme(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     try {
@@ -369,6 +374,7 @@ export class UserController {
   }
 
   @Post('theme')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async updateTheme(
     @Body() body: { theme: string },
@@ -427,6 +433,7 @@ export class UserController {
   }
 
   @Get('sidebar')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async getSidebarSettings(@Req() req: Request) {
     try {
@@ -471,6 +478,7 @@ export class UserController {
   }
 
   @Post('sidebar')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async updateSidebarSettings(
     @Body() body: UpdateSidebarSettingsDto,
@@ -536,6 +544,7 @@ export class UserController {
   }
 
   @Get('language')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async getLanguage(@Req() req: Request) {
     try {
@@ -575,6 +584,7 @@ export class UserController {
   }
 
   @Post('language')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async updateLanguage(
     @Body() body: { language: string },
@@ -625,6 +635,7 @@ export class UserController {
   }
 
   @Get('profile')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async getProfile(@Req() req: Request) {
     try {
@@ -680,6 +691,7 @@ export class UserController {
   }
 
   @Post('profile')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async updateProfile(
     @Body() body: { username?: string; full_name?: string },
@@ -780,6 +792,7 @@ export class UserController {
   }
 
   @Post('email')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async updateEmail(
     @Body() body: { email: string },
