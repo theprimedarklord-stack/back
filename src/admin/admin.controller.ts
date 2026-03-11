@@ -432,7 +432,7 @@ export class AdminController {
       const { data: existingUser, error: checkError } = await this.supabaseService
         .getClient()
         .from('users')
-        .select('user_id, email, is_blocked')
+        .select('user_id, email')
         .eq('user_id', userId)
         .single();
 
@@ -445,8 +445,7 @@ export class AdminController {
       }
 
       // Обновляем статус
-      const { error: updateError } = await this.supabaseService
-        .getClient()
+      const { error: updateError } = await (this.supabaseService.getClient() as any)
         .from('users')
         .update({ is_blocked })
         .eq('user_id', userId);
@@ -498,8 +497,7 @@ export class AdminController {
       }
 
       // Получаем логи (если есть таблица admin_logs)
-      const { data: logs, error } = await this.supabaseService
-        .getClient()
+      const { data: logs, error } = await (this.supabaseService.getClient() as any)
         .from('admin_logs')
         .select('*')
         .order('created_at', { ascending: false })
@@ -531,8 +529,7 @@ export class AdminController {
   // Метод для записи в логи администратора
   private async logAdminAction(adminId: string, action: string, details?: any) {
     try {
-      await this.supabaseService
-        .getClient()
+      await (this.supabaseService.getClient() as any)
         .from('admin_logs')
         .insert({
           admin_id: adminId,
