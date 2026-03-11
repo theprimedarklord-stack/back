@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Post, Delete, Req, Res, UseGuards, HttpStatus, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, Delete, Req, Res, UseGuards, HttpStatus, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SupabaseService } from '../supabase/supabase.service';
+import { UserService } from './user.service';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { Response, Request } from 'express';
 import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
@@ -31,7 +33,24 @@ const multerConfig: MulterOptions = {
 
 @Controller('user')
 export class UserController {
-  constructor(private readonly supabaseService: SupabaseService) { }
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly userService: UserService,
+  ) { }
+
+  @Get('me')
+  @RequireOrg(false)
+  @UseGuards(CognitoAuthGuard)
+  async getMe(@Req() req: Request) {
+    return this.userService.getMe((req.user as any).userId);
+  }
+
+  @Patch('me')
+  @RequireOrg(false)
+  @UseGuards(CognitoAuthGuard)
+  async updateMe(@Req() req: Request, @Body() dto: UpdateUserDto) {
+    return this.userService.updateMe((req.user as any).userId, dto);
+  }
 
   @Post('avatar')
   @RequireOrg(false)
