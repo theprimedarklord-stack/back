@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { RlsContextInterceptor } from './auth/rls-context.interceptor';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -25,6 +26,10 @@ import { MeModule } from './me/me.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([{
+      ttl: 60000, // 1 минута
+      limit: 100, // максимум 100 запросов с одного IP в минуту
+    }]),
     ConfigModule.forRoot({ isGlobal: true }),
     SupabaseModule,
     DatabaseModule,
@@ -49,7 +54,8 @@ import { MeModule } from './me/me.module';
   controllers: [AppController],
   providers: [
     AppService,
-    { provide: APP_INTERCEPTOR, useClass: RlsContextInterceptor }
+    { provide: APP_INTERCEPTOR, useClass: RlsContextInterceptor },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule { }

@@ -6,6 +6,7 @@ import * as cookieParser from 'cookie-parser';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import * as express from 'express';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,7 +16,19 @@ async function bootstrap() {
 
   // === ВСЮ ЭТУ КАСТОМНУЮ ЛОГИКУ УБИРАЕМ. Она вызывает 403. ===
 
-  // 1. Определяем среду и разрешенные адреса
+  // 1. Включаем Helmet для базовой безопасности заголовков
+  app.use(helmet());
+
+  // 2. Включаем строгую глобальную валидацию (отсекаем мусор из DTO)
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+
+  // 3. Определяем среду и разрешенные адреса
   const APP_ENV = process.env.APP_ENV || 'dev';
   const allowedOrigins = APP_ENV === 'prod'
     ? ['https://smartmemory.vercel.app'] // ТВОЙ продакшен-домен

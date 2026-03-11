@@ -2,11 +2,12 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '../types/supabase';
 
 @Injectable()
 export class SupabaseService {
-  private supabase: SupabaseClient;
-  private adminSupabase: SupabaseClient;
+  private supabase: SupabaseClient<Database>;
+  private adminSupabase: SupabaseClient<Database>;
 
   constructor(private configService: ConfigService) {
     const url = this.configService.get<string>('SUPABASE_URL');
@@ -22,10 +23,10 @@ export class SupabaseService {
     }
 
     // Клиент для обычных операций
-    this.supabase = createClient(url, anonKey);
-    
+    this.supabase = createClient<Database>(url, anonKey);
+
     // Админ клиент для операций с хранилищем (обходит RLS)
-    this.adminSupabase = createClient(url, serviceRoleKey);
+    this.adminSupabase = createClient<Database>(url, serviceRoleKey);
   }
 
   getClient() {
