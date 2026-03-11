@@ -65,7 +65,7 @@ export class AdminService {
     const { data: users, error } = await this.supabaseService
       .getClient()
       .from('users')
-      .select('user_id, email, role, created_at, last_sign_in_at')
+      .select('user_id, email, role, created_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -194,8 +194,7 @@ export class AdminService {
   // Запись в логи администратора
   private async logAdminAction(adminId: string, action: string, details?: any) {
     try {
-      await this.supabaseService
-        .getClient()
+      await (this.supabaseService.getClient() as any)
         .from('admin_logs')
         .insert({
           admin_id: adminId,

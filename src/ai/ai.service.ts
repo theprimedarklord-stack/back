@@ -4,12 +4,12 @@ import { ConfigService } from '@nestjs/config';
 import { ModuleRef } from '@nestjs/core';
 import { SupabaseService } from '../supabase/supabase.service';
 import * as crypto from 'crypto';
-import { 
-  AISettings, 
-  AIRecommendation, 
-  AIRecommendationsCache, 
+import {
+  AISettings,
+  AIRecommendation,
+  AIRecommendationsCache,
   GenerateRecommendationsRequest,
-  GenerateRecommendationsResponse 
+  GenerateRecommendationsResponse
 } from './entities/ai-settings.entity';
 import { AIChatSettings } from './entities/ai-chat-settings.entity';
 import { AIOutlineSettings } from './entities/ai-outline-settings.entity';
@@ -19,7 +19,7 @@ import { UpdateAIOutlineSettingsDto } from './dto/ai-outline-settings.dto';
 import { GenerateGoalsForProjectDto } from './dto/generate-goals.dto';
 import { GenerateTasksForGoalDto } from './dto/generate-tasks.dto';
 import { GenerateFullStructureDto } from './dto/generate-full-structure.dto';
-import { 
+import {
   buildGenerateGoalsPrompt,
   buildGenerateTasksForGoalPrompt,
   buildGenerateFullStructurePrompt
@@ -36,7 +36,7 @@ export class AIService {
     private readonly configService: ConfigService,
     private readonly moduleRef: ModuleRef,
     private readonly providerFactory: AIProviderFactory,
-  ) {}
+  ) { }
 
   // Ліниво отримуємо SuggestionsService для уникнення циклічних залежностей
   private async getSuggestionsService() {
@@ -70,7 +70,7 @@ export class AIService {
         return this.getDefaultSettings(userId);
       }
 
-      return data;
+      return data as unknown as AISettings;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -82,10 +82,10 @@ export class AIService {
   async updateSettings(userId: string, dto: UpdateAISettingsDto): Promise<AISettings> {
     try {
       const now = new Date().toISOString();
-      
+
       // Получаем текущие настройки
       const currentSettings = await this.getSettings(userId);
-      
+
       // Объединяем с новыми настройками
       const updatedSettings = {
         ...currentSettings,
@@ -95,7 +95,7 @@ export class AIService {
       };
 
       // Проверяем, изменились ли критические параметры для инвалидации кеша
-      const shouldInvalidateCache = 
+      const shouldInvalidateCache =
         dto.model !== undefined && dto.model !== currentSettings.model ||
         dto.temperature !== undefined && dto.temperature !== currentSettings.temperature;
 
@@ -108,9 +108,9 @@ export class AIService {
       const { data, error } = await this.supabaseService
         .getAdminClient()
         .from('ai_settings')
-        .upsert(updatedSettings, { 
+        .upsert(updatedSettings, {
           onConflict: 'user_id',
-          ignoreDuplicates: false 
+          ignoreDuplicates: false
         })
         .select()
         .single();
@@ -119,7 +119,7 @@ export class AIService {
         throw new InternalServerErrorException(`Ошибка сохранения настроек AI: ${error.message}`);
       }
 
-      return data;
+      return data as unknown as AISettings;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -145,7 +145,7 @@ export class AIService {
         return this.getDefaultChatSettings(userId);
       }
 
-      return data;
+      return data as unknown as AIChatSettings;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -157,9 +157,9 @@ export class AIService {
   async updateChatSettings(userId: string, dto: UpdateAIChatSettingsDto): Promise<AIChatSettings> {
     try {
       const now = new Date().toISOString();
-      
+
       const currentSettings = await this.getChatSettings(userId);
-      
+
       const updatedSettings = {
         ...currentSettings,
         ...dto,
@@ -170,9 +170,9 @@ export class AIService {
       const { data, error } = await this.supabaseService
         .getAdminClient()
         .from('ai_chat_settings')
-        .upsert(updatedSettings, { 
+        .upsert(updatedSettings, {
           onConflict: 'user_id',
-          ignoreDuplicates: false 
+          ignoreDuplicates: false
         })
         .select()
         .single();
@@ -181,7 +181,7 @@ export class AIService {
         throw new InternalServerErrorException(`Ошибка сохранения chat settings: ${error.message}`);
       }
 
-      return data;
+      return data as unknown as AIChatSettings;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -191,21 +191,21 @@ export class AIService {
   }
 
   async sendChatMessage(
-    userId: string, 
-    message: string, 
+    userId: string,
+    message: string,
     history?: Array<{ role: 'user' | 'assistant'; content: string }>,
     overrides?: { provider?: 'gemini' | 'openai' | 'anthropic'; model?: string; temperature?: number; max_tokens?: number }
   ): Promise<{ text: string; tokensUsed: number; modelUsed: string }> {
     try {
       // Получаем настройки чата
       const chatSettings = await this.getChatSettings(userId);
-      
+
       // Используем переданные параметры или настройки по умолчанию
       const provider = overrides?.provider || chatSettings.provider;
       const model = overrides?.model || chatSettings.model;
       const temperature = overrides?.temperature !== undefined ? overrides.temperature : chatSettings.temperature;
       const max_tokens = overrides?.max_tokens !== undefined ? overrides.max_tokens : chatSettings.max_tokens;
-      
+
       // Строим промпт с учетом истории, если она есть
       let prompt = message;
       if (history && history.length > 0) {
@@ -279,7 +279,7 @@ export class AIService {
         return this.getDefaultOutlineSettings(userId);
       }
 
-      return data;
+      return data as unknown as AIOutlineSettings;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -291,9 +291,9 @@ export class AIService {
   async updateOutlineSettings(userId: string, dto: UpdateAIOutlineSettingsDto): Promise<AIOutlineSettings> {
     try {
       const now = new Date().toISOString();
-      
+
       const currentSettings = await this.getOutlineSettings(userId);
-      
+
       const updatedSettings = {
         ...currentSettings,
         ...dto,
@@ -304,9 +304,9 @@ export class AIService {
       const { data, error } = await this.supabaseService
         .getAdminClient()
         .from('ai_outline_settings')
-        .upsert(updatedSettings, { 
+        .upsert(updatedSettings, {
           onConflict: 'user_id',
-          ignoreDuplicates: false 
+          ignoreDuplicates: false
         })
         .select()
         .single();
@@ -315,7 +315,7 @@ export class AIService {
         throw new InternalServerErrorException(`Ошибка сохранения outline settings: ${error.message}`);
       }
 
-      return data;
+      return data as unknown as AIOutlineSettings;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -354,13 +354,13 @@ export class AIService {
 
   async generateRecommendations(userId: string, dto: GenerateRecommendationsRequest): Promise<GenerateRecommendationsResponse> {
     const startTime = Date.now();
-    
+
     try {
       console.log(`[AI] Request: userId=${userId}, goalId=${dto.goal_id}`);
 
       // Шаг 1: Получить настройки AI пользователя
       const settings = await this.getSettings(userId);
-      
+
       // Шаг 2: Если AI отключен
       if (!settings.enabled) {
         console.log(`[AI] AI disabled for user ${userId}`);
@@ -373,7 +373,7 @@ export class AIService {
 
       // Шаг 3: Получить данные цели
       const goal = await this.getGoalWithSubgoals(dto.goal_id, userId);
-      
+
       // Шаг 4: Получить существующие задачи если нужно
       let existingTasks: any[] = [];
       if (settings.context?.considerExistingTasks) {
@@ -403,7 +403,7 @@ export class AIService {
       // Шаг 7: Генерировать через AI провайдер
       const prompt = this.buildPrompt(goal, existingTasks, settings);
       const { text, tokensUsed, modelUsed, providerUsed } = await this.callAIProvider(prompt, settings);
-      
+
       // Шаг 8: Парсинг ответа
       const recommendations = this.parseAIResponse(text);
 
@@ -423,11 +423,11 @@ export class AIService {
 
     } catch (error) {
       console.error(`[AI] Error: ${error.message}`);
-      
+
       if (error instanceof HttpException) {
         throw error;
       }
-      
+
       // Graceful degradation - попытаться вернуть из кеша
       try {
         const cached = await this.getCachedRecommendations(userId, dto.goal_id);
@@ -468,7 +468,7 @@ export class AIService {
         throw new InternalServerErrorException(`Ошибка получения кеша: ${error.message}`);
       }
 
-      return data || null;
+      return (data as unknown as AIRecommendationsCache) || null;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -617,26 +617,26 @@ export class AIService {
       cleaned = cleaned.replace(/^```\n?/i, '');
       cleaned = cleaned.replace(/\n?```$/i, '');
       cleaned = cleaned.trim();
-      
+
       // Парсим JSON
       const parsed = JSON.parse(cleaned);
-      
+
       // Валидация
       if (!Array.isArray(parsed)) {
         throw new Error('Response is not an array');
       }
-      
+
       // Проверяем обязательные поля
-      const valid = parsed.every(item => 
-        item.title && 
-        item.description && 
+      const valid = parsed.every(item =>
+        item.title &&
+        item.description &&
         item.priority
       );
-      
+
       if (!valid) {
         throw new Error('Invalid recommendation structure');
       }
-      
+
       return parsed;
     } catch (error) {
       console.error('Failed to parse AI response:', error);
@@ -659,22 +659,22 @@ export class AIService {
       format: settings.format,
       recommendationType: settings.recommendation_type,
     };
-    
+
     const hash = crypto
       .createHash('sha256')
       .update(JSON.stringify(data))
       .digest('hex');
-      
+
     return hash.substring(0, 16); // короткий хеш (16 символов)
   }
 
   private async callAIProvider(
-    prompt: string, 
+    prompt: string,
     settings: AISettings
   ): Promise<{ text: string; tokensUsed: number; modelUsed: string; providerUsed: string }> {
     const providerType: AIProviderType = (settings.provider || 'gemini') as AIProviderType;
     const originalModel = settings.model;
-    
+
     try {
       const provider = this.providerFactory.getProvider(providerType);
       const result = await provider.generateContent(prompt, settings);
@@ -685,19 +685,19 @@ export class AIService {
       };
     } catch (error) {
       console.error(`[AI] Error with ${providerType} provider:`, error.message);
-      
+
       // Fallback на Gemini если другой провайдер не работает
       if (providerType !== 'gemini') {
         console.warn(`[AI] Falling back to Gemini provider`);
         const geminiProvider = this.providerFactory.getProvider('gemini');
-        
+
         // Создаем новый объект settings с правильной моделью Gemini
         const geminiSettings: AISettings = {
           ...settings,
           provider: 'gemini',
           model: 'gemini-2.0-flash', // Дефолтная модель Gemini
         };
-        
+
         const result = await geminiProvider.generateContent(prompt, geminiSettings);
         return {
           ...result,
@@ -705,7 +705,7 @@ export class AIService {
           providerUsed: 'gemini',
         };
       }
-      
+
       throw new HttpException(
         `Ошибка AI провайдера: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR
@@ -714,17 +714,17 @@ export class AIService {
   }
 
   private async saveToCache(
-    userId: string, 
-    goalId: number, 
-    cacheKey: string, 
-    contextHash: string, 
-    recommendations: AIRecommendation[], 
-    modelUsed: string, 
+    userId: string,
+    goalId: number,
+    cacheKey: string,
+    contextHash: string,
+    recommendations: AIRecommendation[],
+    modelUsed: string,
     tokensUsed: number
   ): Promise<void> {
     try {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 дней
-      
+
       const cacheData = {
         user_id: userId,
         goal_id: goalId,
@@ -739,9 +739,9 @@ export class AIService {
       const { error } = await this.supabaseService
         .getAdminClient()
         .from('ai_recommendations_cache')
-        .upsert(cacheData, { 
+        .upsert(cacheData as any, {
           onConflict: 'user_id,goal_id,cache_key',
-          ignoreDuplicates: false 
+          ignoreDuplicates: false
         });
 
       if (error) {
@@ -801,13 +801,13 @@ export class AIService {
     model_used?: string;
   }> {
     const startTime = Date.now();
-    
+
     try {
       console.log(`[AI] Generate Goals: projectId=${projectId}, count=${count}`);
 
       // Получить настройки AI
       const settings = await this.getSettings(userId);
-      
+
       if (!settings.enabled) {
         console.log(`[AI] AI disabled for user ${userId}`);
         return {
@@ -874,7 +874,7 @@ export class AIService {
 
     } catch (error) {
       console.error(`[AI] Error generating goals: ${error.message}`);
-      
+
       if (error instanceof HttpException) {
         throw error;
       }
@@ -898,13 +898,13 @@ export class AIService {
     cached: boolean;
   }> {
     const startTime = Date.now();
-    
+
     try {
       console.log(`[AI] Generate Tasks: goalId=${goalId}, projectId=${projectId}`);
 
       // Получить настройки AI
       const aiSettings = await this.getSettings(userId);
-      
+
       if (!aiSettings.enabled) {
         console.log(`[AI] AI disabled for user ${userId}`);
         return {
@@ -952,7 +952,7 @@ export class AIService {
 
     } catch (error) {
       console.error(`[AI] Error generating tasks: ${error.message}`);
-      
+
       if (error instanceof HttpException) {
         throw error;
       }
@@ -982,13 +982,13 @@ export class AIService {
     };
   }> {
     const startTime = Date.now();
-    
+
     try {
       console.log(`[AI] Generate Full Structure: projectId=${projectId}`);
 
       // Получить настройки AI
       const aiSettings = await this.getSettings(userId);
-      
+
       if (!aiSettings.enabled) {
         console.log(`[AI] AI disabled for user ${userId}`);
         return {
@@ -1104,7 +1104,7 @@ export class AIService {
 
     } catch (error) {
       console.error(`[AI] Error generating full structure: ${error.message}`);
-      
+
       if (error instanceof HttpException) {
         throw error;
       }
@@ -1142,15 +1142,15 @@ export class AIService {
       cleaned = cleaned.replace(/^```\n?/i, '');
       cleaned = cleaned.replace(/\n?```$/i, '');
       cleaned = cleaned.trim();
-      
+
       // Парсим JSON
       const parsed = JSON.parse(cleaned);
-      
+
       // Валидация
       if (!Array.isArray(parsed)) {
         throw new Error('Response is not an array');
       }
-      
+
       return parsed;
     } catch (error) {
       console.error('Failed to parse goals response:', error);
@@ -1167,15 +1167,15 @@ export class AIService {
       cleaned = cleaned.replace(/^```\n?/i, '');
       cleaned = cleaned.replace(/\n?```$/i, '');
       cleaned = cleaned.trim();
-      
+
       // Парсим JSON
       const parsed = JSON.parse(cleaned);
-      
+
       // Валидация
       if (!parsed.tasks || !Array.isArray(parsed.tasks)) {
         throw new Error('Response does not contain tasks array');
       }
-      
+
       return parsed;
     } catch (error) {
       console.error('Failed to parse tasks response:', error);
@@ -1192,15 +1192,15 @@ export class AIService {
       cleaned = cleaned.replace(/^```\n?/i, '');
       cleaned = cleaned.replace(/\n?```$/i, '');
       cleaned = cleaned.trim();
-      
+
       // Парсим JSON
       const parsed = JSON.parse(cleaned);
-      
+
       // Валидация
       if (!parsed.goals || !Array.isArray(parsed.goals)) {
         throw new Error('Response does not contain goals array');
       }
-      
+
       return parsed;
     } catch (error) {
       console.error('Failed to parse full structure response:', error);
