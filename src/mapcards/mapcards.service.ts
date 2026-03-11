@@ -1,43 +1,38 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { Injectable, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import { CreateMapCardDto } from './dto/create-mapcard.dto';
 
 @Injectable()
 export class MapCardsService {
-  constructor(private readonly supabase: SupabaseService) { }
+  constructor() { }
 
-  async findAll() {
-    // Получаем клиент, который уже проинициализирован контекстом тенанта (rls-context.interceptor.ts)
-    const client = this.supabase.getClient();
-
-    const { data, error } = await client
-      .from('map_cards')
-      .select('*');
-
-    if (error) {
-      throw new InternalServerErrorException(`Supabase Error: ${error.message}`);
+  async findAll(dbClient: any) {
+    try {
+      const result = await dbClient.query('SELECT * FROM map_cards');
+      return result.rows;
+    } catch (error: any) {
+      if (error.code === '42501') {
+        throw new ForbiddenException(`Відмовлено в доступі RLS`);
+      }
+      throw new InternalServerErrorException(`DB Select Error: ${error.message}`);
     }
-
-    return data;
   }
 
-  async create(dto: CreateMapCardDto, userId: string, orgId: string) {
-    const client = this.supabase.getClient(); // Інтерцептор вже застосував RLS-контекст
+  async create(dto: CreateMapCardDto, userId: string, orgId: string, dbClient: any) {
+    try {
+      const query = `
+        INSERT INTO map_cards (card_id, user_id, organization_id)
+        VALUES ($1, $2, $3)
+        RETURNING *;
+      `;
+      const values = [dto.card_id, userId, orgId];
 
-    const { data, error } = await client
-      .from('map_cards')
-      .insert([{
-        ...dto,
-        user_id: userId,
-        organization_id: orgId
-      }])
-      .select()
-      .single();
-
-    if (error) {
-      throw new InternalServerErrorException(`Supabase Insert Error: ${error.message}`);
+      const result = await dbClient.query(query, values);
+      return result.rows[0];
+    } catch (error: any) {
+      if (error.code === '42501') {
+        throw new ForbiddenException(`Ця картка не належить вашій організації або доступ заборонено`);
+      }
+      throw new InternalServerErrorException(`DB Insert Error: ${error.message}`);
     }
-
-    return data;
   }
 }
