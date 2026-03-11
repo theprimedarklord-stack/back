@@ -16,7 +16,7 @@ import { GoalsModule } from './goals/goals.module';
 import { ProjectsModule } from './projects/projects.module';
 import { AIModule } from './ai/ai.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
-import { MapcardsModule } from './mapcards/mapcards.module';
+import { MapCardsModule } from './mapcards/mapcards.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { OrgProjectsModule } from './org-projects/org-projects.module';
@@ -38,7 +38,7 @@ import { MeModule } from './me/me.module';
     ProjectsModule,
     AIModule,
     SuggestionsModule,
-    MapcardsModule,
+    MapCardsModule,
     TelemetryModule,
     // user-facing context endpoints
     MeModule,
