@@ -1,6 +1,5 @@
 // src/auth/auth.module.ts
 import { Module } from '@nestjs/common';
-import { SupabaseModule } from '../supabase/supabase.module';
 import { DatabaseModule } from '../db/database.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -14,7 +13,7 @@ import { RequirePermissionGuard } from './require-permission.guard';
 import { ContextBuilderService } from './context-builder.service';
 
 @Module({
-  imports: [SupabaseModule, DatabaseModule],
+  imports: [DatabaseModule],
   controllers: [AuthController],
   providers: [
     AuthService,
