@@ -61,7 +61,6 @@ export class GoalsService {
           // Если не удалось создать подцели, удаляем цель
           await this.supabaseService
             .getAdminClient()
-            .schema('project')
             .from('goals')
             .delete()
             .eq('id', goal.id);
@@ -69,12 +68,12 @@ export class GoalsService {
           throw new InternalServerErrorException(`Ошибка создания подцелей: ${subgoalsError.message}`);
         }
 
-        goal.goal_subgoals = createdSubgoals;
+        (goal as any).goal_subgoals = createdSubgoals;
       } else {
-        goal.goal_subgoals = [];
+        (goal as any).goal_subgoals = [];
       }
 
-      return goal;
+      return goal as any;
     } catch (error) {
       throw new InternalServerErrorException(`Ошибка создания цели: ${error.message}`);
     }
@@ -96,7 +95,7 @@ export class GoalsService {
         throw new InternalServerErrorException(`Ошибка получения целей: ${error.message}`);
       }
 
-      return data || [];
+      return (data as any) || [];
     } catch (error) {
       throw new InternalServerErrorException(`Ошибка получения целей: ${error.message}`);
     }
@@ -111,7 +110,7 @@ export class GoalsService {
           *,
           goal_subgoals(*)
         `)
-        .eq('id', id)
+        .eq('id', Number(id))
         .eq('user_id', userId)
         .single();
 
@@ -122,7 +121,7 @@ export class GoalsService {
         throw new InternalServerErrorException(`Ошибка получения цели: ${error.message}`);
       }
 
-      return data;
+      return data as any;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -157,7 +156,7 @@ export class GoalsService {
         .getAdminClient()
         .from('goals')
         .update(updateData)
-        .eq('id', id)
+        .eq('id', Number(id))
         .eq('user_id', userId)
         .select()
         .single();
@@ -173,7 +172,7 @@ export class GoalsService {
           .getAdminClient()
           .from('goal_subgoals')
           .delete()
-          .eq('goal_id', id);
+          .eq('goal_id', Number(id));
 
         // Создаём новые подцели
         if (updateGoalData.subgoals.length > 0) {
@@ -196,9 +195,9 @@ export class GoalsService {
             throw new InternalServerErrorException(`Ошибка обновления подцелей: ${subgoalsError.message}`);
           }
 
-          goal.goal_subgoals = createdSubgoals;
+          (goal as any).goal_subgoals = createdSubgoals;
         } else {
-          goal.goal_subgoals = [];
+          (goal as any).goal_subgoals = [];
         }
       } else {
         // Если подцели не переданы, получаем существующие
@@ -206,12 +205,12 @@ export class GoalsService {
           .getAdminClient()
           .from('goal_subgoals')
           .select('*')
-          .eq('goal_id', id);
+          .eq('goal_id', Number(id));
 
-        goal.goal_subgoals = existingSubgoals || [];
+        (goal as any).goal_subgoals = existingSubgoals || [];
       }
 
-      return goal;
+      return goal as any;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -230,7 +229,7 @@ export class GoalsService {
         .getAdminClient()
         .from('goals')
         .delete()
-        .eq('id', id)
+        .eq('id', Number(id))
         .eq('user_id', userId);
 
       if (error) {
@@ -253,7 +252,7 @@ export class GoalsService {
         .getAdminClient()
         .from('goal_subgoals')
         .select('*')
-        .eq('goal_id', goalId)
+        .eq('goal_id', Number(goalId))
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -317,8 +316,8 @@ export class GoalsService {
         .getAdminClient()
         .from('goal_subgoals')
         .update(updateData)
-        .eq('id', subgoalId)
-        .eq('goal_id', goalId)
+        .eq('id', Number(subgoalId))
+        .eq('goal_id', Number(goalId))
         .select()
         .single();
 
@@ -347,8 +346,8 @@ export class GoalsService {
         .getAdminClient()
         .from('goal_subgoals')
         .delete()
-        .eq('id', subgoalId)
-        .eq('goal_id', goalId);
+        .eq('id', Number(subgoalId))
+        .eq('goal_id', Number(goalId));
 
       if (error) {
         throw new InternalServerErrorException(`Ошибка удаления подцели: ${error.message}`);
@@ -371,8 +370,8 @@ export class GoalsService {
         .getAdminClient()
         .from('goal_subgoals')
         .select('completed')
-        .eq('id', subgoalId)
-        .eq('goal_id', goalId)
+        .eq('id', Number(subgoalId))
+        .eq('goal_id', Number(goalId))
         .single();
 
       if (getError) {
@@ -387,8 +386,8 @@ export class GoalsService {
         .getAdminClient()
         .from('goal_subgoals')
         .update({ completed: !subgoal.completed })
-        .eq('id', subgoalId)
-        .eq('goal_id', goalId);
+        .eq('id', Number(subgoalId))
+        .eq('goal_id', Number(goalId));
 
       if (updateError) {
         throw new InternalServerErrorException(`Ошибка обновления подцели: ${updateError.message}`);

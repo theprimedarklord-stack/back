@@ -63,7 +63,7 @@ export class SuggestionsService {
       }
 
       console.log(`[Suggestions] Збережено ${data.length} рекомендацій для проекту ${projectId}`);
-      return data;
+      return data as any;
     } catch (error) {
       if (error instanceof InternalServerErrorException) {
         throw error;
@@ -95,7 +95,7 @@ export class SuggestionsService {
         throw new InternalServerErrorException(`Ошибка получения рекомендаций: ${error.message}`);
       }
 
-      return data || [];
+      return (data as any) || [];
     } catch (error) {
       if (error instanceof InternalServerErrorException) {
         throw error;
@@ -400,7 +400,7 @@ export class SuggestionsService {
       }
 
       console.log(`[Suggestions] Статус рекомендації ${suggestionId} змінено на ${status}`);
-      return data;
+      return data as any;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;

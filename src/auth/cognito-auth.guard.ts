@@ -144,7 +144,7 @@ export class CognitoAuthGuard implements CanActivate {
 
     if (existingUser) {
       this.logger.debug(`User found in DB: userId=${existingUser.user_id}`);
-      return existingUser.user_id;
+      return existingUser.user_id as string;
     }
 
     // PGRST116 = No rows found — это нормально, значит нужно создать
@@ -174,7 +174,7 @@ export class CognitoAuthGuard implements CanActivate {
     // 3. Создаем дефолтные user_settings (чтобы getProfile не падал с PGRST116)
     const { error: settingsError } = await adminSupabase
       .from('user_settings')
-      .insert({ user_id: newUser.user_id });
+      .insert({ user_id: newUser.user_id as string });
 
     if (settingsError) {
       this.logger.warn(`Failed to create user_settings: ${settingsError.message}`);
@@ -182,6 +182,6 @@ export class CognitoAuthGuard implements CanActivate {
     }
 
     this.logger.debug(`User created in DB: userId=${newUser.user_id}`);
-    return newUser.user_id;
+    return newUser.user_id as string;
   }
 }

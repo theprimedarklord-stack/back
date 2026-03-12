@@ -143,7 +143,7 @@ export class OrganizationsService {
       throw new NotFoundException('Organization not found');
     }
 
-    return data;
+    return data as any;
   }
 
   /**
@@ -176,7 +176,7 @@ export class OrganizationsService {
       throw new BadRequestException(`Failed to create organization: ${error.message}`);
     }
 
-    return data;
+    return data as any;
   }
 
   /**
@@ -203,7 +203,7 @@ export class OrganizationsService {
       throw new BadRequestException(`Failed to update organization: ${error.message}`);
     }
 
-    return data;
+    return data as any;
   }
 
   /**
@@ -277,7 +277,7 @@ export class OrganizationsService {
       if (!user) {
         throw new NotFoundException(`User with email ${dto.email} not found`);
       }
-      targetUserId = user.user_id;
+      targetUserId = user.user_id as string;
     }
 
     if (!targetUserId) {
@@ -310,7 +310,7 @@ export class OrganizationsService {
       throw new BadRequestException(`Failed to add member: ${error.message}`);
     }
 
-    return data;
+    return data as any;
   }
 
   /**
@@ -348,7 +348,7 @@ export class OrganizationsService {
       throw new BadRequestException(`Failed to update member role: ${error.message}`);
     }
 
-    return data;
+    return data as any;
   }
 
   /**

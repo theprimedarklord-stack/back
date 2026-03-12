@@ -72,7 +72,7 @@ export class OrgProjectsService {
         name: project.name,
         created_by_user_id: project.created_by_user_id,
         created_at: project.created_at,
-        role: userMembership?.role,
+        role: userMembership?.role as any,
       };
     });
   }
@@ -102,8 +102,8 @@ export class OrgProjectsService {
       .single();
 
     return {
-      ...project,
-      role: membership?.role,
+      ...(project as any),
+      role: membership?.role as any,
     };
   }
 
@@ -131,7 +131,7 @@ export class OrgProjectsService {
       throw new BadRequestException(`Failed to create project: ${error.message}`);
     }
 
-    return data;
+    return data as any;
   }
 
   /**
@@ -154,7 +154,7 @@ export class OrgProjectsService {
       throw new BadRequestException(`Failed to update project: ${error.message}`);
     }
 
-    return data;
+    return data as any;
   }
 
   /**
@@ -229,7 +229,7 @@ export class OrgProjectsService {
       if (!user) {
         throw new NotFoundException(`User with email ${dto.email} not found`);
       }
-      targetUserId = user.user_id;
+      targetUserId = user.user_id as string;
     }
 
     if (!targetUserId) {
@@ -274,7 +274,7 @@ export class OrgProjectsService {
       throw new BadRequestException(`Failed to add member: ${error.message}`);
     }
 
-    return data;
+    return data as any;
   }
 
   /**
@@ -312,7 +312,7 @@ export class OrgProjectsService {
       throw new BadRequestException(`Failed to update member role: ${error.message}`);
     }
 
-    return data;
+    return data as any;
   }
 
   /**

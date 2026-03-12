@@ -119,10 +119,10 @@ export class ContextBuilderService {
 
       if (selectedOrg) {
         const { data: l } = await supabase.from('org_limits').select('limits').eq('org_id', selectedOrg.id).single();
-        if (l) limits = l.limits;
+        if (l) limits = l.limits as Record<string, any>;
 
         const { data: f } = await supabase.from('org_feature_flags').select('flags').eq('org_id', selectedOrg.id).single();
-        if (f) flags = f.flags;
+        if (f) flags = f.flags as Record<string, any>;
       }
 
       // Construct Result

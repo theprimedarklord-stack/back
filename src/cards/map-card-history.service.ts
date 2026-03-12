@@ -175,7 +175,7 @@ export class MapCardHistoryService {
         version: entry.version,
         operationType: entry.operation_type,
         operationData: entry.operation_data,
-        createdAt: new Date(entry.created_at),
+        createdAt: new Date(entry.created_at as string),
       }));
     } catch (error) {
       if (error instanceof BadRequestException) {

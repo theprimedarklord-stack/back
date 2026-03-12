@@ -198,7 +198,7 @@ export class CardsService {
             .getClient()
             .from('cards')
             .select('current_streak')
-            .eq('id', id)
+            .eq('id', Number(id))
             .eq('user_id', userId)
             .eq('organization_id', orgId)
             .single();
@@ -212,7 +212,7 @@ export class CardsService {
           .getClient()
           .from('cards')
           .update(updateData)
-          .eq('id', id)
+          .eq('id', Number(id))
           .eq('user_id', userId)
           .eq('organization_id', orgId)
           .select()
@@ -258,7 +258,7 @@ export class CardsService {
           .getClient()
           .from('cards')
           .delete()
-          .eq('id', id)
+          .eq('id', Number(id))
           .eq('user_id', userId)
           .eq('organization_id', orgId);
 
@@ -312,7 +312,7 @@ export class CardsService {
           .from('card_reviews')
           .select('*')
           .eq('user_id', userId)
-          .eq('current_zone', zoneId)
+          .eq('current_zone', Number(zoneId))
           .gte('started_at', startTimeIso)
           .order('started_at', { ascending: false });
 
@@ -418,7 +418,7 @@ export class CardsService {
           .getClient()
           .from('cards')
           .select('*')
-          .eq('id', cardId)
+          .eq('id', Number(cardId))
           .eq('user_id', userId)
           .eq('organization_id', orgId)
           .single();

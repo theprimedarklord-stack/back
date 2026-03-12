@@ -211,10 +211,10 @@ export class AuthController {
       return {
         success: true,
         user: {
-          id: req.user.id,
-          email: req.user.email,
-          role: userData?.role || 'user',
           ...userData,
+          id: req.user.id || (userData && userData.user_id),
+          email: req.user.email || (userData && userData.email),
+          role: userData?.role || 'user',
           settings: settingsData,
         },
       };

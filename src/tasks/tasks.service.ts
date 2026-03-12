@@ -39,7 +39,7 @@ export class TasksService {
       const { data, error } = await this.supabaseService
         .getAdminClient()
         .from('tasks')
-        .insert(newTask)
+        .insert(newTask as any)
         .select()
         .single();
 
@@ -47,7 +47,7 @@ export class TasksService {
         throw new InternalServerErrorException(`Ошибка создания задачи: ${error.message}`);
       }
 
-      return data;
+      return data as any;
     } catch (error) {
       throw new InternalServerErrorException(`Ошибка создания задачи: ${error.message}`);
     }
@@ -75,17 +75,17 @@ export class TasksService {
       let tasks = data || [];
 
       // Добавляем поле is_overdue для каждой задачи
-      tasks = tasks.map(task => ({
+      tasks = tasks.map((task: any) => ({
         ...task,
-        is_overdue: this.isTaskOverdue(task)
+        is_overdue: this.isTaskOverdue(task as any)
       }));
 
       // Фильтруем по просроченным задачам если запрошено
       if (overdue === true) {
-        tasks = tasks.filter(task => task.is_overdue);
+        tasks = tasks.filter((task: any) => task.is_overdue);
       }
 
-      return tasks;
+      return tasks as any;
     } catch (error) {
       throw new InternalServerErrorException(`Ошибка получения задач: ${error.message}`);
     }
@@ -111,8 +111,8 @@ export class TasksService {
       // Добавляем поле is_overdue
       return {
         ...data,
-        is_overdue: this.isTaskOverdue(data)
-      };
+        is_overdue: this.isTaskOverdue(data as any)
+      } as any;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -175,7 +175,7 @@ export class TasksService {
         throw new InternalServerErrorException(`Ошибка обновления задачи: ${error.message}`);
       }
 
-      return data;
+      return data as any;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
