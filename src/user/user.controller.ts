@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Patch, Delete, Req, Res, UseGuards, HttpStatus, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, Delete, Req, Res, UseGuards, HttpStatus, UseInterceptors, UploadedFile, BadRequestException, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SupabaseService } from '../supabase/supabase.service';
 import { UserService } from './user.service';
@@ -903,4 +903,95 @@ export class UserController {
     }
   }
 
+  // 🛡️ [FAANG-grade] Серверное разрешение тенанта
+  @Get('me/context')
+  @RequireOrg(false) // Обходим проверку x-org-id, но RLS по user_id остается активным!
+  @UseGuards(CognitoAuthGuard)
+  async getUserContext(@Req() req: Request) {
+    try {
+      const userId = (req.user as any)?.userId || (req.user as any)?.id || req.user?.id;
+      
+      if (!userId) {
+        throw new UnauthorizedException('User not authenticated');
+      }
+
+      // Используем СТРОГО обычный клиент. Интерцептор уже внедрил app.user_id
+      const client = this.supabaseService.getClient();
+
+      // 1. Получаем юзера и его последнюю оргу
+      const { data: user, error: userError } = await client
+        .from('users')
+        .select('last_active_org_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (userError) throw userError;
+
+      let activeOrgId = user?.last_active_org_id;
+
+      // 2. Проверяем, есть ли у юзера доступ к организациям (RLS пропустит только его записи)
+      const { data: memberships, error: membershipsError } = await client
+        .from('org_organization_members')
+        .select('organization_id')
+        .eq('user_id', userId);
+
+      if (membershipsError) throw membershipsError;
+
+      const userOrgIds = memberships?.map((m) => m.organization_id) || [];
+
+      // 3. AUTO-SELECT Логика на сервере
+      if (userOrgIds.length === 0) {
+        return { active_org_id: null };
+      }
+
+      if (!activeOrgId || !userOrgIds.includes(activeOrgId)) {
+        activeOrgId = userOrgIds[0];
+
+        // Сохраняем выбор в БД
+        await client
+          .from('users')
+          .update({ last_active_org_id: activeOrgId })
+          .eq('user_id', userId);
+      }
+
+      return { active_org_id: activeOrgId };
+    } catch (error) {
+      console.error('Get user context error:', error);
+      // Бросаем правильную ошибку NestJS
+      if (error instanceof UnauthorizedException) throw error;
+      throw new InternalServerErrorException('Server error while resolving tenant');
+    }
+  }
+
+  // Эндпоинт для сохранения выбора юзера при переключении аккаунтов
+  @Patch('me/active-org')
+  @RequireOrg(false)
+  @UseGuards(CognitoAuthGuard)
+  async setActiveOrg(@Req() req: Request, @Body('org_id') orgId: string) {
+    try {
+      const userId = (req.user as any)?.userId || (req.user as any)?.id || req.user?.id;
+      
+      if (!userId) {
+        throw new UnauthorizedException('User not authenticated');
+      }
+
+      if (!orgId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      // Снова используем обычный клиент
+      const { error } = await this.supabaseService.getClient()
+        .from('users')
+        .update({ last_active_org_id: orgId })
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error) {
+      console.error('Set active org server error:', error);
+      if (error instanceof UnauthorizedException || error instanceof BadRequestException) throw error;
+      throw new InternalServerErrorException('Failed to update active organization');
+    }
+  }
 }
