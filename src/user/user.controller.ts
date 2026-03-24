@@ -903,95 +903,50 @@ export class UserController {
     }
   }
 
-  // 🛡️ [FAANG-grade] Серверное разрешение тенанта
   @Get('me/context')
-  @RequireOrg(false) // Обходим проверку x-org-id, но RLS по user_id остается активным!
+  @RequireOrg(false) // Отключаем проверку x-org-id (нам нужен только user_id)
   @UseGuards(CognitoAuthGuard)
-  async getUserContext(@Req() req: Request) {
+  async getUserContext(@Req() req) {
+    const userId = req.user.sub; // ID из токена Cognito
+    const client = req.dbClient; // 🔥 Берем готового клиента из твоей транзакции!
+
+    if (!client) {
+      throw new InternalServerErrorException('DB Client not found in request');
+    }
+
     try {
-      const userId = (req.user as any)?.userId || (req.user as any)?.id || req.user?.id;
+      // Выполняем чистый SQL. RLS политика (user_id = current_setting('app.user_id')) сработает идеально!
+      const res = await client.query(
+        'SELECT last_active_org_id FROM users WHERE user_id = $1',
+        [userId]
+      );
       
-      if (!userId) {
-        throw new UnauthorizedException('User not authenticated');
-      }
-
-      // Используем СТРОГО обычный клиент. Интерцептор уже внедрил app.user_id
-      const client = this.supabaseService.getClient();
-
-      // 1. Получаем юзера и его последнюю оргу
-      const { data: user, error: userError } = await client
-        .from('users')
-        .select('last_active_org_id')
-        .eq('user_id', userId)
-        .single();
-
-      if (userError) throw userError;
-
-      let activeOrgId = user?.last_active_org_id;
-
-      // 2. Проверяем, есть ли у юзера доступ к организациям (RLS пропустит только его записи)
-      const { data: memberships, error: membershipsError } = await client
-        .from('org_organization_members')
-        .select('organization_id')
-        .eq('user_id', userId);
-
-      if (membershipsError) throw membershipsError;
-
-      const userOrgIds = memberships?.map((m) => m.organization_id) || [];
-
-      // 3. AUTO-SELECT Логика на сервере
-      if (userOrgIds.length === 0) {
-        return { active_org_id: null };
-      }
-
-      if (!activeOrgId || !userOrgIds.includes(activeOrgId)) {
-        activeOrgId = userOrgIds[0];
-
-        // Сохраняем выбор в БД
-        await client
-          .from('users')
-          .update({ last_active_org_id: activeOrgId })
-          .eq('user_id', userId);
-      }
-
-      return { active_org_id: activeOrgId };
+      return { active_org_id: res.rows[0]?.last_active_org_id || null };
     } catch (error) {
-      console.error('Get user context error:', error);
-      // Бросаем правильную ошибку NestJS
-      if (error instanceof UnauthorizedException) throw error;
-      throw new InternalServerErrorException('Server error while resolving tenant');
+      throw new InternalServerErrorException('Failed to fetch user context');
     }
   }
 
-  // Эндпоинт для сохранения выбора юзера при переключении аккаунтов
   @Patch('me/active-org')
   @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
-  async setActiveOrg(@Req() req: Request, @Body('org_id') orgId: string) {
+  async updateActiveOrg(@Req() req, @Body('org_id') orgId: string) {
+    const userId = req.user.sub;
+    const client = req.dbClient; // 🔥 Тот самый клиент с установленным app.user_id
+
+    if (!client) {
+      throw new InternalServerErrorException('DB Client not found in request');
+    }
+
     try {
-      const userId = (req.user as any)?.userId || (req.user as any)?.id || req.user?.id;
+      await client.query(
+        'UPDATE users SET last_active_org_id = $1 WHERE user_id = $2',
+        [orgId, userId]
+      );
       
-      if (!userId) {
-        throw new UnauthorizedException('User not authenticated');
-      }
-
-      if (!orgId) {
-        throw new BadRequestException('Organization ID is required');
-      }
-
-      // Снова используем обычный клиент
-      const { error } = await this.supabaseService.getClient()
-        .from('users')
-        .update({ last_active_org_id: orgId })
-        .eq('user_id', userId);
-        
-      if (error) throw error;
-
       return { success: true };
     } catch (error) {
-      console.error('Set active org server error:', error);
-      if (error instanceof UnauthorizedException || error instanceof BadRequestException) throw error;
-      throw new InternalServerErrorException('Failed to update active organization');
+      throw new InternalServerErrorException('Failed to update active org');
     }
   }
 }
