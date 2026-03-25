@@ -120,6 +120,25 @@ export class UserController {
     }
   }
 
+  // 1. Получение безопасной ссылки для загрузки
+  @Post('avatar/presigned-url')
+  @RequireOrg(false)
+  @UseGuards(CognitoAuthGuard)
+  async getAvatarUploadUrl(@Req() req, @Body() dto: { fileName: string; contentType: string }) {
+    const userId = req.user.sub;
+    return this.userService.generateAvatarUploadUrl(userId, dto.fileName);
+  }
+
+  // 2. Подтверждение загрузки и запись в БД
+  @Post('avatar/confirm')
+  @RequireOrg(false)
+  @UseGuards(CognitoAuthGuard)
+  async confirmAvatarUpload(@Req() req, @Body() dto: { filePath: string }) {
+    const client = req.dbClient;
+    if (!client) throw new InternalServerErrorException('DB Client not found');
+    return this.userService.updateAvatarInDb(client, req.user.sub, dto.filePath);
+  }
+
   @Delete('avatar')
   @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)

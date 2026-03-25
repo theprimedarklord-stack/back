@@ -1,6 +1,7 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class UserService {
@@ -37,5 +38,37 @@ export class UserService {
         }
 
         return data;
+    }
+
+    async generateAvatarUploadUrl(userId: string, fileName: string) {
+        const ext = fileName.split('.').pop();
+        const filePath = `${userId}/${crypto.randomUUID()}.${ext}`;
+        
+        const adminClient = this.supabaseService.getAdminClient();
+        const { data, error } = await adminClient
+            .storage
+            .from('card-images')
+            .createSignedUploadUrl(filePath);
+
+        if (error) {
+            throw new InternalServerErrorException('Failed to generate upload URL');
+        }
+
+        return {
+            signedUrl: data.signedUrl,
+            path: filePath,
+        };
+    }
+
+    async updateAvatarInDb(dbClient: any, userId: string, filePath: string) {
+        const adminClient = this.supabaseService.getAdminClient();
+        const { data } = adminClient.storage.from('card-images').getPublicUrl(filePath);
+        
+        await dbClient.query(
+            `UPDATE users SET avatar_url = $1 WHERE user_id = $2`,
+            [data.publicUrl, userId]
+        );
+
+        return { avatarUrl: data.publicUrl };
     }
 }
