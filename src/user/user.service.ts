@@ -47,7 +47,7 @@ export class UserService {
         const adminClient = this.supabaseService.getAdminClient();
         const { data, error } = await adminClient
             .storage
-            .from('card-images')
+            .from('avatars')
             .createSignedUploadUrl(filePath);
 
         if (error) {
@@ -62,7 +62,7 @@ export class UserService {
 
     async updateAvatarInDb(dbClient: any, userId: string, filePath: string) {
         const adminClient = this.supabaseService.getAdminClient();
-        const { data } = adminClient.storage.from('card-images').getPublicUrl(filePath);
+        const { data } = adminClient.storage.from('avatars').getPublicUrl(filePath);
         
         await dbClient.query(
             `UPDATE users SET avatar_url = $1 WHERE user_id = $2`,
