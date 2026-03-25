@@ -12,7 +12,7 @@ export class UserService {
 
         const { data, error } = await client
             .from('users')
-            .select('user_id, full_name, avatar_url, email')
+            .select('user_id, full_name, avatar_url, email, username, last_active_org_id')
             .eq('user_id', userId)
             .single();
 
@@ -20,7 +20,21 @@ export class UserService {
             throw new NotFoundException('User not found');
         }
 
-        return data;
+        const fullName = data?.full_name;
+        const username = data?.username;
+
+        return {
+            user_id: data?.user_id,
+            full_name: fullName ?? null,
+            avatar_url: data?.avatar_url ?? null,
+            email: data?.email ?? null,
+            username: username ?? null,
+            active_org_id: data?.last_active_org_id ?? null,
+            // Backward/forward compatible alias
+            last_active_org_id: data?.last_active_org_id ?? null,
+            // Normalize display name: prefer full_name, fallback to username
+            name: fullName || username || null,
+        };
     }
 
     async updateMe(userId: string, dto: UpdateUserDto) {

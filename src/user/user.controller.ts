@@ -554,11 +554,24 @@ export class UserController {
 
     try {
       const res = await client.query(
-        'SELECT last_active_org_id FROM users WHERE user_id = $1',
+        'SELECT last_active_org_id, avatar_url, full_name, username FROM users WHERE user_id = $1',
         [userId]
       );
 
-      return { active_org_id: res.rows[0]?.last_active_org_id || null };
+      const userRow = res.rows[0];
+      const fullName = userRow?.full_name;
+      const username = userRow?.username;
+
+      return {
+        active_org_id: userRow?.last_active_org_id || null,
+        // Backward/forward compatible alias
+        last_active_org_id: userRow?.last_active_org_id || null,
+        avatar_url: userRow?.avatar_url || null,
+        full_name: fullName || null,
+        username: username || null,
+        // Normalize display name: prefer full_name, fallback to username
+        name: fullName || username || null,
+      };
     } catch (error) {
       throw new InternalServerErrorException('Failed to fetch user context');
     }
