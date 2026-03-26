@@ -45,7 +45,9 @@ export class UserController {
   @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async updateMe(@Req() req, @Body() dto: UpdateUserDto) {
-    return this.userService.updateMe(req.user.sub, dto);
+    if (!req.dbClient) throw new InternalServerErrorException('DB Client not found');
+    const user = await this.userService.updateMe(req.dbClient, dto);
+    return { success: true, user };
   }
 
   @Post('avatar')

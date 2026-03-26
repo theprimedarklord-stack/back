@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as crypto from 'crypto';
@@ -37,21 +37,46 @@ export class UserService {
         };
     }
 
-    async updateMe(userId: string, dto: UpdateUserDto) {
-        const client = this.supabaseService.getClient();
+    async updateMe(dbClient: any, dto: UpdateUserDto) {
+        // Build SET clause dynamically — only update fields that were provided
+        const fieldMap: Record<keyof UpdateUserDto, string> = {
+            username: 'username',
+            full_name: 'full_name',
+            avatar_url: 'avatar_url',
+        };
 
-        const { data, error } = await client
-            .from('users')
-            .update(dto)
-            .eq('user_id', userId)
-            .select('user_id, full_name, avatar_url, email, username')
-            .single();
+        const setClauses: string[] = [];
+        const values: any[] = [];
+        let paramIndex = 1;
 
-        if (error) {
-            throw new InternalServerErrorException('Failed to update user profile');
+        for (const [dtoKey, column] of Object.entries(fieldMap)) {
+            if (dto[dtoKey as keyof UpdateUserDto] !== undefined) {
+                setClauses.push(`${column} = $${paramIndex++}`);
+                values.push(dto[dtoKey as keyof UpdateUserDto]);
+            }
         }
 
-        return data;
+        if (setClauses.length === 0) {
+            throw new BadRequestException('No fields provided for update');
+        }
+
+        // Always touch updated_at when something changes
+        setClauses.push('updated_at = NOW()');
+
+        const queryText = `
+            UPDATE public.users
+            SET ${setClauses.join(', ')}
+            WHERE user_id = (current_setting('app.user_id', true))::uuid
+            RETURNING user_id, username, full_name, avatar_url, email
+        `;
+
+        const result = await dbClient.query(queryText, values);
+
+        if (result.rows.length === 0) {
+            throw new NotFoundException('User not found or RLS blocked the update');
+        }
+
+        return result.rows[0];
     }
 
     async generateAvatarUploadUrl(userId: string, fileName: string) {
