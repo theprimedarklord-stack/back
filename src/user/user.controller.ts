@@ -417,7 +417,7 @@ export class UserController {
     if (!client) throw new InternalServerErrorException('DB Client not found');
 
     try {
-      const userRes = await client.query('SELECT username, full_name FROM users WHERE user_id = $1', [userId]);
+      const userRes = await client.query('SELECT username, full_name, last_active_org_id FROM users WHERE user_id = $1', [userId]);
       const settingsRes = await client.query('SELECT on_this_page_display_mode FROM user_settings WHERE user_id = $1', [userId]);
 
       const userData = userRes.rows[0];
@@ -428,6 +428,8 @@ export class UserController {
         profile: {
           username: userData?.username || '',
           full_name: userData?.full_name || '',
+          active_org_id: userData?.last_active_org_id || null,
+          last_active_org_id: userData?.last_active_org_id || null,
           on_this_page_display_mode: settingsData?.on_this_page_display_mode || null,
         }
       };
