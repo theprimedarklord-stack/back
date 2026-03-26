@@ -44,7 +44,7 @@ export class UserService {
             .from('users')
             .update(dto)
             .eq('user_id', userId)
-            .select('user_id, full_name, avatar_url, email')
+            .select('user_id, full_name, avatar_url, email, username')
             .single();
 
         if (error) {
