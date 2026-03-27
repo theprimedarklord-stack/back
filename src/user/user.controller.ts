@@ -555,7 +555,8 @@ export class UserController {
     console.log('--- JWT PAYLOAD FROM GUARD ---', req.user);
     // 1. Достаем группы Cognito из проверенного payload токена
     // (AWS Cognito всегда кладет их в поле 'cognito:groups')
-    const groups = req.user['cognito:groups'] || [];
+    // const groups = req.user['cognito:groups'] || [];
+    const groups = req.user.claims?.['cognito:groups'] || [];
     const isSuperAdmin = groups.includes('SuperAdmins');
 
     const client = req.dbClient;
