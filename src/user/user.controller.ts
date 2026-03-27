@@ -552,7 +552,7 @@ export class UserController {
   @UseGuards(CognitoAuthGuard)
   async getUserContext(@Req() req) {
     const userId = req.user.sub;
-    
+    console.log('--- JWT PAYLOAD FROM GUARD ---', req.user);
     // 1. Достаем группы Cognito из проверенного payload токена
     // (AWS Cognito всегда кладет их в поле 'cognito:groups')
     const groups = req.user['cognito:groups'] || [];
@@ -583,7 +583,7 @@ export class UserController {
         username: username || null,
         // Normalize display name: prefer full_name, fallback to username
         name: fullName || username || null,
-        
+
         // 2. Отдаем флаг нашему BFF
         isSuperAdmin,
       };
