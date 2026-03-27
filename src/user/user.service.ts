@@ -7,31 +7,39 @@ import * as crypto from 'crypto';
 export class UserService {
     constructor(private readonly supabaseService: SupabaseService) { }
 
-    async getMe(userId: string) {
-        const client = this.supabaseService.getClient();
 
-        const { data, error } = await client
-            .from('users')
-            .select('user_id, full_name, avatar_url, email, username, last_active_org_id')
-            .eq('user_id', userId)
-            .single();
+    async getMe(dbClient: any, userId: string) {
+        const queryText = `
+            SELECT 
+                user_id, 
+                full_name, 
+                avatar_url, 
+                email, 
+                username, 
+                last_active_org_id
+            FROM users 
+            WHERE user_id = $1
+        `;
 
-        if (error) {
+        const result = await dbClient.query(queryText, [userId]);
+
+        if (result.rows.length === 0) {
             throw new NotFoundException('User not found');
         }
 
-        const fullName = data?.full_name;
-        const username = data?.username;
+        const data = result.rows[0];
+        const fullName = data.full_name;
+        const username = data.username;
 
         return {
-            user_id: data?.user_id,
+            user_id: data.user_id,
             full_name: fullName ?? null,
-            avatar_url: data?.avatar_url ?? null,
-            email: data?.email ?? null,
+            avatar_url: data.avatar_url ?? null,
+            email: data.email ?? null,
             username: username ?? null,
-            active_org_id: data?.last_active_org_id ?? null,
+            active_org_id: data.last_active_org_id ?? null,
             // Backward/forward compatible alias
-            last_active_org_id: data?.last_active_org_id ?? null,
+            last_active_org_id: data.last_active_org_id ?? null,
             // Normalize display name: prefer full_name, fallback to username
             name: fullName || username || null,
         };
@@ -82,7 +90,7 @@ export class UserService {
     async generateAvatarUploadUrl(userId: string, fileName: string) {
         const ext = fileName.split('.').pop();
         const filePath = `${userId}/${crypto.randomUUID()}.${ext}`;
-        
+
         const adminClient = this.supabaseService.getAdminClient();
         const { data, error } = await adminClient
             .storage
@@ -102,7 +110,7 @@ export class UserService {
     async updateAvatarInDb(dbClient: any, userId: string, filePath: string) {
         const adminClient = this.supabaseService.getAdminClient();
         const { data } = adminClient.storage.from('avatars').getPublicUrl(filePath);
-        
+
         await dbClient.query(
             `UPDATE users SET avatar_url = $1 WHERE user_id = $2`,
             [data.publicUrl, userId]

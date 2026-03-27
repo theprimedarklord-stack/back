@@ -32,13 +32,15 @@ export class UserController {
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly userService: UserService,
-  ) {}
+  ) { }
 
   @Get('me')
   @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async getMe(@Req() req) {
-    return this.userService.getMe(req.user.sub);
+    if (!req.dbClient) throw new InternalServerErrorException('DB Client not found');
+    // ✅ ПРАВИЛЬНО: Передаем req.dbClient, чтобы сработал RLS
+    return this.userService.getMe(req.dbClient, req.user.sub);
   }
 
   @Patch('me')
@@ -294,7 +296,7 @@ export class UserController {
   async getSidebarSettings(@Req() req) {
     const userId = req.user.sub;
     const client = req.dbClient;
-    
+
     if (!userId) return { success: false, error: 'User not authenticated', status: HttpStatus.UNAUTHORIZED };
     if (!client) throw new InternalServerErrorException('DB Client not found');
 
@@ -484,7 +486,7 @@ export class UserController {
         values.push(userId);
         const queryText = `UPDATE users SET ${updates.join(', ')} WHERE user_id = $${paramIndex} RETURNING username, full_name`;
         const updateRes = await client.query(queryText, values);
-        
+
         return {
           success: true,
           profile: {
@@ -546,11 +548,11 @@ export class UserController {
   */
 
   @Get('me/context')
-  @RequireOrg(false) 
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
   async getUserContext(@Req() req) {
-    const userId = req.user.sub; 
-    const client = req.dbClient; 
+    const userId = req.user.sub;
+    const client = req.dbClient;
 
     if (!client) {
       throw new InternalServerErrorException('DB Client not found in request');
@@ -586,7 +588,7 @@ export class UserController {
   @UseGuards(CognitoAuthGuard)
   async updateActiveOrg(@Req() req, @Body('org_id') orgId: string) {
     const userId = req.user.sub;
-    const client = req.dbClient; 
+    const client = req.dbClient;
 
     if (!client) {
       throw new InternalServerErrorException('DB Client not found in request');
