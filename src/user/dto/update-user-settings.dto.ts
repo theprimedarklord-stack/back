@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsOptional, IsArray, ValidateNested, IsBoolean, IsIn, Min, Max } from 'class-validator';
+import { IsString, IsInt, IsOptional, IsArray, ValidateNested, IsBoolean, IsIn, Min, Max, IsObject, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // ─────────────────────────────────────────────────────
@@ -20,12 +20,14 @@ export class SidebarFooterConfigDto {
 
 export class WindowDto {
     @IsString() id: string;
-    @IsString() type: string;
-    @IsOptional() width?: number | string;
-    @IsOptional() height?: number | string;
-    @IsOptional() x?: number;
-    @IsOptional() y?: number;
-    @IsOptional() @IsBoolean() isMinimized?: boolean;
+    @IsString() kind: string;
+
+    @IsOptional() @IsObject() payload?: any;
+    @IsOptional() @IsObject() meta?: any;
+    @IsOptional() @IsObject() position?: { x: number; y: number };
+    @IsOptional() @IsObject() size?: { width: number; height: number };
+    @IsOptional() @IsString() state?: string;
+    @IsOptional() @IsNumber() zIndex?: number;
 }
 
 export class PinnedFavoriteDto {
