@@ -14,7 +14,7 @@ export class UserService {
     // поэтому фильтруем их через Set ПЕРЕД подстановкой в SQL.
     // ─────────────────────────────────────────────────────
     private readonly ALLOWED_SETTINGS_COLUMNS = new Set([
-        'sidebar_width', 'theme', 'language', 'sidebar_mode',
+        'sidebar_width', 'theme', 'language', 'sidebar_mode', 'ui_mode',
         'on_this_page_display_mode', 'user_status', 'ui_toggles',
         'sidebar_footer_config', 'active_windows', 'sidebar_order',
         'pinned_favorites',

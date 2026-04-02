@@ -95,6 +95,12 @@ export class UserController {
     if (dto.language) {
       res.cookie('language', dto.language, cookieOpts);
     }
+    if (dto.ui_mode) {
+      res.cookie('ui_mode', dto.ui_mode, cookieOpts);
+    }
+    if (dto.sidebar_mode) {
+      res.cookie('sidebar_mode', dto.sidebar_mode, cookieOpts);
+    }
 
     return { success: true, settings: updatedSettings };
   }
