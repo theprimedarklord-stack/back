@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Post, Patch, Delete, Req, Res, UseGuards, HttpStatus, UseInterceptors, UploadedFile, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { SupabaseService } from '../supabase/supabase.service';
 import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserSettingsDto } from './dto/update-user-settings.dto';
 import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import * as multer from 'multer';
@@ -50,6 +52,51 @@ export class UserController {
     if (!req.dbClient) throw new InternalServerErrorException('DB Client not found');
     const user = await this.userService.updateMe(req.dbClient, dto);
     return { success: true, user };
+  }
+
+  // ─────────────────────────────────────────────────────
+  // Unified Settings Endpoints (L1 + L2)
+  // ─────────────────────────────────────────────────────
+
+  @Get('settings')
+  @RequireOrg(false)
+  @UseGuards(CognitoAuthGuard)
+  async getSettings(@Req() req) {
+    if (!req.dbClient) throw new InternalServerErrorException('DB Client not found');
+    const settings = await this.userService.getSettings(req.dbClient);
+    return { success: true, settings };
+  }
+
+  @Patch('settings')
+  @RequireOrg(false)
+  @UseGuards(CognitoAuthGuard)
+  async updateSettings(
+    @Req() req,
+    @Body() dto: UpdateUserSettingsDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    if (!req.dbClient) throw new InternalServerErrorException('DB Client not found');
+
+    const updatedSettings = await this.userService.updateSettings(req.dbClient, dto);
+
+    // Cookie-проксирование для SSR-критичных полей (L1)
+    // Next.js layout.tsx читает эти cookies через cookies() API для первого рендера
+    const cookieOpts = {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
+      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 год
+      path: '/',
+    };
+
+    if (dto.theme) {
+      res.cookie('theme', dto.theme, cookieOpts);
+    }
+    if (dto.language) {
+      res.cookie('language', dto.language, cookieOpts);
+    }
+
+    return { success: true, settings: updatedSettings };
   }
 
   @Post('avatar')
