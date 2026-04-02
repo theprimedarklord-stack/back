@@ -54,7 +54,7 @@ export class UpdateUserSettingsDto {
     @IsOptional()
     @IsInt()
     @Min(150)
-    @Max(700)
+    @Max(3840)
     @Type(() => Number)
     sidebar_width?: number;
 
