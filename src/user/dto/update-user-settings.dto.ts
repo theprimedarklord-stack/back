@@ -93,10 +93,8 @@ export class UpdateUserSettingsDto {
 
     // L2: JSON-массивы
     @IsOptional()
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => WindowDto)
-    active_windows?: WindowDto[];
+    @IsObject()
+    active_windows?: Record<string, any>; // Принимает наш словарь { org_id: [...] }
 
     @IsOptional()
     @IsArray()
