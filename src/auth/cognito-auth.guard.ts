@@ -116,8 +116,11 @@ export class CognitoAuthGuard implements CanActivate {
       // LRU cache hot-path — 99.9% запросов не идут в БД
       let userId = this.userCache.get(cognitoSub);
       if (!userId) {
+        this.logger.debug(`Cache MISS — sub: ${cognitoSub}`);
         userId = await this.ensureUserExists(cognitoSub, email);
         this.userCache.set(cognitoSub, userId);
+      } else {
+        this.logger.debug(`Cache HIT — sub: ${cognitoSub}`);
       }
 
       // Мутируем request — ставим userId и id для совместимости с
