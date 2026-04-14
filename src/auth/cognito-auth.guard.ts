@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { LRUCache } from 'lru-cache';
 import { SupabaseService } from '../supabase/supabase.service';
 
 export interface CognitoUserPayload {
@@ -22,9 +23,24 @@ export interface CognitoUserPayload {
 @Injectable()
 export class CognitoAuthGuard implements CanActivate {
   private readonly logger = new Logger(CognitoAuthGuard.name);
-  private readonly jwksUrl: string;
+  private readonly JWKS: ReturnType<typeof createRemoteJWKSet>;
   private readonly issuer: string;
   private readonly clientId: string;
+
+  // Иммутабельный маппинг cognito_sub → user_id.
+  // Не session state, а performance cache — связь sub→userId вечная.
+  // Каждый инстанс NestJS строит свой кэш независимо (данные иммутабельны).
+  //
+  // TODO [SCALING]: При переходе на несколько инстансов NestJS —
+  // заменить LRU на Redis-backed cache (ioredis + тот же TTL 5 мин).
+  // Сейчас каждый инстанс строит свой LRU — при одном инстансе это ОК,
+  // при N инстансах первые запросы каждого идут в БД (не катастрофа, но неэффективно).
+  // Redis на бэкенд-слое решит это без изменения архитектуры.
+  private readonly userCache = new LRUCache<string, string>({
+    max: 1000,
+    ttl: 1000 * 60 * 5, // 5 минут
+    updateAgeOnGet: false,
+  });
 
   constructor(
     private configService: ConfigService,
@@ -39,11 +55,14 @@ export class CognitoAuthGuard implements CanActivate {
     }
 
     this.issuer = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`;
-    this.jwksUrl = `${this.issuer}/.well-known/jwks.json`;
+    const jwksUrl = `${this.issuer}/.well-known/jwks.json`;
+
+    // JWKS создаётся один раз — jose кэширует и ротирует ключи автоматически
+    this.JWKS = createRemoteJWKSet(new URL(jwksUrl));
 
     // Логируем инициализацию (чтобы сразу видеть мисконфигурацию)
     this.logger.log(`[Init] issuer=${this.issuer}`);
-    this.logger.log(`[Init] JWKS URL=${this.jwksUrl}`);
+    this.logger.log(`[Init] JWKS URL=${jwksUrl}`);
     this.logger.log(`[Init] expected client_id=${this.clientId}`);
   }
 
@@ -59,11 +78,9 @@ export class CognitoAuthGuard implements CanActivate {
     this.logger.debug('Token extracted from Authorization header');
 
     try {
-      const JWKS = createRemoteJWKSet(new URL(this.jwksUrl));
-
       // ВАЖНО: Убрали параметр 'audience', так как Cognito Access Token
       // не содержит 'aud' — он использует кастомный claim 'client_id'.
-      const { payload } = await jwtVerify(token, JWKS, {
+      const { payload } = await jwtVerify(token, this.JWKS, {
         issuer: this.issuer,
         algorithms: ['RS256'],
       });
@@ -84,14 +101,24 @@ export class CognitoAuthGuard implements CanActivate {
         throw new UnauthorizedException('Only access tokens are allowed');
       }
 
-      const cognitoSub = payload.sub as string;
+      // Null-check на sub — без него дальше работать нельзя
+      if (!payload.sub) {
+        this.logger.error('Token missing required claim: sub');
+        throw new UnauthorizedException('Token missing sub claim');
+      }
+
+      const cognitoSub = payload.sub;
       const email = (payload.email as string) || '';
       this.logger.debug(
         `JWT verified successfully. sub=${cognitoSub}, client_id=${payload.client_id}`,
       );
 
-      // Синхронизация с таблицей users через admin-клиент (service_role)
-      const userId = await this.ensureUserExists(cognitoSub, email);
+      // LRU cache hot-path — 99.9% запросов не идут в БД
+      let userId = this.userCache.get(cognitoSub);
+      if (!userId) {
+        userId = await this.ensureUserExists(cognitoSub, email);
+        this.userCache.set(cognitoSub, userId);
+      }
 
       // Мутируем request — ставим userId и id для совместимости с
       // context.guard, project.guard, rls-context.interceptor
@@ -128,6 +155,9 @@ export class CognitoAuthGuard implements CanActivate {
    * Гарантируем, что пользователь существует в таблице users.
    * Это критически важно для работы RLS-политик Supabase.
    * Использует admin-клиент (serviceRoleKey), который обходит RLS.
+   *
+   * Atomic UPSERT — исключает race condition при конкурентных
+   * первых запросах от нового пользователя.
    */
   private async ensureUserExists(
     cognitoSub: string,
@@ -135,53 +165,42 @@ export class CognitoAuthGuard implements CanActivate {
   ): Promise<string> {
     const adminSupabase = this.supabaseService.getAdminClient();
 
-    // 1. Ищем по cognito_sub (уникальный ключ)
-    const { data: existingUser, error: findError } = await adminSupabase
+    // Atomic UPSERT — ON CONFLICT (cognito_sub) DO UPDATE
+    // Гарантирует: один INSERT при первом логине, никаких race conditions.
+    // Email обновляется при каждом cache-miss (синхронизация с Cognito).
+    const { data, error } = await adminSupabase
       .from('users')
-      .select('user_id')
-      .eq('cognito_sub', cognitoSub)
-      .single();
-
-    if (existingUser) {
-      this.logger.debug(`User found in DB: userId=${existingUser.user_id}`);
-      return existingUser.user_id as string;
-    }
-
-    // PGRST116 = No rows found — это нормально, значит нужно создать
-    if (findError && findError.code !== 'PGRST116') {
-      this.logger.error(`Error finding user in DB: ${findError.message}`);
-      throw new UnauthorizedException('Database error during user sync');
-    }
-
-    // 2. Пользователь не найден → создаем нового
-    this.logger.log(`Creating new user in DB for cognito_sub=${cognitoSub}`);
-    const { data: newUser, error: createError } = await adminSupabase
-      .from('users')
-      .insert({
-        cognito_sub: cognitoSub,
-        email: email || undefined,
-        username: email ? email.split('@')[0] : cognitoSub.slice(0, 8),
-        created_at: new Date().toISOString(),
-      })
+      .upsert(
+        {
+          cognito_sub: cognitoSub,
+          email: email || undefined,
+          username: email ? email.split('@')[0] : cognitoSub.slice(0, 8),
+        },
+        { onConflict: 'cognito_sub' },
+      )
       .select('user_id')
       .single();
 
-    if (createError || !newUser) {
-      this.logger.error(`Error creating user in DB: ${createError?.message}`);
-      throw new UnauthorizedException('Failed to sync user to database');
+    if (error || !data) {
+      this.logger.error(`User sync failed: ${error?.message}`);
+      throw new UnauthorizedException('User sync failed');
     }
 
-    // 3. Создаем дефолтные user_settings (чтобы getProfile не падал с PGRST116)
-    const { error: settingsError } = await adminSupabase
+    // Idempotent: гарантируем что default user_settings существует.
+    // ON CONFLICT DO NOTHING — если настройки уже есть, ничего не трогаем.
+    const { error: settingsErr } = await adminSupabase
       .from('user_settings')
-      .insert({ user_id: newUser.user_id as string });
+      .upsert(
+        { user_id: data.user_id as string },
+        { onConflict: 'user_id', ignoreDuplicates: true },
+      );
 
-    if (settingsError) {
-      this.logger.warn(`Failed to create user_settings: ${settingsError.message}`);
+    if (settingsErr) {
+      this.logger.warn(`Failed to ensure user_settings: ${settingsErr.message}`);
       // Не фатально — getProfile обработает fallback
     }
 
-    this.logger.debug(`User created in DB: userId=${newUser.user_id}`);
-    return newUser.user_id as string;
+    this.logger.debug(`User synced: userId=${data.user_id}`);
+    return data.user_id as string;
   }
 }
