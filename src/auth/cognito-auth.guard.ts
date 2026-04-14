@@ -119,6 +119,9 @@ export class CognitoAuthGuard implements CanActivate {
         this.logger.debug(`Cache MISS — sub: ${cognitoSub}`);
         userId = await this.ensureUserExists(cognitoSub, email);
         this.userCache.set(cognitoSub, userId);
+        this.logger.debug(
+          `Cache SAVED — key: ${cognitoSub} -> value: ${userId} | Cache size: ${this.userCache.size}`,
+        );
       } else {
         this.logger.debug(`Cache HIT — sub: ${cognitoSub}`);
       }
