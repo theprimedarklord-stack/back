@@ -1,4 +1,3 @@
-
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
@@ -10,11 +9,15 @@ import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // === КРИТИЧНО ДЛЯ GRACEFUL SHUTDOWN ===
+  // Это позволяет приложению корректно завершать работу (в том числе закрывать БД)
+  app.enableShutdownHooks();
+  // ======================================
+
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.useGlobalFilters(new AllExceptionsFilter());
   const configService = app.get(ConfigService);
-
-  // === ВСЮ ЭТУ КАСТОМНУЮ ЛОГИКУ УБИРАЕМ. Она вызывает 403. ===
 
   // 1. Включаем Helmet для базовой безопасности заголовков
   app.use(helmet());
@@ -47,8 +50,6 @@ async function bootstrap() {
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      // Если нужна отладка, можно раскомментировать:
-      // console.log('❌ CORS блокирован для origin:', origin);
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true, // Важно для кук и сессий
