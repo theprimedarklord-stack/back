@@ -10,6 +10,7 @@ import {
   InternalServerErrorException,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CognitoAuthGuard } from './cognito-auth.guard';
@@ -92,6 +93,7 @@ export class AuthController {
     }
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // Anti-brute-force: 5 попыток в минуту
   @Post('login')
   async login(@Body() body: LoginDto) {
     try {
@@ -121,6 +123,7 @@ export class AuthController {
     }
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // Anti-brute-force: 5 попыток в минуту
   @Post('register')
   async register(@Body() body: RegisterDto) {
     try {
@@ -141,6 +144,7 @@ export class AuthController {
     }
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // Anti-brute-force: защита от перебора OTP-кодов
   @Post('confirm')
   async confirmSignUp(@Body() body: { email: string; code: string }) {
     try {

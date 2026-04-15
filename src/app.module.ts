@@ -1,10 +1,13 @@
 import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
 import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
+import Redis from 'ioredis';
 import { RlsContextInterceptor } from './auth/rls-context.interceptor';
+import { ProxyThrottlerGuard } from './common/guards/proxy-throttler.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SupabaseModule } from './supabase/supabase.module';
 import { DatabaseModule } from './db/database.module';
 import { AuthModule } from './auth/auth.module';
@@ -26,10 +29,28 @@ import { MeModule } from './me/me.module';
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // 1 минута
-      limit: 100, // максимум 100 запросов с одного IP в минуту
-    }]),
+    // Rate Limiting: Вариант А — один глобальный лимит + @Throttle переопределения
+    // Redis хранилище для корректной работы при нескольких инстансах и рестартах.
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL');
+        if (!redisUrl) throw new Error('REDIS_URL is not defined in env');
+
+        return {
+          throttlers: [
+            { name: 'default', ttl: 60000, limit: 100 },
+          ],
+          storage: new ThrottlerStorageRedisService(
+            new Redis(redisUrl, {
+              enableOfflineQueue: false, // Fail-fast: не копить запросы при падении Redis
+              maxRetriesPerRequest: 3,
+            }),
+          ),
+        };
+      },
+    }),
     ConfigModule.forRoot({ isGlobal: true }),
     SupabaseModule,
     DatabaseModule,
@@ -55,7 +76,7 @@ import { MeModule } from './me/me.module';
   providers: [
     AppService,
     { provide: APP_INTERCEPTOR, useClass: RlsContextInterceptor },
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: ProxyThrottlerGuard },
   ],
 })
 export class AppModule { }
