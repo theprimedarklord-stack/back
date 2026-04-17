@@ -6,6 +6,20 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import * as express from 'express';
 import helmet from 'helmet';
+import { jwtVerify, importSPKI, KeyLike } from 'jose';
+
+// === S2S: Кеширование публичного ключа для верификации JWT от BFF ===
+let publicKeyPromise: Promise<KeyLike> | null = null;
+
+async function getPublicKey(): Promise<KeyLike> {
+  if (!publicKeyPromise) {
+    const keyString = process.env.M2M_PUBLIC_KEY;
+    if (!keyString) throw new Error('M2M_PUBLIC_KEY is missing');
+    const formattedKey = keyString.replace(/\\n/g, '\n');
+    publicKeyPromise = importSPKI(formattedKey, 'RS256') as Promise<KeyLike>;
+  }
+  return publicKeyPromise;
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -21,6 +35,41 @@ async function bootstrap() {
 
   // 1. Включаем Helmet для базовой безопасности заголовков
   app.use(helmet());
+
+  // === S2S: Middleware для Service-to-Service аутентификации ===
+  app.use(async (req, res, next) => {
+    const path = req.path;
+
+    // /health — открытый эндпоинт для health-check
+    if (path === '/health') return next();
+
+    // Защита Агента (Rust) — Строго по ключу x-agent-key
+    if (path.startsWith('/api/v1/')) {
+      const agentKey = req.headers['x-agent-key'];
+      if (!agentKey || agentKey !== process.env.AGENT_API_KEY) {
+        return res.status(403).json({ message: 'Forbidden: Invalid Agent Key' });
+      }
+      return next();
+    }
+
+    // Защита BFF (Vercel) — Строго по RS256 JWT
+    const token = req.headers['x-service-token'] as string;
+    if (!token) {
+      return res.status(403).json({ message: 'Forbidden: No Service Token' });
+    }
+
+    try {
+      const publicKey = await getPublicKey();
+      await jwtVerify(token, publicKey, {
+        issuer: 'smartmemory-bff',
+        audience: 'smartmemory-backend',
+      });
+      next();
+    } catch (e) {
+      return res.status(403).json({ message: 'Forbidden: Invalid Service Token' });
+    }
+  });
+  // === Конец S2S Middleware ===
 
   // 2. Включаем строгую глобальную валидацию (отсекаем мусор из DTO)
   app.useGlobalPipes(
@@ -55,7 +104,7 @@ async function bootstrap() {
     credentials: true, // Важно для кук и сессий
     exposedHeaders: ['set-cookie'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept', 'Origin', 'X-Requested-With', 'x-org-id', 'x-project-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept', 'Origin', 'X-Requested-With', 'x-org-id', 'x-project-id', 'x-service-token', 'x-agent-key'],
   });
 
   // 3. Подключаем парсер кук
