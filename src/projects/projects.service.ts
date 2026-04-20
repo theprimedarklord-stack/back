@@ -37,7 +37,7 @@ export class ProjectsService {
         throw new InternalServerErrorException(`Ошибка создания проекта: ${error.message}`);
       }
 
-      return project;
+      return project as any;
     } catch (error) {
       throw new InternalServerErrorException(`Ошибка создания проекта: ${error.message}`);
     }
@@ -56,7 +56,7 @@ export class ProjectsService {
         throw new InternalServerErrorException(`Ошибка получения проектов: ${error.message}`);
       }
 
-      return data || [];
+      return (data as any) || [];
     } catch (error) {
       throw new InternalServerErrorException(`Ошибка получения проектов: ${error.message}`);
     }
@@ -68,7 +68,7 @@ export class ProjectsService {
         .getAdminClient()
         .from('projects')
         .select('*')
-        .eq('id', id)
+        .eq('id', Number(id))
         .eq('user_id', userId)
         .single();
 
@@ -79,7 +79,7 @@ export class ProjectsService {
         throw new InternalServerErrorException(`Ошибка получения проекта: ${error.message}`);
       }
 
-      return data;
+      return data as any;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -110,7 +110,7 @@ export class ProjectsService {
         .getAdminClient()
         .from('projects')
         .update(updateData)
-        .eq('id', id)
+        .eq('id', Number(id))
         .eq('user_id', userId)
         .select()
         .single();
@@ -119,7 +119,7 @@ export class ProjectsService {
         throw new InternalServerErrorException(`Ошибка обновления проекта: ${error.message}`);
       }
 
-      return project;
+      return project as any;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -137,7 +137,7 @@ export class ProjectsService {
         .getAdminClient()
         .from('projects')
         .delete()
-        .eq('id', id)
+        .eq('id', Number(id))
         .eq('user_id', userId);
 
       if (error) {
@@ -163,7 +163,7 @@ export class ProjectsService {
           *,
           goal_subgoals(*)
         `)
-        .eq('project_id', projectId)
+        .eq('project_id', Number(projectId))
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 

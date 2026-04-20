@@ -1,14 +1,14 @@
 import { Controller, Get, Post, Param, Body, UseGuards, Req, Delete, HttpStatus } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { MapCardHistoryService } from './map-card-history.service';
 import { RecordOperationDto } from './dto/map-card-history.dto';
 
 @Controller('map-card-history')
-@UseGuards(JwtAuthGuard)
+@UseGuards(CognitoAuthGuard)
 export class MapCardHistoryController {
   constructor(
     private readonly historyService: MapCardHistoryService,
-  ) {}
+  ) { }
 
   /**
    * Записать операцию в историю

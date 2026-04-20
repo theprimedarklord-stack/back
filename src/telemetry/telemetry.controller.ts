@@ -10,6 +10,7 @@ import {
   HttpStatus,
   UseFilters,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { TelemetryService, DatabaseTable } from './telemetry.service';
 import { TelemetryAuthService } from './telemetry-auth.service';
@@ -44,6 +45,7 @@ export class TelemetryController {
    * Эндпоинт инициализации: POST /api/v1/init
    * Двухфазный handshake - клиент отправляет публичный ключ, получает зашифрованный response_key
    */
+  @Throttle({ default: { limit: 1000, ttl: 60000 } }) // Расширенная квота для Rust-агента
   @Post('v1/init')
   async initClient(@Req() req: Request) {
     console.log('=== INIT REQUEST ===');
@@ -263,6 +265,7 @@ export class TelemetryController {
   //   }
   // }
 
+  @Throttle({ default: { limit: 1000, ttl: 60000 } }) // Расширенная квота для Rust-агента
   @Post('v1/telemetry')
   async receiveTelemetry(@Body() body: TelemetryBodyDto, @Req() req: Request) {
     console.log('=== TELEMETRY ENDPOINT HIT ===');

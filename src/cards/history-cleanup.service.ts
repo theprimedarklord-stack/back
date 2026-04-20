@@ -68,7 +68,7 @@ export class HistoryCleanupService {
 
       const recordsToDelete = historyRecords
         .slice(10) // Пропустить последние 10
-        .filter(record => new Date(record.created_at) < thirtyDaysAgo)
+        .filter(record => new Date(record.created_at as string) < thirtyDaysAgo)
         .map(record => record.id);
 
       if (recordsToDelete.length > 0) {

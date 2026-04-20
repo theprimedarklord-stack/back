@@ -5,13 +5,15 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class TelemetryDatabaseService implements OnModuleInit, OnModuleDestroy {
-  private pool: Pool;
+  private pool: Pool | null = null;
+  private isConnected = false;
 
   constructor(private configService: ConfigService) {
     const databaseUrl = this.configService.get<string>('TELEMETRY_DATABASE_URL');
-    
+
     if (!databaseUrl) {
-      throw new Error('TELEMETRY_DATABASE_URL is required for telemetry module');
+      console.warn('⚠️ TELEMETRY_DATABASE_URL не задан — телеметрия отключена');
+      return;
     }
 
     this.pool = new Pool({
@@ -21,29 +23,44 @@ export class TelemetryDatabaseService implements OnModuleInit, OnModuleDestroy {
       },
       max: 20, // Максимум соединений в пуле
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 5000,
     });
   }
 
   async onModuleInit() {
-    // Проверка подключения при старте
+    if (!this.pool) {
+      console.warn('⚠️ Telemetry database pool не создан — пропуск инициализации');
+      return;
+    }
+
+    // Проверка подключения при старте (не роняем сервер)
     try {
       await this.pool.query('SELECT NOW()');
+      this.isConnected = true;
       console.log('✅ Telemetry database connected');
     } catch (error) {
-      console.error('❌ Telemetry database connection failed:', error);
-      throw error;
+      console.error('❌ Telemetry database connection failed (сервер продолжит работу):', error.message || error);
+      this.isConnected = false;
     }
   }
 
   async onModuleDestroy() {
-    await this.pool.end();
+    if (this.pool) {
+      await this.pool.end();
+    }
+  }
+
+  /**
+   * Проверка доступности телеметрии
+   */
+  isAvailable(): boolean {
+    return this.isConnected && this.pool !== null;
   }
 
   /**
    * Получить пул соединений для выполнения запросов
    */
-  getPool(): Pool {
+  getPool(): Pool | null {
     return this.pool;
   }
 
@@ -51,6 +68,10 @@ export class TelemetryDatabaseService implements OnModuleInit, OnModuleDestroy {
    * Выполнить запрос
    */
   async query(text: string, params?: any[]) {
+    if (!this.pool || !this.isConnected) {
+      console.warn('⚠️ Telemetry DB недоступна, запрос пропущен');
+      return { rows: [], rowCount: 0 };
+    }
     return this.pool.query(text, params);
   }
 

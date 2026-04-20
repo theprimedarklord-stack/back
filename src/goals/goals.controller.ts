@@ -16,17 +16,17 @@ import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
 import { AddSubgoalDto } from './dto/add-subgoal.dto';
 import { PatchSubgoalDto } from './dto/patch-subgoal.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { AIService } from '../ai/ai.service';
 import { GenerateTasksForGoalDto } from '../ai/dto/generate-tasks.dto';
 
 @Controller('goals')
-@UseGuards(JwtAuthGuard)
+@UseGuards(CognitoAuthGuard)
 export class GoalsController {
   constructor(
     private readonly goalsService: GoalsService,
     private readonly aiService: AIService,
-  ) {}
+  ) { }
 
   @Post()
   async create(@Body() createGoalDto: CreateGoalDto, @Req() req) {

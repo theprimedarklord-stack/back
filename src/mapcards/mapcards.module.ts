@@ -1,13 +1,11 @@
 import { Module } from '@nestjs/common';
-import { MapcardsController } from './mapcards.controller';
-import { MapcardsService } from './mapcards.service';
-import { SupabaseModule } from '../supabase/supabase.module';
+import { MapCardsController } from './mapcards.controller';
+import { MapCardsService } from './mapcards.service';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [SupabaseModule],
-  controllers: [MapcardsController],
-  providers: [MapcardsService],
-  exports: [MapcardsService],
+  imports: [AuthModule],
+  controllers: [MapCardsController],
+  providers: [MapCardsService],
 })
-export class MapcardsModule {}
-
+export class MapCardsModule { }

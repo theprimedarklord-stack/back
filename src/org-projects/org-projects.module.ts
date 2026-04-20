@@ -1,0 +1,29 @@
+// src/org-projects/org-projects.module.ts
+import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
+import { OrgProjectsController } from './org-projects.controller';
+import { OrgProjectsService } from './org-projects.service';
+import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
+import { ContextGuard } from '../auth/context.guard';
+import { ProjectGuard } from '../auth/project.guard';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { PermissionsService } from '../auth/permissions.service';
+import { RolesGuard } from '../auth/roles.guard';
+import { RlsContextInterceptor } from '../auth/rls-context.interceptor';
+
+@Module({
+  imports: [AuthModule],
+  controllers: [OrgProjectsController],
+  providers: [
+    OrgProjectsService,
+    CognitoAuthGuard,
+    ContextGuard,
+    ProjectGuard,
+    PermissionsGuard,
+    PermissionsService,
+    RolesGuard,
+    RlsContextInterceptor,
+  ],
+  exports: [OrgProjectsService],
+})
+export class OrgProjectsModule { }

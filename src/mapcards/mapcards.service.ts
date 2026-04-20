@@ -1,155 +1,38 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
-import { MapCard, CreateMapCardData, UpdateMapCardData } from './entities/mapcard.entity';
+import { Injectable, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
+import { CreateMapCardDto } from './dto/create-mapcard.dto';
 
 @Injectable()
-export class MapcardsService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+export class MapCardsService {
+  constructor() { }
 
-  async create(userId: string, createMapCardData: CreateMapCardData): Promise<MapCard> {
+  async findAll(dbClient: any) {
     try {
-      const now = new Date().toISOString();
-
-      const newMapCard = {
-        user_id: userId,
-        data_core: createMapCardData.data_core,
-        card_id: createMapCardData.card_id || null,
-        created_at: now,
-        updated_at: now,
-      };
-
-      const { data, error } = await this.supabaseService
-        .getAdminClient()
-        .from('map_cards')
-        .insert(newMapCard)
-        .select()
-        .single();
-
-      if (error) {
-        throw new InternalServerErrorException(`Ошибка создания карты знаний: ${error.message}`);
+      const result = await dbClient.query('SELECT * FROM map_cards');
+      return result.rows;
+    } catch (error: any) {
+      if (error.code === '42501') {
+        throw new ForbiddenException(`Відмовлено в доступі RLS`);
       }
-
-      return data;
-    } catch (error) {
-      if (error instanceof InternalServerErrorException) {
-        throw error;
-      }
-      throw new InternalServerErrorException(`Ошибка создания карты знаний: ${error.message}`);
+      throw new InternalServerErrorException(`DB Select Error: ${error.message}`);
     }
   }
 
-  async findAll(userId: string): Promise<MapCard[]> {
+  async create(dto: CreateMapCardDto, userId: string, orgId: string, dbClient: any) {
     try {
-      const { data, error } = await this.supabaseService
-        .getAdminClient()
-        .from('map_cards')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      const query = `
+        INSERT INTO map_cards (card_id, user_id, organization_id)
+        VALUES ($1, $2, $3)
+        RETURNING *;
+      `;
+      const values = [dto.card_id, userId, orgId];
 
-      if (error) {
-        throw new InternalServerErrorException(`Ошибка получения карт знаний: ${error.message}`);
+      const result = await dbClient.query(query, values);
+      return result.rows[0];
+    } catch (error: any) {
+      if (error.code === '42501') {
+        throw new ForbiddenException(`Ця картка не належить вашій організації або доступ заборонено`);
       }
-
-      return data || [];
-    } catch (error) {
-      if (error instanceof InternalServerErrorException) {
-        throw error;
-      }
-      throw new InternalServerErrorException(`Ошибка получения карт знаний: ${error.message}`);
-    }
-  }
-
-  async findOne(userId: string, id: number): Promise<MapCard> {
-    try {
-      const { data, error } = await this.supabaseService
-        .getAdminClient()
-        .from('map_cards')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', userId)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          throw new NotFoundException('Карта знаний не найдена');
-        }
-        throw new InternalServerErrorException(`Ошибка получения карты знаний: ${error.message}`);
-      }
-
-      return data;
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException(`Ошибка получения карты знаний: ${error.message}`);
-    }
-  }
-
-  async update(userId: string, id: number, updateMapCardData: UpdateMapCardData): Promise<MapCard> {
-    try {
-      // Проверяем существование карты перед обновлением
-      await this.findOne(userId, id);
-
-      const now = new Date().toISOString();
-      const updateData: any = {
-        updated_at: now,
-      };
-
-      // Копируем только переданные поля
-      if (updateMapCardData.data_core !== undefined) {
-        updateData.data_core = updateMapCardData.data_core;
-      }
-      if (updateMapCardData.card_id !== undefined) {
-        updateData.card_id = updateMapCardData.card_id;
-      }
-
-      const { data, error } = await this.supabaseService
-        .getAdminClient()
-        .from('map_cards')
-        .update(updateData)
-        .eq('id', id)
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          throw new NotFoundException('Карта знаний не найдена');
-        }
-        throw new InternalServerErrorException(`Ошибка обновления карты знаний: ${error.message}`);
-      }
-
-      return data;
-    } catch (error) {
-      if (error instanceof NotFoundException || error instanceof InternalServerErrorException) {
-        throw error;
-      }
-      throw new InternalServerErrorException(`Ошибка обновления карты знаний: ${error.message}`);
-    }
-  }
-
-  async remove(userId: string, id: number): Promise<void> {
-    try {
-      // Проверяем существование карты перед удалением
-      await this.findOne(userId, id);
-
-      const { error } = await this.supabaseService
-        .getAdminClient()
-        .from('map_cards')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
-
-      if (error) {
-        throw new InternalServerErrorException(`Ошибка удаления карты знаний: ${error.message}`);
-      }
-    } catch (error) {
-      if (error instanceof NotFoundException || error instanceof InternalServerErrorException) {
-        throw error;
-      }
-      throw new InternalServerErrorException(`Ошибка удаления карты знаний: ${error.message}`);
+      throw new InternalServerErrorException(`DB Insert Error: ${error.message}`);
     }
   }
 }
-

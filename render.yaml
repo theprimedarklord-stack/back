@@ -42,6 +42,9 @@ services:
       # Паник-режим
       - key: PANIC_CODE
         sync: false  # Установить вручную - код для самоуничтожения
+      # Rate Limiting: Redis хранилище для ThrottlerModule
+      - key: REDIS_URL
+        sync: false  # КРИТИЧНО: установить вручную — URL Redis инстанса (Upstash / ElastiCache / Render Redis)
       # Render PostgreSQL для телеметрии
       - key: TELEMETRY_DATABASE_URL
         sync: false  # КРИТИЧНО: установить вручную - connection string для Render PostgreSQL

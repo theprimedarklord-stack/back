@@ -1,9 +1,19 @@
 // src/auth/auth.controller.ts
-import { Response } from 'express';
-import { Res, Req, Body, Patch, Controller, Post, Get, HttpStatus, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import {
+  Req,
+  Body,
+  Patch,
+  Controller,
+  Post,
+  Get,
+  HttpStatus,
+  InternalServerErrorException,
+  BadRequestException,
+} from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { SupabaseService } from '../supabase/supabase.service';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { CognitoAuthGuard } from './cognito-auth.guard';
 import { UseGuards } from '@nestjs/common';
 import { LoginDto, RegisterDto } from './auth.dto';
 
@@ -12,10 +22,10 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly supabaseService: SupabaseService,
-  ) {}
+  ) { }
 
   @Get('user_list')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getUserList() {
     try {
       const { data, error } = await this.supabaseService
@@ -41,10 +51,9 @@ export class AuthController {
   }
 
   @Get('users')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getAllUsers(@Req() req) {
     try {
-      // Перевіряємо, чи є користувач адміністратором
       const { data: userData, error: userError } = await this.supabaseService
         .getAdminClient()
         .from('users')
@@ -60,14 +69,12 @@ export class AuthController {
         };
       }
 
-      // Отримуємо список усіх користувачів
       const { data: users, error } = await this.supabaseService
         .getAdminClient()
         .from('users')
         .select('user_id, email, username, role');
 
       if (error) {
-        console.error('Помилка отримання користувачів:', error);
         return {
           success: false,
           error: 'Не вдалося отримати список користувачів',
@@ -86,154 +93,82 @@ export class AuthController {
     }
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // Anti-brute-force: 5 попыток в минуту
   @Post('login')
-  async login(
-    @Body() body: LoginDto,
-    @Req() req,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async login(@Body() body: LoginDto) {
     try {
-      // Логирование для диагностики
-      console.log('=== LOGIN REQUEST DEBUG ===');
-      console.log('Content-Type header:', req.headers['content-type']);
-      console.log('Accept-Encoding header:', req.headers['accept-encoding']);
-      console.log('User-Agent header:', req.headers['user-agent']);
-      console.log('Content-Length header:', req.headers['content-length']);
-      console.log('Raw body received:', JSON.stringify(body, null, 2));
-      console.log('Body type:', typeof body);
-      console.log('Body keys:', Object.keys(body || {}));
-      console.log('Body.email value:', body?.email);
-      console.log('Body.password value:', body?.password ? '[HIDDEN - length: ' + body.password.length + ']' : 'undefined');
-      console.log('Body.rememberMe value:', body?.rememberMe);
-      console.log('Request method:', req.method);
-      console.log('Request URL:', req.url);
-      console.log('Request IP:', req.ip);
-      console.log('Request headers (all):', JSON.stringify(req.headers, null, 2));
-      
-      // Проверяем, что body содержит необходимые поля
       if (!body || !body.email || !body.password) {
-        console.error('=== VALIDATION ERROR ===');
-        console.error('Body is null/undefined:', !body);
-        console.error('Email present:', !!body?.email);
-        console.error('Password present:', !!body?.password);
-        console.error('Email value:', body?.email);
-        console.error('Password value:', body?.password ? '[HIDDEN]' : 'undefined');
-        console.error('Full body:', JSON.stringify(body, null, 2));
-        console.error('========================');
         throw new BadRequestException('Отсутствуют обязательные поля: email и password');
       }
-      
-      console.log('=== VALIDATION PASSED ===');
-      console.log('Email:', body.email);
-      console.log('Password length:', body.password.length);
-      console.log('RememberMe:', body.rememberMe);
-      console.log('==========================');
-      console.log('================================');
 
       const result = await this.authService.login(body.email, body.password);
-      
-  
-      if (!result.access_token) {
+
+      if (!result.accessToken) {
         throw new InternalServerErrorException('Access token not returned from auth service');
       }
-  
-      const isProd = process.env.NODE_ENV === 'production';
-      const maxAge = body.rememberMe ? 30 * 24 * 60 * 60 : 60 * 60; // 30 дней или 1 час
-  
-      res.cookie('access_token', result.access_token, {
-        httpOnly: true,
-        secure: isProd, // true в продакшене
-        sameSite: isProd ? 'none' : 'lax', // 'none' в продакшене для кросс-доменных запросов
-        maxAge: maxAge * 1000, // В миллисекундах
-        path: '/',
-      });
-  
 
-  
+      // Возвращаем токены в формате JSON.
+      // NestJS больше не трогает куки! BFF сам их прочитает и сохранит.
       return {
         success: true,
         theme: result.theme,
         user_id: result.user_id,
+        accessToken: result.accessToken,
+        idToken: result.idToken,
+        refreshToken: result.refreshToken,
       };
     } catch (error) {
-      console.error('Login error:', error.message, error.stack);
-      throw error; // Позволяем AllExceptionsFilter обработать ошибку
+      console.error('Login error:', error.message);
+      throw error;
     }
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // Anti-brute-force: 5 попыток в минуту
   @Post('register')
-  async register(
-    @Body() body: RegisterDto,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async register(@Body() body: RegisterDto) {
     try {
-      const { user_id, access_token } = await this.authService.register(
+      const result = await this.authService.register(
         body.email,
         body.password,
         body.username,
       );
 
-      res.cookie('access_token', access_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        path: '/',
-      });
-
-      return { success: true, user_id };
+      return {
+        success: true,
+        userConfirmed: result.userConfirmed,
+        message: result.message,
+      };
     } catch (error) {
       console.error('Registration error:', error.message || error);
-      return {
-        success: false,
-        error: error.message || 'Ошибка регистрации',
-        status: HttpStatus.BAD_REQUEST,
-      };
+      throw error;
+    }
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // Anti-brute-force: защита от перебора OTP-кодов
+  @Post('confirm')
+  async confirmSignUp(@Body() body: { email: string; code: string }) {
+    try {
+      if (!body.email || !body.code) {
+        throw new BadRequestException('Email и код подтверждения обязательны');
+      }
+
+      const result = await this.authService.confirmSignUp(body.email, body.code);
+      return result;
+    } catch (error) {
+      console.error('Confirm error:', error.message);
+      throw error;
     }
   }
 
   @Post('logout')
-  async logout(@Req() req, @Res({ passthrough: true }) res: Response) {
-    try {
-
-      const accessToken = req.cookies?.access_token;
-
-      if (accessToken) {
-        const { error } = await this.supabaseService.getClient().auth.signOut();
-        if (error) {
-          console.error('Supabase signOut error:', error.message);
-          return {
-            success: false,
-            error: 'Ошибка при завершении сессии',
-            status: HttpStatus.INTERNAL_SERVER_ERROR,
-          };
-        }
-      }
-
-      res.clearCookie('access_token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        path: '/',
-      });
-
-
-
-      return { success: true, message: 'Выход выполнен успешно' };
-    } catch (error) {
-      console.error('Logout error:', error.message);
-      return {
-        success: false,
-        error: 'Ошибка при выходе',
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-      };
-    }
+  async logout() {
+    // Куки не трогаем — BFF сам удалит auth_acc_{sub}_access при вызове этого эндпоинта.
+    return { success: true, message: 'Выход выполнен успешно' };
   }
 
   @Get('profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async getProfile(@Req() req) {
-
     if (!req.user) {
       return { success: false, error: 'Не авторизован' };
     }
@@ -241,7 +176,6 @@ export class AuthController {
     try {
       const supabase = this.supabaseService.getAdminClient();
 
-      // Получаем данные из таблицы users
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -253,14 +187,27 @@ export class AuthController {
         throw new InternalServerErrorException('Ошибка загрузки данных пользователя');
       }
 
-      // Получаем данные из таблицы user_settings
-      const { data: settingsData, error: settingsError } = await supabase
+      let { data: settingsData, error: settingsError } = await supabase
         .from('user_settings')
         .select('*')
         .eq('user_id', req.user.id)
         .single();
 
-      if (settingsError) {
+      // If no settings row exists — auto-create default one (self-heal for old users)
+      if (settingsError && settingsError.code === 'PGRST116') {
+        const { data: newSettings, error: insertError } = await supabase
+          .from('user_settings')
+          .insert({ user_id: req.user.id })
+          .select('*')
+          .single();
+
+        if (insertError) {
+          console.error('Failed to auto-create user_settings:', insertError);
+          throw new InternalServerErrorException('Ошибка загрузки настроек пользователя');
+        }
+        settingsData = newSettings;
+        settingsError = null;
+      } else if (settingsError) {
         console.error('Settings data error:', settingsError);
         throw new InternalServerErrorException('Ошибка загрузки настроек пользователя');
       }
@@ -268,11 +215,11 @@ export class AuthController {
       return {
         success: true,
         user: {
-          id: req.user.id,
-          email: req.user.email,
-          role: userData?.role || 'user',
           ...userData,
-          settings: settingsData, // Добавляем настройки пользователя
+          id: req.user.id || (userData && userData.user_id),
+          email: req.user.email || (userData && userData.email),
+          role: userData?.role || 'user',
+          settings: settingsData,
         },
       };
     } catch (error) {
@@ -282,47 +229,52 @@ export class AuthController {
   }
 
   @Patch('profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CognitoAuthGuard)
   async updateProfile(@Req() req, @Body() body: { userId: string; settings?: any }) {
     try {
-
-      
       const supabase = this.supabaseService.getAdminClient();
 
       if (body.settings) {
-        // Сначала получаем текущие настройки
         const { data: currentSettings, error: fetchError } = await supabase
           .from('user_settings')
           .select('*')
           .eq('user_id', req.user.id)
           .single();
 
-        if (fetchError) {
+        if (fetchError && fetchError.code === 'PGRST116') {
+          // No settings row yet — create one with the provided settings
+          const { error: insertError } = await supabase
+            .from('user_settings')
+            .insert({
+              user_id: req.user.id,
+              ...body.settings,
+              updated_at: new Date().toISOString(),
+            });
+
+          if (insertError) {
+            console.error('Ошибка создания настроек:', insertError);
+            throw new InternalServerErrorException('Ошибка создания настроек');
+          }
+        } else if (fetchError) {
           console.error('Ошибка получения текущих настроек:', fetchError);
           throw new InternalServerErrorException('Ошибка получения настроек');
+        } else {
+          const updatedSettings = {
+            ...currentSettings,
+            ...body.settings,
+            updated_at: new Date().toISOString(),
+          };
+
+          const { error: updateError } = await supabase
+            .from('user_settings')
+            .update(updatedSettings)
+            .eq('user_id', req.user.id);
+
+          if (updateError) {
+            console.error('Ошибка обновления настроек:', updateError);
+            throw new InternalServerErrorException('Ошибка обновления настроек');
+          }
         }
-
-        // Объединяем текущие настройки с новыми (частичное обновление)
-        const updatedSettings = {
-          ...currentSettings,
-          ...body.settings,
-          // Обновляем временную метку
-          updated_at: new Date().toISOString()
-        };
-
-        // Обновляем настройки в БД
-        const { error: updateError } = await this.supabaseService
-          .getAdminClient()
-          .from('user_settings')
-          .update(updatedSettings)
-          .eq('user_id', req.user.id);
-
-        if (updateError) {
-          console.error('Ошибка обновления настроек:', updateError);
-          throw new InternalServerErrorException('Ошибка обновления настроек');
-        }
-
-
       }
 
       return { success: true, message: 'Настройки обновлены' };
