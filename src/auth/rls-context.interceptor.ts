@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { Observable, lastValueFrom } from 'rxjs';
 import { DatabaseService } from '../db/database.service';
 import { REQUIRE_ORG_KEY } from '../common/decorators/require-org.decorator';
+import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 
 @Injectable()
 export class RlsContextInterceptor implements NestInterceptor {
@@ -16,6 +17,13 @@ export class RlsContextInterceptor implements NestInterceptor {
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
     const req = context.switchToHttp().getRequest();
     const path = req.path;
+
+    // Skip RLS logic for routes decorated with @Public()
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) return next.handle();
 
     // Skip RLS logic and logging for public/health paths
     const isPublicPath =

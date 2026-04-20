@@ -6,11 +6,13 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { LRUCache } from 'lru-cache';
 import { SupabaseService } from '../supabase/supabase.service';
+import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 
 export interface CognitoUserPayload {
   userId: string;      // Mapped from users table (uuid)
@@ -45,6 +47,7 @@ export class CognitoAuthGuard implements CanActivate {
   constructor(
     private configService: ConfigService,
     private supabaseService: SupabaseService,
+    private reflector: Reflector,
   ) {
     const region = this.configService.get<string>('COGNITO_REGION') || 'eu-central-1';
     const userPoolId = this.configService.get<string>('COGNITO_USER_POOL_ID');
@@ -67,6 +70,13 @@ export class CognitoAuthGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Пропускаем маршруты, помеченные @Public()
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) return true;
+
     const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractTokenFromRequest(request);
 

@@ -40,8 +40,8 @@ async function bootstrap() {
   app.use(async (req, res, next) => {
     const path = req.path;
 
-    // /health — открытый эндпоинт для health-check
-    if (path === '/health') return next();
+    // Публичные эндпоинты — health-check и wake-up ping для Render
+    if (path === '/health' || path === '/') return next();
 
     // Защита Агента (Rust) — Строго по ключу x-agent-key
     if (path.startsWith('/api/v1/')) {
