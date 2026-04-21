@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
 import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { M2MAuthGuard } from './auth/guards/m2m-auth.guard';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
@@ -77,6 +78,7 @@ import { MeModule } from './me/me.module';
     AppService,
     { provide: APP_INTERCEPTOR, useClass: RlsContextInterceptor },
     { provide: APP_GUARD, useClass: ProxyThrottlerGuard },
+    { provide: APP_GUARD, useClass: M2MAuthGuard },
   ],
 })
 export class AppModule { }

