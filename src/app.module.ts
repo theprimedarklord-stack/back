@@ -26,6 +26,7 @@ import { TelemetryModule } from './telemetry/telemetry.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { OrgProjectsModule } from './org-projects/org-projects.module';
 import { MeModule } from './me/me.module';
+import { HealthModule } from './health/health.module';
 // import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
@@ -72,6 +73,8 @@ import { MeModule } from './me/me.module';
     // New org-based modules
     OrganizationsModule,
     OrgProjectsModule,
+    // FAANG-grade Health Checks: /healthz/live (Liveness) + /healthz/ready (Readiness)
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [

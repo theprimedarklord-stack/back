@@ -25,7 +25,7 @@ import {
   TelemetryLogResponse,
   VictimInfo,
 } from './entities/telemetry.entity';
-import { Public } from '../auth/decorators/public.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import { AgentAuthGuard } from '../auth/guards/agent-auth.guard';
 import { UseGuards } from '@nestjs/common';
 

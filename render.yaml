@@ -5,6 +5,11 @@ services:
     buildCommand: npm install --include=dev && npm run build
     startCommand: node dist/src/main.js
     autoDeploy: false  # КРИТИЧНО: отключить авто-деплой для безопасности
+    # FAANG Health Check Strategy:
+    # - /healthz/live  = Liveness Probe (Render ← здесь) — убивает процесс при падении
+    # - /healthz/ready = Readiness Probe (K8s/ECS only) — исключает из балансировщика, не убивает
+    # Render не поддерживает Readiness Probe — указываем ТОЛЬКО live!
+    healthCheckPath: /healthz/live
     envVars:
       - key: NODE_ENV
         value: production
