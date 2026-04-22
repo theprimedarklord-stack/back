@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsOptional, IsArray, ValidateNested, IsBoolean, IsIn, Min, Max, IsObject, IsNumber } from 'class-validator';
+import { IsString, IsInt, IsOptional, IsArray, ValidateNested, IsBoolean, IsIn, Min, Max, IsObject, IsNumber, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // ─────────────────────────────────────────────────────
@@ -78,6 +78,8 @@ export class UpdateUserSettingsDto {
 
     @IsOptional()
     @IsString()
+    @IsIn(['online', 'away', 'busy', 'offline'])
+    @MaxLength(32)
     user_status?: string;
 
     // L2: JSON-объекты (Persistent UI State, синхронизируется через Redux Persist + debounce)
