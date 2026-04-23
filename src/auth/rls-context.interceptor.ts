@@ -39,9 +39,15 @@ export class RlsContextInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const userId = req.user?.userId || req.user?.id;
+    const userId = req.user?.userId || req.user?.id || req.user?.sub;
     // Читаем ID организации из заголовка (который должен присылать BFF/фронтенд)
     const orgId = req.headers['x-org-id'];
+
+    console.log('========== RLS DEBUG ==========');
+    console.log('1. Raw req.user:', req.user);
+    console.log('2. Extracted userId:', userId);
+    console.log('3. Extracted orgId:', orgId);
+    console.log('===============================');
 
     this.logger.debug(`RLS Context: userId=${userId}, orgId=${orgId}`);
 
