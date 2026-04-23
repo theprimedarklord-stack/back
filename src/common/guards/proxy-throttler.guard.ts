@@ -1,13 +1,16 @@
 // src/common/guards/proxy-throttler.guard.ts
 //
-// FAANG-grade Rate Limiting Guard with Composite Key.
-// Relies on BFF (Next.js) to inject trusted 'x-user-id' header.
-// This guard runs BEFORE CognitoAuthGuard (global APP_GUARD),
-// so it cannot read req.user — instead it reads the BFF-injected header.
+// FAANG-grade Hybrid Throttling Guard (Defense against Botnets).
 //
-// Key strategy:
-//   Authenticated users → "user:{sub_id}" (rate limited per account)
-//   Anonymous requests  → "ip:{client_ip}"  (rate limited per IP)
+// Контракт «Чистого IP»:
+//   BFF (Next.js) выполняет Anti-Spoofing и прокидывает единственный
+//   канонический заголовок `x-real-ip`. NestJS не парсит цепочки сам.
+//
+// Key strategy (Hybrid Botnet Shield):
+//   Auth endpoints (email/username in body) → "1.2.3.4:user@mail.com"
+//     Ботнет из 10,000 прокси не перебирает пароль к одному аккаунту.
+//   Generic endpoints (no target in body)   → "1.2.3.4"
+//     Стандартный IP-лимит.
 
 import { Injectable, ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
@@ -15,20 +18,28 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 @Injectable()
 export class ProxyThrottlerGuard extends ThrottlerGuard {
   /**
-   * Returns a unique tracking key for the current request.
-   * - If BFF injected x-user-id (authorized session), we track by user account.
-   * - Otherwise, we track by IP (anonymous / direct agent traffic).
+   * Returns a unique composite tracking key for the current request.
    *
-   * req.ip is reliable because trust proxy is configured in main.ts.
+   * 1. IP — берём из канонического заголовка x-real-ip (установлен BFF).
+   *    Fallback на req.ip — для локальной разработки без BFF.
+   * 2. targetIdentifier — email или username из тела запроса (auth-эндпоинты).
+   *    Для обычных GET/POST это пустая строка → чистый IP-ключ.
    */
   protected async getTracker(req: Record<string, any>): Promise<string> {
-    // Identity injected by BFF after Redis session lookup
-    const userId = req.headers['x-user-id'];
+    // 1. Чистый IP от BFF (Anti-Spoofing уже выполнен на стороне BFF)
+    const ip: string =
+      (req.headers['x-real-ip'] as string | undefined) ||
+      req.ip ||
+      '127.0.0.1';
 
-    // req.ip contains the correct client IP thanks to app.set('trust proxy', 1)
-    const ip = req.ip || '127.0.0.1';
+    // 2. Идентификатор цели — защита от распределённых атак на аккаунт
+    const targetIdentifier: string =
+      (req.body?.email as string | undefined) ||
+      (req.body?.username as string | undefined) ||
+      '';
 
-    return userId ? `user:${userId}` : `ip:${ip}`;
+    // 3. Составной ключ: "1.2.3.4:user@mail.com" или "1.2.3.4"
+    return targetIdentifier ? `${ip}:${targetIdentifier}` : ip;
   }
 
   /**

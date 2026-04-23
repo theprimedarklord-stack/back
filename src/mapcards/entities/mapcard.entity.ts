@@ -8,6 +8,7 @@ export interface DataCore {
 export interface MapCard {
   id: number;
   user_id: string;
+  organization_id: string;
   card_id?: number | null;
   data_core: DataCore;
   created_at: string;
@@ -17,10 +18,10 @@ export interface MapCard {
 export interface CreateMapCardData {
   data_core: DataCore;
   card_id?: number | null;
+  organization_id: string;
 }
 
 export interface UpdateMapCardData {
   data_core?: DataCore;
   card_id?: number | null;
 }
-
