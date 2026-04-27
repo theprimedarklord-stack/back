@@ -1,14 +1,16 @@
-import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
-import { M2MAuthGuard } from './auth/guards/m2m-auth.guard';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule, seconds } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
+
+import { ThrottleRedisModule, THROTTLE_REDIS_CLIENT } from './common/redis/throttle-redis.module';
 import { RlsContextInterceptor } from './auth/rls-context.interceptor';
 import { ProxyThrottlerGuard } from './common/guards/proxy-throttler.guard';
+import { M2MAuthGuard } from './auth/guards/m2m-auth.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SupabaseModule } from './supabase/supabase.module';
 import { DatabaseModule } from './db/database.module';
 import { AuthModule } from './auth/auth.module';
@@ -27,33 +29,48 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { OrgProjectsModule } from './org-projects/org-projects.module';
 import { MeModule } from './me/me.module';
 import { HealthModule } from './health/health.module';
-// import { AuthMiddleware } from './common/middleware/auth.middleware';
 
 @Module({
   imports: [
-    // Rate Limiting: Вариант А — один глобальный лимит + @Throttle переопределения
-    // Redis хранилище для корректной работы при нескольких инстансах и рестартах.
-    ThrottlerModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const redisUrl = config.get<string>('REDIS_URL');
-        if (!redisUrl) throw new Error('REDIS_URL is not defined in env');
-
-        return {
-          throttlers: [
-            { name: 'default', ttl: 60000, limit: 100 },
-          ],
-          storage: new ThrottlerStorageRedisService(
-            new Redis(redisUrl, {
-              enableOfflineQueue: false, // Fail-fast: не копить запросы при падении Redis
-              maxRetriesPerRequest: 3,
-            }),
-          ),
-        };
-      },
-    }),
+    // ─── 1. Глобальный ConfigModule — всегда первым ────────────────────────
+    // Остальные модули инжектируют ConfigService через @Global() контракт.
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // ─── 2. Инфраструктура: Redis для троттлера ─────────────────────────────
+    // @Global() модуль — регистрирует THROTTLE_REDIS_CLIENT один раз.
+    // ThrottlerModule.forRootAsync инжектирует его без явного imports: [].
+    ThrottleRedisModule,
+
+    // ─── 3. Rate Limiting (FAANG Hybrid Throttler) ──────────────────────────
+    //
+    // Архитектура:
+    //   • Хранилище: Redis (корректная работа при нескольких инстансах/рестартах)
+    //   • TTL: seconds() — явный хелпер @nestjs/throttler, принимает секунды
+    //   • Env: THROTTLE_TTL_SECONDS (не ms, не ms/1000 — секунды и точка)
+    //   • Ключи: "throttle:<ip>" или "throttle:<ip>:<email>" (ProxyThrottlerGuard)
+    //
+    // Требования к .env:
+    //   THROTTLE_TTL_SECONDS=60    # Окно подсчёта, секунды
+    //   THROTTLE_LIMIT=100         # Максимум запросов в окне
+    //
+    ThrottlerModule.forRootAsync({
+      // imports: [] не нужен — THROTTLE_REDIS_CLIENT глобален через ThrottleRedisModule.
+      inject: [ConfigService, THROTTLE_REDIS_CLIENT],
+      useFactory: (configService: ConfigService, redisClient: Redis) => ({
+        throttlers: [
+          {
+            name: 'default',
+            // seconds() — официальный хелпер, конвертирует секунды → мс.
+            // Защита от тихого бага: передача ms вместо s даёт 16-часовой бан.
+            ttl: seconds(configService.get<number>('THROTTLE_TTL_SECONDS', 60)),
+            limit: configService.get<number>('THROTTLE_LIMIT', 100),
+          },
+        ],
+        storage: new ThrottlerStorageRedisService(redisClient),
+      }),
+    }),
+
+    // ─── 4. Бизнес-модули ───────────────────────────────────────────────────
     SupabaseModule,
     DatabaseModule,
     AuthModule,
@@ -68,12 +85,15 @@ import { HealthModule } from './health/health.module';
     SuggestionsModule,
     MapCardsModule,
     TelemetryModule,
-    // user-facing context endpoints
+
+    // User-facing context endpoints
     MeModule,
-    // New org-based modules
+
+    // Org-based modules
     OrganizationsModule,
     OrgProjectsModule,
-    // FAANG-grade Health Checks: /healthz/live (Liveness) + /healthz/ready (Readiness)
+
+    // FAANG-grade Health Checks: /healthz/live + /healthz/ready
     HealthModule,
   ],
   controllers: [AppController],
@@ -84,4 +104,4 @@ import { HealthModule } from './health/health.module';
     { provide: APP_GUARD, useClass: M2MAuthGuard },
   ],
 })
-export class AppModule { }
+export class AppModule {}
