@@ -49,6 +49,14 @@ export class OrganizationsService {
   async findAllForUser(userId: string, client?: any): Promise<OrganizationWithRole[]> {
     // If a transactional PG client is provided (req.dbClient), use it so RLS applies.
     if (client) {
+      console.log('Fetching orgs for userId:', userId);
+      try {
+        const result = await client.query('SELECT * FROM org_organization_members WHERE user_id = $1', [userId]);
+        console.log('org_organization_members rows:', result.rows);
+      } catch (err) {
+        console.error('Error fetching org_organization_members:', err);
+      }
+
       const sql = `
         SELECT o.id, o.name, o.color, o.created_by_user_id, o.created_at, m.role
         FROM org_organizations o
