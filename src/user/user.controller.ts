@@ -12,6 +12,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { UpdateSidebarSettingsDto } from './dto/update-sidebar-settings.dto';
 import { RequireOrg } from '../common/decorators/require-org.decorator';
+import { ReadOnly } from '../common/decorators/read-only.decorator';
 
 // Конфигурация для multer
 const multerConfig: MulterOptions = {
@@ -60,6 +61,7 @@ export class UserController {
 
   @Get('settings')
   @RequireOrg(false)
+  @ReadOnly()
   @UseGuards(CognitoAuthGuard)
   async getSettings(@Req() req) {
     if (!req.dbClient) throw new InternalServerErrorException('DB Client not found');

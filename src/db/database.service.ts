@@ -2,6 +2,18 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Pool } from 'pg';
 
+export type UserContextOptions = {
+  /**
+   * If true, uses `BEGIN READ ONLY` to reduce overhead while keeping
+   * `set_config(..., true)` transaction-local (no context leakage in pools).
+   */
+  readOnly?: boolean;
+  /**
+   * Optional label for perf logging.
+   */
+  label?: string;
+};
+
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool;
@@ -105,45 +117,66 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   async withUserContext<T>(
     userId: string,
     orgIdOrCallback: string | null | ((client: any) => Promise<T>),
-    callback?: (client: any) => Promise<T>,
+    callbackOrOptions?: ((client: any) => Promise<T>) | UserContextOptions,
+    options?: UserContextOptions,
   ): Promise<T> {
     // Support both 2-arg and 3-arg overloads
     let orgId: string | null = null;
     let cb: (client: any) => Promise<T>;
+    let opts: UserContextOptions = {};
 
     if (typeof orgIdOrCallback === 'function') {
       cb = orgIdOrCallback;
+      // withUserContext(userId, callback, options?)
+      if (callbackOrOptions && typeof callbackOrOptions === 'object') {
+        opts = callbackOrOptions;
+      }
     } else {
       orgId = orgIdOrCallback;
-      cb = callback!;
+      cb = callbackOrOptions as (client: any) => Promise<T>;
+      opts = options || {};
     }
 
     const client = await this.pool.connect();
+    const startedAt = Date.now();
+    const label = opts.label ? ` ${opts.label}` : '';
+    const orgIdValue = orgId ?? '';
+
+    // One-shot transaction-local context setter (safe for pooled connections).
+    // We must keep `is_local=true` to avoid session-level leakage.
+    const buildSetConfigSql = () =>
+      `SELECT
+        set_config('search_path', 'public, extensions', true),
+        set_config('app.user_id', $1, true),
+        set_config('app.org_id', $2, true)`;
+
     try {
-      await client.query('BEGIN');
+      const tBegin = Date.now();
+      await client.query(opts.readOnly ? 'BEGIN READ ONLY' : 'BEGIN');
+      const beginMs = Date.now() - tBegin;
 
-      // 1. Устанавливаем путь к схемам в этой транзакции
-      await client.query('SET LOCAL search_path TO public, extensions');
-
-      // 2. Устанавливаем ID пользователя для RLS политик
-      if (userId) {
-        await client.query("SELECT set_config('app.user_id', $1, true)", [userId]);
-      }
-
-      // 3. Устанавливаем ID организации для RLS политик
-      if (orgId) {
-        await client.query("SELECT set_config('app.org_id', $1, true)", [orgId]);
-      } else {
-        await client.query("SELECT set_config('app.org_id', '', true)");
-      }
+      const tSet = Date.now();
+      await client.query(buildSetConfigSql(), [userId, orgIdValue]);
+      const setMs = Date.now() - tSet;
 
       // 4. Выполняем основной код (SELECT, INSERT, UPDATE, DELETE)
+      const tCb = Date.now();
       const res = await cb(client);
+      const cbMs = Date.now() - tCb;
 
+      const tCommit = Date.now();
       await client.query('COMMIT');
+      const commitMs = Date.now() - tCommit;
+
+      const totalMs = Date.now() - startedAt;
+      console.log(
+        `[withUserContext]${label} total=${totalMs}ms begin=${beginMs}ms set_config=${setMs}ms cb=${cbMs}ms commit=${commitMs}ms`,
+      );
       return res;
     } catch (err) {
-      await client.query('ROLLBACK');
+      try {
+        await client.query('ROLLBACK');
+      } catch {}
       console.error('[DatabaseService] Transaction failed:', err.message);
       throw err;
     } finally {

@@ -4,6 +4,7 @@ import { Observable, lastValueFrom } from 'rxjs';
 import { DatabaseService } from '../db/database.service';
 import { REQUIRE_ORG_KEY } from '../common/decorators/require-org.decorator';
 import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
+import { READ_ONLY_KEY } from '../common/decorators/read-only.decorator';
 
 @Injectable()
 export class RlsContextInterceptor implements NestInterceptor {
@@ -63,6 +64,11 @@ export class RlsContextInterceptor implements NestInterceptor {
     ]);
     const isOrgRequired = requireOrg !== false;
 
+    const isReadOnly = this.reflector.getAllAndOverride<boolean>(READ_ONLY_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]) === true;
+
     if (isOrgRequired && !orgId) {
       this.logger.warn(`No x-org-id header found. Workspace isolation requires it.`);
       throw new BadRequestException('Organization ID is required in headers (x-org-id)');
@@ -71,7 +77,9 @@ export class RlsContextInterceptor implements NestInterceptor {
     // Если orgId не требуется и не передан — устанавливаем контекст только с userId
     if (!orgId) {
       return new Observable((subscriber) => {
-        this.db.withUserContext(userId, async (client) => {
+        this.db.withUserContext(
+          userId,
+          async (client) => {
           req.dbClient = client;
           try {
             const result = await lastValueFrom(next.handle());
@@ -81,7 +89,9 @@ export class RlsContextInterceptor implements NestInterceptor {
             subscriber.error(err);
             throw err;
           }
-        }).catch((err) => {
+          },
+          { readOnly: isReadOnly, label: `${req.method} ${path}` },
+        ).catch((err) => {
           subscriber.error(err);
         });
       });
@@ -95,7 +105,7 @@ export class RlsContextInterceptor implements NestInterceptor {
         [orgId, userId]
       );
       return res.rows.length > 0;
-    });
+    }, { readOnly: true, label: `membership-check ${req.method} ${path}` });
 
     if (!isMemberValid) {
       this.logger.error(`User ${userId} attempted to access organization ${orgId} without permissions`);
@@ -104,7 +114,10 @@ export class RlsContextInterceptor implements NestInterceptor {
 
     // Wrap request handling in a transaction with app.user_id AND app.org_id set locally
     return new Observable((subscriber) => {
-      this.db.withUserContext(userId, orgId, async (client) => {
+      this.db.withUserContext(
+        userId,
+        orgId,
+        async (client) => {
         req.dbClient = client;
         try {
           const result = await lastValueFrom(next.handle());
@@ -114,7 +127,9 @@ export class RlsContextInterceptor implements NestInterceptor {
           subscriber.error(err);
           throw err;
         }
-      }).catch((err) => {
+        },
+        { readOnly: isReadOnly, label: `${req.method} ${path}` },
+      ).catch((err) => {
         subscriber.error(err);
       });
     });
