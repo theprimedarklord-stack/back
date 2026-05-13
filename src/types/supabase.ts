@@ -1414,6 +1414,50 @@ export type Database = {
           },
         ]
       }
+      user_feedbacks: {
+        Row: {
+          id: number
+          user_id: string | null
+          type: string
+          message: string
+          contact: string | null
+          url: string | null
+          status: string
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          user_id?: string | null
+          type: string
+          message: string
+          contact?: string | null
+          url?: string | null
+          status?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          user_id?: string | null
+          type?: string
+          message?: string
+          contact?: string | null
+          url?: string | null
+          status?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_feedbacks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

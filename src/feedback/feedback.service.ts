@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { Request } from 'express';
 import { SupabaseService } from '../supabase/supabase.service';
+import type { Json } from '../types/supabase';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { AuthenticatedUser } from '../common/interfaces/authenticated-request.interface';
 
@@ -74,15 +75,14 @@ export class FeedbackService {
   }
 
   async createFeedback(dto: CreateFeedbackDto, userId: string | null) {
-    // Table may not be in generated Database types yet; use service role (bypasses RLS).
-    const admin = this.supabaseService.getAdminClient() as any;
+    const admin = this.supabaseService.getAdminClient();
     const { error } = await admin.from('user_feedbacks').insert({
       user_id: userId,
       type: dto.type,
       message: dto.message,
       contact: dto.contact ?? null,
       url: dto.url ?? null,
-      metadata: dto.metadata ?? {},
+      metadata: (dto.metadata ?? {}) as Json,
     });
 
     if (error) {
@@ -119,7 +119,7 @@ export class FeedbackService {
   }
 
   async listFeedbacks(status?: string) {
-    const admin = this.supabaseService.getAdminClient() as any;
+    const admin = this.supabaseService.getAdminClient();
     let q = admin
       .from('user_feedbacks')
       .select(
@@ -142,12 +142,12 @@ export class FeedbackService {
   }
 
   async updateStatus(id: string, status: 'new' | 'seen' | 'done') {
-    const numericId = Number(id, 10);
+    const numericId = parseInt(id, 10);
     if (!Number.isFinite(numericId) || numericId <= 0) {
       throw new BadRequestException('Invalid feedback id');
     }
 
-    const admin = this.supabaseService.getAdminClient() as any;
+    const admin = this.supabaseService.getAdminClient();
     const { error } = await admin
       .from('user_feedbacks')
       .update({ status })
