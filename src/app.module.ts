@@ -29,6 +29,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { OrgProjectsModule } from './org-projects/org-projects.module';
 import { MeModule } from './me/me.module';
 import { HealthModule } from './health/health.module';
+import { FeedbackModule } from './feedback/feedback.module';
 
 @Module({
   imports: [
@@ -95,6 +96,7 @@ import { HealthModule } from './health/health.module';
 
     // FAANG-grade Health Checks: /healthz/live + /healthz/ready
     HealthModule,
+    FeedbackModule,
   ],
   controllers: [AppController],
   providers: [
