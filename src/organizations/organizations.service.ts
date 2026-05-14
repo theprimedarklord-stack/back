@@ -58,7 +58,7 @@ export class OrganizationsService {
       }
 
       const sql = `
-        SELECT o.id, o.name, o.color, o.created_by_user_id, o.created_at, m.role
+        SELECT o.id, o.name, o.slug, o.color, o.created_by_user_id, o.created_at, m.role
         FROM org_organizations o
         JOIN org_organization_members m ON m.organization_id = o.id
         WHERE m.user_id = $1
@@ -67,6 +67,7 @@ export class OrganizationsService {
       return res.rows.map((row: any) => ({
         id: row.id,
         name: row.name,
+        slug: row.slug,
         color: row.color,
         created_by_user_id: row.created_by_user_id,
         created_at: row.created_at,
@@ -155,15 +156,89 @@ export class OrganizationsService {
   }
 
   /**
+   * Check if slug is available
+   */
+  async checkSlugAvailable(slug: string): Promise<boolean> {
+    const RESERVED = [
+      // Инфраструктура
+      'www', 'app', 'api', 'api2', 'apiv1', 'apiv2',
+      'admin', 'superadmin', 'root', 'system', 'internal',
+      'static', 'cdn', 'assets', 'media', 'files', 'uploads',
+      'img', 'images', 'video', 'videos', 'audio',
+
+      // Сеть и безопасность
+      'mail', 'email', 'smtp', 'imap', 'pop', 'mx',
+      'ftp', 'sftp', 'ssh', 'vpn', 'proxy',
+      'ns', 'ns1', 'ns2', 'dns', 'rdns',
+      'ssl', 'tls', 'cert', 'certs',
+      'localhost', 'local', 'intranet', 'gateway',
+
+      // Auth / сессии
+      'auth', 'login', 'logout', 'signin', 'signout',
+      'signup', 'register', 'registration',
+      'oauth', 'sso', 'saml', 'openid',
+      'token', 'callback', 'verify', 'confirm',
+      'password', 'reset', 'invite',
+
+      // Бизнес-сервисы
+      'billing', 'payment', 'payments', 'checkout',
+      'invoice', 'invoices', 'subscription', 'pricing',
+      'stripe', 'paypal',
+
+      // Коммуникация / поддержка
+      'support', 'help', 'helpdesk', 'ticket', 'tickets',
+      'chat', 'feedback', 'contact', 'report',
+
+      // Продукт / контент
+      'docs', 'documentation', 'wiki', 'kb', 'faq',
+      'blog', 'news', 'press', 'updates', 'changelog',
+      'landing', 'home', 'welcome', 'about', 'info',
+      'careers', 'jobs', 'legal', 'privacy', 'terms',
+
+      // Среды и деплой
+      'dev', 'develop', 'development',
+      'test', 'testing', 'qa',
+      'staging', 'stage', 'uat',
+      'demo', 'sandbox', 'preview',
+      'prod', 'production',
+      'beta', 'alpha', 'canary',
+      'v1', 'v2', 'v3',
+
+      // Мониторинг / служебные
+      'status', 'health', 'metrics', 'monitor',
+      'logs', 'analytics', 'stats',
+      'grafana', 'sentry', 'datadog',
+
+      // Зарезервировано на будущее
+      'marketplace', 'store', 'shop',
+      'integrations', 'webhooks', 'events',
+      'mobile', 'ios', 'android',
+      'download', 'downloads', 'releases',
+    ];
+
+    if (RESERVED.includes(slug.toLowerCase())) {
+        return false;
+    }
+
+    const admin = this.supabaseService.getAdminClient();
+    const { data } = await admin
+      .from('org_organizations')
+      .select('id')
+      .eq('slug', slug)
+      .limit(1)
+      .single();
+    
+    return !data;
+  }
+
+  /**
    * Create new organization (user becomes owner via trigger)
    */
   async create(dto: CreateOrganizationDto, userId: string): Promise<Organization> {
     const admin = this.supabaseService.getAdminClient();
 
-    let slug = this.slugify(dto.name);
-    // Determine uniqueness (simple approach: append random string if exists, 
-    // but for now let's hope for best or rely on DB constraint error to retry)
-    // To be robust: check existence.
+    let slug = dto.slug || this.slugify(dto.name);
+    // Determine uniqueness
     const { data: existing } = await admin.from('org_organizations').select('id').eq('slug', slug).single();
     if (existing) {
       slug = `${slug}-${Math.floor(Math.random() * 10000)}`;

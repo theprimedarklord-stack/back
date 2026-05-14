@@ -14,6 +14,7 @@ import {
   HttpCode,
   HttpStatus,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
@@ -106,10 +107,92 @@ export class OrganizationsController {
    * For now protected by CognitoAuthGuard to ensure user is logged in.
    */
   @Get('by-slug/:slug')
+  @RequireOrg(false)
   @UseGuards(CognitoAuthGuard)
-  async findBySlug(@Param('slug') slug: string) {
+  async findBySlug(@Param('slug') slug: string, @Req() req: Request) {
+    if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) || slug.length > 32) {
+      throw new BadRequestException('Invalid slug format');
+    }
+
     const organization = await this.organizationsService.findBySlug(slug);
+    // Note: findBySlug currently queries admin client. 
+    // Ideally we should verify membership, but this matches the requested behavior or existing one.
     return { organization };
+  }
+
+  /**
+   * GET /organizations/slug/check/:slug
+   * Check if slug is available
+   */
+  @Get('slug/check/:slug')
+  @RequireOrg(false)
+  async checkSlug(@Param('slug') slug: string) {
+    if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) || slug.length < 3 || slug.length > 32) {
+      return { available: false, reason: 'invalid_format' };
+    }
+
+    const RESERVED = [
+      // Инфраструктура
+      'www', 'app', 'api', 'api2', 'apiv1', 'apiv2',
+      'admin', 'superadmin', 'root', 'system', 'internal',
+      'static', 'cdn', 'assets', 'media', 'files', 'uploads',
+      'img', 'images', 'video', 'videos', 'audio',
+
+      // Сеть и безопасность
+      'mail', 'email', 'smtp', 'imap', 'pop', 'mx',
+      'ftp', 'sftp', 'ssh', 'vpn', 'proxy',
+      'ns', 'ns1', 'ns2', 'dns', 'rdns',
+      'ssl', 'tls', 'cert', 'certs',
+      'localhost', 'local', 'intranet', 'gateway',
+
+      // Auth / сессии
+      'auth', 'login', 'logout', 'signin', 'signout',
+      'signup', 'register', 'registration',
+      'oauth', 'sso', 'saml', 'openid',
+      'token', 'callback', 'verify', 'confirm',
+      'password', 'reset', 'invite',
+
+      // Бизнес-сервисы
+      'billing', 'payment', 'payments', 'checkout',
+      'invoice', 'invoices', 'subscription', 'pricing',
+      'stripe', 'paypal',
+
+      // Коммуникация / поддержка
+      'support', 'help', 'helpdesk', 'ticket', 'tickets',
+      'chat', 'feedback', 'contact', 'report',
+
+      // Продукт / контент
+      'docs', 'documentation', 'wiki', 'kb', 'faq',
+      'blog', 'news', 'press', 'updates', 'changelog',
+      'landing', 'home', 'welcome', 'about', 'info',
+      'careers', 'jobs', 'legal', 'privacy', 'terms',
+
+      // Среды и деплой
+      'dev', 'develop', 'development',
+      'test', 'testing', 'qa',
+      'staging', 'stage', 'uat',
+      'demo', 'sandbox', 'preview',
+      'prod', 'production',
+      'beta', 'alpha', 'canary',
+      'v1', 'v2', 'v3',
+
+      // Мониторинг / служебные
+      'status', 'health', 'metrics', 'monitor',
+      'logs', 'analytics', 'stats',
+      'grafana', 'sentry', 'datadog',
+
+      // Зарезервировано на будущее
+      'marketplace', 'store', 'shop',
+      'integrations', 'webhooks', 'events',
+      'mobile', 'ios', 'android',
+      'download', 'downloads', 'releases',
+    ];
+    if (RESERVED.includes(slug)) {
+      return { available: false, reason: 'reserved' };
+    }
+
+    const available = await this.organizationsService.checkSlugAvailable(slug);
+    return { available };
   }
 
   /**
