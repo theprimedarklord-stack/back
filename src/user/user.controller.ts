@@ -622,7 +622,10 @@ export class UserController {
 
     try {
       const res = await client.query(
-        'SELECT last_active_org_id, avatar_url, full_name, username FROM users WHERE user_id = $1',
+        `SELECT u.last_active_org_id, u.avatar_url, u.full_name, u.username, o.slug as org_slug 
+         FROM users u 
+         LEFT JOIN org_organizations o ON u.last_active_org_id = o.id 
+         WHERE u.user_id = $1`,
         [userId]
       );
 
@@ -634,6 +637,7 @@ export class UserController {
         active_org_id: userRow?.last_active_org_id || null,
         // Backward/forward compatible alias
         last_active_org_id: userRow?.last_active_org_id || null,
+        org_slug: userRow?.org_slug || null,
         avatar_url: userRow?.avatar_url || null,
         full_name: fullName || null,
         username: username || null,
