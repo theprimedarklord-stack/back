@@ -15,8 +15,9 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
-    });
+// src/app.controller.spec.ts
+it('should return "SmartMemory API is online"', () => {
+  expect(appController.getHello()).toBe('SmartMemory API is online');
+});
   });
 });

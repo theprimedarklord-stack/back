@@ -164,4 +164,71 @@ export class MapCardsService {
       throw new InternalServerErrorException(`DB Delete Error: ${error.message}`);
     }
   }
+
+  async toggleFavorite(
+    dbClient: PoolClient,
+    id: number,
+    userId: string,
+    orgId: string,
+    isFavorite: boolean,
+  ): Promise<{ id: number; isFavorite: boolean }> {
+    try {
+      const result = await dbClient.query<{ id: string; is_favorite: boolean }>(
+        `UPDATE map_cards
+         SET is_favorite = $1, updated_at = NOW()
+         WHERE id = $2::bigint
+           AND user_id = $3::uuid
+           AND organization_id = $4::uuid
+         RETURNING id, is_favorite`,
+        [isFavorite, id, userId, orgId],
+      );
+
+      if (result.rowCount === 0) {
+        throw new NotFoundException(`MapCard #${id} not found`);
+      }
+
+      return {
+        id: parseInt(result.rows[0].id, 10),
+        isFavorite: result.rows[0].is_favorite,
+      };
+    } catch (error: any) {
+      if (error instanceof NotFoundException) throw error;
+      if (error.code === '42501') {
+        throw new ForbiddenException(`Відмовлено в доступі RLS`);
+      }
+      throw new InternalServerErrorException(`DB Update Favorite Error: ${error.message}`);
+    }
+  }
+
+  async updateCanvas(
+    dbClient: PoolClient,
+    id: number,
+    userId: string,
+    orgId: string,
+    dataCore: Record<string, unknown>,
+  ): Promise<{ id: number }> {
+    try {
+      const result = await dbClient.query<{ id: string }>(
+        `UPDATE map_cards
+         SET data_core = $1, updated_at = NOW()
+         WHERE id = $2::bigint
+           AND user_id = $3::uuid
+           AND organization_id = $4::uuid
+         RETURNING id`,
+        [JSON.stringify(dataCore), id, userId, orgId],
+      );
+
+      if (result.rowCount === 0) {
+        throw new NotFoundException(`MapCard #${id} not found`);
+      }
+
+      return { id: parseInt(result.rows[0].id, 10) };
+    } catch (error: any) {
+      if (error instanceof NotFoundException) throw error;
+      if (error.code === '42501') {
+        throw new ForbiddenException(`Відмовлено в доступі RLS`);
+      }
+      throw new InternalServerErrorException(`DB Update Canvas Error: ${error.message}`);
+    }
+  }
 }
