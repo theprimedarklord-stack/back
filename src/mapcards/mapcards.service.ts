@@ -128,6 +128,11 @@ export class MapCardsService {
         throw new NotFoundException('Map card not found');
       }
 
+      // Sync drawings if data_core was updated
+      if (dto.data_core) {
+        await this._syncDrawings(dbClient, id, userId, orgId, dto.data_core as Record<string, unknown>);
+      }
+
       return result.rows[0];
     } catch (error: any) {
       if (error instanceof NotFoundException) throw error;
@@ -222,6 +227,8 @@ export class MapCardsService {
         throw new NotFoundException(`MapCard #${id} not found`);
       }
 
+      await this._syncDrawings(dbClient, id.toString(), userId, orgId, dataCore);
+
       return { id: parseInt(result.rows[0].id, 10) };
     } catch (error: any) {
       if (error instanceof NotFoundException) throw error;
@@ -229,6 +236,80 @@ export class MapCardsService {
         throw new ForbiddenException(`Відмовлено в доступі RLS`);
       }
       throw new InternalServerErrorException(`DB Update Canvas Error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Сборка мусора и обновление состояния рисования (Fabric.js)
+   */
+  private async _syncDrawings(dbClient: PoolClient, mapCardId: string, userId: string, orgId: string, dataCore: any) {
+    if (!dataCore || !Array.isArray(dataCore.nodes)) return;
+
+    const nodes = dataCore.nodes;
+    const drawingNodes = nodes.filter((n: any) => n.type === 'drawing');
+    const validNodeIds = nodes.map((n: any) => n.id);
+
+    // 1. Сборка мусора: удаляем рисунки, нод которых больше нет
+    if (validNodeIds.length > 0) {
+      await dbClient.query(
+        `DELETE FROM map_card_drawings
+         WHERE map_card_id = $1::bigint
+           AND organization_id = $2::uuid
+           AND user_id = $3::uuid
+           AND node_id != ALL($4::text[])`,
+        [mapCardId, orgId, userId, validNodeIds]
+      );
+    } else {
+      // Если нод вообще нет, удаляем все рисунки для этой доски
+      await dbClient.query(
+        `DELETE FROM map_card_drawings
+         WHERE map_card_id = $1::bigint
+           AND organization_id = $2::uuid
+           AND user_id = $3::uuid`,
+        [mapCardId, orgId, userId]
+      );
+    }
+
+    // 2. Upsert состояния рисунков
+    for (const node of drawingNodes) {
+      const drawingState = node.data?.drawingState;
+      if (drawingState) {
+        await dbClient.query(
+          `INSERT INTO map_card_drawings (map_card_id, node_id, organization_id, user_id, drawing_state)
+           VALUES ($1::bigint, $2, $3::uuid, $4::uuid, $5::jsonb)
+           ON CONFLICT ON CONSTRAINT unique_map_card_node_drawing
+           DO UPDATE SET drawing_state = EXCLUDED.drawing_state, updated_at = NOW()
+           WHERE map_card_drawings.organization_id = EXCLUDED.organization_id
+             AND map_card_drawings.user_id = EXCLUDED.user_id`,
+          [mapCardId, node.id, orgId, userId, JSON.stringify(drawingState)]
+        );
+      }
+    }
+  }
+
+  /**
+   * Получить состояние конкретного рисунка (Lazy Loading)
+   */
+  async getDrawingState(dbClient: PoolClient, mapCardId: string, nodeId: string, userId: string, orgId: string) {
+    try {
+      const query = `
+        SELECT drawing_state FROM map_card_drawings
+        WHERE map_card_id = $1::bigint AND node_id = $2
+          AND user_id = $3::uuid AND organization_id = $4::uuid
+      `;
+      const result = await dbClient.query(query, [mapCardId, nodeId, userId, orgId]);
+
+      if (result.rows.length === 0) {
+        throw new NotFoundException('Drawing state not found');
+      }
+
+      return result.rows[0].drawing_state;
+    } catch (error: any) {
+      if (error instanceof NotFoundException) throw error;
+      if (error.code === '42501') {
+        throw new ForbiddenException(`Відмовлено в доступі RLS`);
+      }
+      throw new InternalServerErrorException(`DB Select Drawing Error: ${error.message}`);
     }
   }
 }

@@ -50,6 +50,25 @@ export class MapCardsController {
     return this.mapCardsService.findOne(dbClient, id, req.user.userId, orgId);
   }
 
+  @Get(':mapCardId/drawings/:nodeId')
+  async getDrawingState(
+    @Param('mapCardId') mapCardId: string,
+    @Param('nodeId') nodeId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const dbClient = req.dbClient;
+    if (!dbClient) {
+      throw new InternalServerErrorException('Database client with RLS context is missing!');
+    }
+
+    const orgId = req.headers['x-org-id'];
+    if (!orgId) {
+      throw new BadRequestException('x-org-id header is required');
+    }
+
+    return this.mapCardsService.getDrawingState(dbClient, mapCardId, nodeId, req.user.userId, orgId as string);
+  }
+
   @Post()
   async createMapCard(
     @Body() dto: CreateMapCardDto,
