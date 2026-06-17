@@ -1,7 +1,8 @@
-import { Injectable, InternalServerErrorException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, ForbiddenException, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
 import { PoolClient } from 'pg';
 import { CreateMapCardDto } from './dto/create-mapcard.dto';
 import { UpdateMapCardDto } from './dto/update-mapcard.dto';
+import { UpdateNotionContentDto } from './dto/update-notion-content.dto';
 
 @Injectable()
 export class MapCardsService {
@@ -310,6 +311,58 @@ export class MapCardsService {
         throw new ForbiddenException(`Відмовлено в доступі RLS`);
       }
       throw new InternalServerErrorException(`DB Select Drawing Error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Оновлення контенту Notion ноди
+   * Defense in Depth: user_id + organization_id + content_version у WHERE
+   */
+  async updateNotionContent(dbClient: PoolClient, id: string, dto: UpdateNotionContentDto, userId: string, orgId: string) {
+    try {
+      const updateQuery = `
+        UPDATE map_cards
+        SET 
+          content_blocks = $1::jsonb,
+          content_text = $2,
+          content_version = content_version + 1,
+          updated_at = NOW()
+        WHERE 
+          id = $3::bigint 
+          AND organization_id = $4::uuid
+          AND content_version = $5
+        RETURNING content_version;
+      `;
+
+      const values = [
+        JSON.stringify(dto.blocks), 
+        dto.text, 
+        id, 
+        orgId, 
+        dto.expectedVersion
+      ];
+
+      const result = await dbClient.query(updateQuery, values);
+
+      if (result.rowCount === 0) {
+        // Відрізняємо конфлікт версій від помилки 404
+        const checkQuery = `SELECT id, content_version FROM map_cards WHERE id = $1::bigint AND organization_id = $2::uuid`;
+        const checkResult = await dbClient.query(checkQuery, [id, orgId]);
+        
+        if (checkResult.rowCount === 0) {
+          throw new NotFoundException('Map card not found or unauthorized');
+        }
+        
+        throw new HttpException('Conflict: Version mismatch', HttpStatus.CONFLICT);
+      }
+
+      return { newVersion: result.rows[0].content_version };
+    } catch (error: any) {
+      if (error instanceof HttpException) throw error;
+      if (error.code === '42501') {
+        throw new ForbiddenException(`Відмовлено в доступі RLS`);
+      }
+      throw new InternalServerErrorException(`DB Update Notion Content Error: ${error.message}`);
     }
   }
 }
