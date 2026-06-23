@@ -42,12 +42,44 @@ export class PaddleProvider implements PaymentProvider {
       .eq('org_id', orgId)
       .single();
 
+    let validCustomerId = null;
+
     if (subData?.billing_customer_id) {
-      return subData.billing_customer_id;
+      try {
+        // Validate against current Paddle environment
+        await this.paddle.customers.get(subData.billing_customer_id);
+        validCustomerId = subData.billing_customer_id;
+      } catch (e: any) {
+        this.logger.warn(`Customer ${subData.billing_customer_id} not found in current Paddle env. Self-healing...`);
+      }
     }
 
-    // Usually Paddle Checkout handles customer creation on the frontend.
-    return null;
+    if (validCustomerId) {
+      return validCustomerId;
+    }
+
+    // Provisioning new customer
+    try {
+      const emailToUse = ownerEmail || `org_${orgId.replace(/-/g, '')}@smartmemory.local`;
+      const newCustomer = await this.paddle.customers.create({
+        email: emailToUse,
+        name: orgName || 'SmartMemory Workspace',
+      });
+
+      this.logger.log(`Provisioned new Paddle customer ${newCustomer.id} for org ${orgId}`);
+
+      // Upsert just in case org_subscriptions row doesn't exist yet
+      // But typically it's created during org creation. We'll use update.
+      await adminClient
+        .from('org_subscriptions')
+        .update({ billing_customer_id: newCustomer.id })
+        .eq('org_id', orgId);
+
+      return newCustomer.id;
+    } catch (e: any) {
+      this.logger.error(`Failed to provision Paddle customer for org ${orgId}: ${e.message}`);
+      return null;
+    }
   }
 
   async getInvoices(customerId: string): Promise<InvoiceData[]> {
