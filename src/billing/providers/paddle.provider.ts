@@ -171,16 +171,16 @@ export class PaddleProvider implements PaymentProvider {
     const adminClient = this.supabaseService.getAdminClient() as any;
     const { data } = await adminClient
       .from('org_subscriptions')
-      .select('billing_customer_id')
+      .select('billing_customer_id, billing_subscription_id')
       .eq('org_id', orgId)
       .single();
 
     if (!data?.billing_customer_id) return null;
 
     try {
-      const session = await this.paddle.customerPortalSessions.create({
-        customerIds: [data.billing_customer_id],
-      });
+      const subscriptionIds = data.billing_subscription_id ? [data.billing_subscription_id] : [];
+      // @ts-ignore
+      const session = await this.paddle.customerPortalSessions.create(data.billing_customer_id, subscriptionIds);
       return session.urls.general.overview;
     } catch (e: any) {
       this.logger.error(`Failed to create customer portal session for ${orgId}: ${e.message}`);
