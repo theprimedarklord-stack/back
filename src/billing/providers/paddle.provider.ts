@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Environment, LogLevel, Paddle } from '@paddle/paddle-node';
+import { Environment, LogLevel, Paddle } from '@paddle/paddle-node-sdk';
 import { Request } from 'express';
 import { PaymentProvider, InvoiceData } from '../interfaces/payment-provider.interface';
 import { SupabaseService } from '../../supabase/supabase.service';
@@ -34,7 +34,7 @@ export class PaddleProvider implements PaymentProvider {
   }
 
   async ensureCustomer(orgId: string, orgName: string, ownerEmail?: string): Promise<string | null> {
-    const adminClient = this.supabaseService.getAdminClient();
+    const adminClient = this.supabaseService.getAdminClient() as any;
 
     const { data: subData } = await adminClient
       .from('org_subscriptions')
@@ -51,7 +51,7 @@ export class PaddleProvider implements PaymentProvider {
   }
 
   async getInvoices(customerId: string): Promise<InvoiceData[]> {
-    const transactions = await this.paddle.transactions.list({ customerId });
+    const transactions = await this.paddle.transactions.list({ customerId: [customerId] });
     const invoices: InvoiceData[] = [];
     
     for await (const t of transactions) {
@@ -88,7 +88,7 @@ export class PaddleProvider implements PaymentProvider {
   }
 
   async handleWebhookEvent(event: any): Promise<void> {
-    const adminClient = this.supabaseService.getAdminClient();
+    const adminClient = this.supabaseService.getAdminClient() as any;
     const eventType = event.eventType;
     const data = event.data;
     const orgId = data.customData?.orgId;
@@ -179,7 +179,7 @@ export class PaddleProvider implements PaymentProvider {
   }
 
   private async applyPlanLimits(orgId: string, plan: string) {
-    const adminClient = this.supabaseService.getAdminClient();
+    const adminClient = this.supabaseService.getAdminClient() as any;
     
     let limits = {
       max_projects: 3, max_members: 5, max_cards: 500, max_nodes: 300,

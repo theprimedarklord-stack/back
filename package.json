@@ -48,7 +48,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.34.5",
-    "@paddle/paddle-node": "^1.1.2"
+    "@paddle/paddle-node-sdk": "^3.8.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
