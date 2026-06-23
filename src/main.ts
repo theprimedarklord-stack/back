@@ -63,7 +63,9 @@ async function bootstrap() {
   // 3. Подключаем парсер кук
   app.use(cookieParser());
 
-  // 4. Увеличиваем лимит тела JSON-запроса
+  // Stripe webhook raw body — MUST be before express.json()
+  app.use('/billing/webhooks', express.raw({ type: 'application/json' }));
+  
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 

@@ -23,6 +23,8 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import { RolesGuard, Roles } from '../auth/roles.guard';
 import { Permission } from '../auth/permission.decorator';
 import { RlsContextInterceptor } from '../auth/rls-context.interceptor';
+import { LimitsGuard } from '../billing/guards/limits.guard';
+import { CheckLimit } from '../billing/decorators/check-limit.decorator';
 import { OrgProjectsService } from './org-projects.service';
 import {
   CreateOrgProjectDto,
@@ -58,8 +60,9 @@ export class OrgProjectsController {
    * Requires: owner/admin role in org
    */
   @Post()
-  @UseGuards(CognitoAuthGuard, ContextGuard, PermissionsGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, PermissionsGuard, LimitsGuard)
   @Permission('projects.create')
+  @CheckLimit('projects')
   async create(@Body() dto: CreateOrgProjectDto, @Req() req: Request) {
     const project = await this.orgProjectsService.create(
       req.context!.org.id,

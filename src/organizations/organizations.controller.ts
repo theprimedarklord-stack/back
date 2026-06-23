@@ -24,6 +24,8 @@ import { RolesGuard, Roles } from '../auth/roles.guard';
 import { Permission } from '../auth/permission.decorator';
 import { RlsContextInterceptor } from '../auth/rls-context.interceptor';
 import { RequireOrg } from '../common/decorators/require-org.decorator';
+import { LimitsGuard } from '../billing/guards/limits.guard';
+import { CheckLimit } from '../billing/decorators/check-limit.decorator';
 import { OrganizationsService } from './organizations.service';
 import {
   CreateOrganizationDto,
@@ -257,8 +259,9 @@ export class OrganizationsController {
    * Add member to organization (owner/admin only)
    */
   @Post(':orgId/members')
-  @UseGuards(CognitoAuthGuard, ContextGuard, PermissionsGuard)
+  @UseGuards(CognitoAuthGuard, ContextGuard, PermissionsGuard, LimitsGuard)
   @Permission('members.invite')
+  @CheckLimit('members')
   async addMember(
     @Param('orgId') orgId: string,
     @Body() dto: AddMemberDto,

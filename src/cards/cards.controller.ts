@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, HttpStatus, Query, Logger, Headers } from '@nestjs/common';
 import { Request } from 'express';
 import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
+import { LimitsGuard } from '../billing/guards/limits.guard';
+import { CheckLimit } from '../billing/decorators/check-limit.decorator';
 import { CardsService } from './cards.service';
 
 @Controller('cards')
@@ -29,6 +31,8 @@ export class CardsController {
   }
 
   @Post()
+  @UseGuards(LimitsGuard)
+  @CheckLimit('cards')
   async createCard(
     @Req() req: Request,
     @Body() body: any,

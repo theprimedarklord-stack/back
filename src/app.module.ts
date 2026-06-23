@@ -31,6 +31,8 @@ import { MeModule } from './me/me.module';
 import { HealthModule } from './health/health.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { MediaModule } from './media/media.module';
+import { CacheRedisModule } from './common/redis/cache-redis.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
@@ -99,6 +101,8 @@ import { MediaModule } from './media/media.module';
     HealthModule,
     FeedbackModule,
     MediaModule,
+    CacheRedisModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [
