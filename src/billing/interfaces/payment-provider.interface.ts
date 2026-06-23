@@ -47,6 +47,11 @@ export interface PaymentProvider {
    * Create an update transaction for upgrading/downgrading.
    */
   getUpdateTransaction(orgId: string, newPriceId: string): Promise<string | null>;
+
+  /**
+   * Create a customer portal session URL.
+   */
+  getCustomerPortalSession(orgId: string): Promise<string | null>;
 }
 
 export const PAYMENT_PROVIDER = 'PAYMENT_PROVIDER';

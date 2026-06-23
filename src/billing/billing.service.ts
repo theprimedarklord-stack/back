@@ -57,4 +57,8 @@ export class BillingService {
   async getUpdateTransaction(orgId: string, newPriceId: string): Promise<string | null> {
     return this.paymentProvider.getUpdateTransaction(orgId, newPriceId);
   }
+
+  async getCustomerPortalSession(orgId: string): Promise<string | null> {
+    return this.paymentProvider.getCustomerPortalSession(orgId);
+  }
 }

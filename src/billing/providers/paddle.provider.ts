@@ -167,6 +167,27 @@ export class PaddleProvider implements PaymentProvider {
     }
   }
 
+  async getCustomerPortalSession(orgId: string): Promise<string | null> {
+    const adminClient = this.supabaseService.getAdminClient() as any;
+    const { data } = await adminClient
+      .from('org_subscriptions')
+      .select('billing_customer_id')
+      .eq('org_id', orgId)
+      .single();
+
+    if (!data?.billing_customer_id) return null;
+
+    try {
+      const session = await this.paddle.customerPortalSessions.create({
+        customerIds: [data.billing_customer_id],
+      });
+      return session.urls.general.overview;
+    } catch (e: any) {
+      this.logger.error(`Failed to create customer portal session for ${orgId}: ${e.message}`);
+      return null;
+    }
+  }
+
   async handleWebhookEvent(event: any): Promise<void> {
     const adminClient = this.supabaseService.getAdminClient() as any;
     const eventType = event.eventType;

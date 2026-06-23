@@ -55,4 +55,15 @@ export class BillingController {
     }
     return { transactionId };
   }
+
+  @Get('customer-portal')
+  @RequireOrg(true)
+  async getCustomerPortal(@Req() req: AuthenticatedRequest) {
+    const orgId = req.headers['x-org-id'] as string;
+    const url = await this.billingService.getCustomerPortalSession(orgId);
+    if (!url) {
+      throw new BadRequestException('Failed to create customer portal session');
+    }
+    return { url };
+  }
 }
