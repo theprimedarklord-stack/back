@@ -49,4 +49,12 @@ export class BillingService {
   async ensureBillingCustomer(orgId: string, orgName: string, ownerEmail?: string): Promise<string | null> {
     return this.paymentProvider.ensureCustomer(orgId, orgName, ownerEmail);
   }
+
+  async cancelSubscription(orgId: string): Promise<boolean> {
+    return this.paymentProvider.cancelSubscription(orgId);
+  }
+
+  async getUpdateTransaction(orgId: string, newPriceId: string): Promise<string | null> {
+    return this.paymentProvider.getUpdateTransaction(orgId, newPriceId);
+  }
 }

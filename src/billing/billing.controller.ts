@@ -27,4 +27,32 @@ export class BillingController {
     const customerId = await this.billingService.ensureBillingCustomer(orgId, `Org ${orgId}`, req.user.email);
     return { customerId };
   }
+
+  @Post('cancel')
+  @RequireOrg(true)
+  async cancelSubscription(@Req() req: AuthenticatedRequest) {
+    const orgId = req.headers['x-org-id'] as string;
+    const success = await this.billingService.cancelSubscription(orgId);
+    if (!success) {
+      throw new BadRequestException('Failed to cancel subscription');
+    }
+    return { success: true };
+  }
+
+  @Post('update-transaction')
+  @RequireOrg(true)
+  async updateTransaction(
+    @Req() req: AuthenticatedRequest,
+    @Body('priceId') priceId: string,
+  ) {
+    const orgId = req.headers['x-org-id'] as string;
+    if (!priceId) {
+      throw new BadRequestException('priceId is required');
+    }
+    const transactionId = await this.billingService.getUpdateTransaction(orgId, priceId);
+    if (!transactionId) {
+      throw new BadRequestException('Failed to create update transaction');
+    }
+    return { transactionId };
+  }
 }

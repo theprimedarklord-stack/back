@@ -119,6 +119,53 @@ export class PaddleProvider implements PaymentProvider {
     }
   }
 
+  async cancelSubscription(orgId: string): Promise<boolean> {
+    const adminClient = this.supabaseService.getAdminClient() as any;
+    const { data } = await adminClient
+      .from('org_subscriptions')
+      .select('billing_subscription_id')
+      .eq('org_id', orgId)
+      .single();
+
+    if (!data?.billing_subscription_id) return false;
+
+    try {
+      await this.paddle.subscriptions.cancel(data.billing_subscription_id, {
+        effectiveFrom: 'next_billing_period',
+      });
+      await adminClient
+        .from('org_subscriptions')
+        .update({ cancel_at_period_end: true })
+        .eq('org_id', orgId);
+      return true;
+    } catch (e: any) {
+      this.logger.error(`Failed to cancel subscription for ${orgId}: ${e.message}`);
+      return false;
+    }
+  }
+
+  async getUpdateTransaction(orgId: string, newPriceId: string): Promise<string | null> {
+    const adminClient = this.supabaseService.getAdminClient() as any;
+    const { data } = await adminClient
+      .from('org_subscriptions')
+      .select('billing_subscription_id')
+      .eq('org_id', orgId)
+      .single();
+
+    if (!data?.billing_subscription_id) return null;
+
+    try {
+      const txn = await this.paddle.transactions.create({
+        subscriptionId: data.billing_subscription_id,
+        items: [{ priceId: newPriceId, quantity: 1 }],
+      });
+      return txn.id;
+    } catch (e: any) {
+      this.logger.error(`Failed to create update transaction for ${orgId}: ${e.message}`);
+      return null;
+    }
+  }
+
   async handleWebhookEvent(event: any): Promise<void> {
     const adminClient = this.supabaseService.getAdminClient() as any;
     const eventType = event.eventType;
