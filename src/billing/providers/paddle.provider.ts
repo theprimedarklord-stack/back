@@ -123,7 +123,7 @@ export class PaddleProvider implements PaymentProvider {
     const adminClient = this.supabaseService.getAdminClient() as any;
     const eventType = event.eventType;
     const data = event.data;
-    const orgId = data.customData?.orgId;
+    const orgId = data.customData?.orgId || data.customData?.org_id;
 
     if (!orgId) {
       this.logger.warn(`No orgId in customData for event ${eventType}`);
