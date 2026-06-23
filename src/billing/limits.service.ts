@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { SupabaseService } from '../../supabase/supabase.service';
-import { CACHE_REDIS_CLIENT } from '../../common/redis/cache-redis.module';
+import { SupabaseService } from '../supabase/supabase.service';
+import { CACHE_REDIS_CLIENT } from '../common/redis/cache-redis.module';
 import Redis from 'ioredis';
 
 export interface OrgLimitsAndUsage {
@@ -48,7 +48,7 @@ export class LimitsService {
       this.logger.warn(`Redis get failed for ${cacheKey}`, e);
     }
 
-    const adminClient = this.supabaseService.getAdminClient();
+    const adminClient = this.supabaseService.getAdminClient() as any;
 
     const [limitsResult, usageResult] = await Promise.all([
       adminClient.from('org_limits').select('*').eq('org_id', orgId).single(),

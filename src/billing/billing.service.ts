@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { SupabaseService } from '../../supabase/supabase.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { PAYMENT_PROVIDER, PaymentProvider } from './interfaces/payment-provider.interface';
 import { LimitsService } from './limits.service';
 
@@ -14,7 +14,7 @@ export class BillingService {
   ) {}
 
   async getBillingInfo(orgId: string) {
-    const adminClient = this.supabaseService.getAdminClient();
+    const adminClient = this.supabaseService.getAdminClient() as any;
 
     const { data: subData } = await adminClient
       .from('org_subscriptions')
@@ -24,7 +24,7 @@ export class BillingService {
 
     const limitsData = await this.limitsService.getLimitsAndUsage(orgId);
 
-    let invoices = [];
+    let invoices: any[] = [];
     if (subData?.billing_customer_id) {
       try {
         invoices = await this.paymentProvider.getInvoices(subData.billing_customer_id);
@@ -46,7 +46,7 @@ export class BillingService {
     };
   }
 
-  async ensureBillingCustomer(orgId: string, orgName: string, ownerEmail?: string): Promise<string> {
+  async ensureBillingCustomer(orgId: string, orgName: string, ownerEmail?: string): Promise<string | null> {
     return this.paymentProvider.ensureCustomer(orgId, orgName, ownerEmail);
   }
 }
