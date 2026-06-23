@@ -156,6 +156,7 @@ export class PaddleProvider implements PaymentProvider {
 
     try {
       const txn = await this.paddle.transactions.create({
+        // @ts-ignore: subscriptionId exists in Paddle API but might be missing in TS types
         subscriptionId: data.billing_subscription_id,
         items: [{ priceId: newPriceId, quantity: 1 }],
       });

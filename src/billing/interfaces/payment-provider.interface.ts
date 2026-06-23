@@ -37,6 +37,16 @@ export interface PaymentProvider {
    * (e.g., updating subscriptions in the DB).
    */
   handleWebhookEvent(event: any): Promise<void>;
+
+  /**
+   * Cancel an active subscription.
+   */
+  cancelSubscription(orgId: string): Promise<boolean>;
+
+  /**
+   * Create an update transaction for upgrading/downgrading.
+   */
+  getUpdateTransaction(orgId: string, newPriceId: string): Promise<string | null>;
 }
 
 export const PAYMENT_PROVIDER = 'PAYMENT_PROVIDER';
