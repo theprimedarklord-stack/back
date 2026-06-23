@@ -1,6 +1,7 @@
 // src/org-projects/org-projects.module.ts
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { BillingModule } from '../billing/billing.module';
 import { OrgProjectsController } from './org-projects.controller';
 import { OrgProjectsService } from './org-projects.service';
 import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
@@ -12,7 +13,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { RlsContextInterceptor } from '../auth/rls-context.interceptor';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, BillingModule],
   controllers: [OrgProjectsController],
   providers: [
     OrgProjectsService,

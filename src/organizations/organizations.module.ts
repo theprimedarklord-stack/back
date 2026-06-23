@@ -1,6 +1,7 @@
 // src/organizations/organizations.module.ts
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { BillingModule } from '../billing/billing.module';
 import { OrganizationsController } from './organizations.controller';
 import { OrganizationsService } from './organizations.service';
 import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
@@ -11,7 +12,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { RlsContextInterceptor } from '../auth/rls-context.interceptor';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, BillingModule],
   controllers: [OrganizationsController],
   providers: [
     OrganizationsService,

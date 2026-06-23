@@ -5,9 +5,10 @@ import { MapCardHistoryController } from './map-card-history.controller';
 import { MapCardHistoryService } from './map-card-history.service';
 import { HistoryCleanupService } from './history-cleanup.service';
 import { DatabaseModule } from '../db/database.module';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, BillingModule],
   controllers: [CardsController, MapCardHistoryController],
   providers: [CardsService, MapCardHistoryService, HistoryCleanupService],
   exports: [CardsService, MapCardHistoryService, HistoryCleanupService],
