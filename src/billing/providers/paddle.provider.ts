@@ -105,7 +105,11 @@ export class PaddleProvider implements PaymentProvider {
   async verifyWebhookSignature(req: Request): Promise<any> {
     const signature = req.headers['paddle-signature'] as string || '';
     const secretKey = this.configService.get<string>('PADDLE_WEBHOOK_SECRET') || '';
-    const rawBody = (req as any).rawBody ? (req as any).rawBody.toString() : '';
+    
+    // express.raw() populates req.body as a Buffer
+    const rawBody = Buffer.isBuffer(req.body) 
+      ? req.body.toString() 
+      : ((req as any).rawBody ? (req as any).rawBody.toString() : '');
 
     try {
       if (signature && secretKey) {
