@@ -23,10 +23,10 @@ export class MapCardConnectionsService {
         FROM map_card_connections mcc
         LEFT JOIN map_cards src ON src.id = mcc.source_map_card_id
         LEFT JOIN map_cards tgt ON tgt.id = mcc.target_map_card_id
-        WHERE mcc.user_id = $1::uuid AND mcc.organization_id = $2::uuid
+        WHERE mcc.user_id = $1::uuid
         ORDER BY mcc.created_at DESC
       `;
-      const result = await dbClient.query(query, [userId, orgId]);
+      const result = await dbClient.query(query, [userId]);
       return result.rows;
     } catch (error: any) {
       if (error.code === '42501') {
@@ -57,10 +57,9 @@ export class MapCardConnectionsService {
         LEFT JOIN map_cards tgt ON tgt.id = mcc.target_map_card_id
         WHERE (mcc.source_map_card_id = $1::bigint OR mcc.target_map_card_id = $1::bigint)
           AND mcc.user_id = $2::uuid
-          AND mcc.organization_id = $3::uuid
         ORDER BY mcc.created_at DESC
       `;
-      const result = await dbClient.query(query, [mapCardId, userId, orgId]);
+      const result = await dbClient.query(query, [mapCardId, userId]);
       return result.rows;
     } catch (error: any) {
       if (error.code === '42501') {
@@ -106,7 +105,6 @@ export class MapCardConnectionsService {
         SELECT id, source_map_card_id, target_map_card_id, connection_type, metadata, created_at
         FROM map_card_connections
         WHERE user_id = $1::uuid
-          AND organization_id = $2::uuid
           AND source_map_card_id = ANY($3::bigint[])
           AND target_map_card_id = ANY($3::bigint[])
       `;
@@ -144,8 +142,8 @@ export class MapCardConnectionsService {
   async create(dbClient: PoolClient, dto: CreateMapCardConnectionDto, userId: string, orgId: string) {
     try {
       const query = `
-        INSERT INTO map_card_connections (source_map_card_id, target_map_card_id, connection_type, metadata, user_id, organization_id)
-        VALUES ($1::bigint, $2::bigint, $3, $4::jsonb, $5::uuid, $6::uuid)
+        INSERT INTO map_card_connections (source_map_card_id, target_map_card_id, connection_type, metadata, user_id)
+        VALUES ($1::bigint, $2::bigint, $3, $4::jsonb, $5::uuid)
         ON CONFLICT DO NOTHING
         RETURNING *
       `;
@@ -155,7 +153,6 @@ export class MapCardConnectionsService {
         dto.connection_type ?? 'reference',
         dto.metadata ? JSON.stringify(dto.metadata) : null,
         userId,
-        orgId,
       ];
 
       const result = await dbClient.query(query, values);
@@ -164,10 +161,10 @@ export class MapCardConnectionsService {
       if (result.rows.length === 0) {
         const existing = await dbClient.query(
           `SELECT * FROM map_card_connections
-           WHERE user_id = $1::uuid AND organization_id = $2::uuid
-             AND source_map_card_id = LEAST($3::bigint, $4::bigint)
-             AND target_map_card_id = GREATEST($3::bigint, $4::bigint)`,
-          [userId, orgId, dto.source_map_card_id, dto.target_map_card_id],
+           WHERE user_id = $1::uuid
+             AND source_map_card_id = LEAST($2::bigint, $3::bigint)
+             AND target_map_card_id = GREATEST($2::bigint, $3::bigint)`,
+          [userId, dto.source_map_card_id, dto.target_map_card_id],
         );
         return existing.rows[0] ?? { message: 'Connection already exists' };
       }
@@ -196,8 +193,8 @@ export class MapCardConnectionsService {
 
       for (const conn of connections) {
         const query = `
-          INSERT INTO map_card_connections (source_map_card_id, target_map_card_id, connection_type, user_id, organization_id)
-          VALUES ($1::bigint, $2::bigint, $3, $4::uuid, $5::uuid)
+          INSERT INTO map_card_connections (source_map_card_id, target_map_card_id, connection_type, user_id)
+          VALUES ($1::bigint, $2::bigint, $3, $4::uuid)
           ON CONFLICT DO NOTHING
           RETURNING *
         `;
@@ -206,7 +203,6 @@ export class MapCardConnectionsService {
           conn.target_map_card_id,
           conn.connection_type ?? 'reference',
           userId,
-          orgId,
         ];
 
         const result = await dbClient.query(query, values);
@@ -232,10 +228,10 @@ export class MapCardConnectionsService {
     try {
       const query = `
         DELETE FROM map_card_connections
-        WHERE id = $1::uuid AND user_id = $2::uuid AND organization_id = $3::uuid
+        WHERE id = $1::uuid AND user_id = $2::uuid
         RETURNING id
       `;
-      const result = await dbClient.query(query, [id, userId, orgId]);
+      const result = await dbClient.query(query, [id, userId]);
 
       if (result.rows.length === 0) {
         throw new NotFoundException('Connection not found');
