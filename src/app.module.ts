@@ -24,6 +24,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { AIModule } from './ai/ai.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
 import { MapCardsModule } from './mapcards/mapcards.module';
+import { MapCardConnectionsModule } from './map-card-connections/map-card-connections.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { OrgProjectsModule } from './org-projects/org-projects.module';
@@ -88,6 +89,7 @@ import { BillingModule } from './billing/billing.module';
     AIModule,
     SuggestionsModule,
     MapCardsModule,
+    MapCardConnectionsModule,
     TelemetryModule,
 
     // User-facing context endpoints
