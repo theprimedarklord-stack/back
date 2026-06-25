@@ -106,9 +106,9 @@ export class MapCardConnectionsService {
         FROM map_card_connections
         WHERE user_id = $1::uuid
           AND source_map_card_id = ANY($2::bigint[])
-          AND target_map_card_id = ANY($2::bigint[])
+          AND target_map_card_id = ANY($3::bigint[])
       `;
-      const edgesResult = await dbClient.query(edgesQuery, [userId, nodeIds]);
+      const edgesResult = await dbClient.query(edgesQuery, [userId, nodeIds, nodeIds]);
       const edges = edgesResult.rows;
 
       // 4. Підрахунок connectionCount для кожної ноди
