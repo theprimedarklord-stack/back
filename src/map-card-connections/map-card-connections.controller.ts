@@ -102,7 +102,13 @@ export class MapCardConnectionsController {
       throw new BadRequestException('x-org-id header is required');
     }
 
-    return this.mapCardConnectionsService.bulkSync(dbClient, dto.connections, req.user.userId, orgId);
+    return this.mapCardConnectionsService.bulkSync(
+      dbClient,
+      dto.mapCardId,
+      dto.targetTitles,
+      req.user.userId,
+      orgId as string,
+    );
   }
 
   @Delete(':id')

@@ -179,29 +179,52 @@ export class MapCardConnectionsService {
   }
 
   /**
-   * Масове створення з'єднань (для парсингу wiki-links).
-   * INSERT ... ON CONFLICT DO NOTHING для кожного.
+   * Масове створення з'єднань за масивом назв карток (для парсингу wiki-links з будь-якого тексту).
+   * Спочатку шукає картки за title (targetTitles), потім робить INSERT ... ON CONFLICT DO NOTHING.
    */
   async bulkSync(
     dbClient: PoolClient,
-    connections: { source_map_card_id: number; target_map_card_id: number; connection_type?: string }[],
+    mapCardId: number,
+    targetTitles: string[],
     userId: string,
     orgId: string,
   ) {
     try {
+      if (!targetTitles || targetTitles.length === 0) {
+        return { created: 0, connections: [] };
+      }
+
+      // 1. Знаходимо ID цільових карток за їхніми назвами
+      const findTargetsQuery = `
+        SELECT id, title
+        FROM map_cards
+        WHERE user_id = $1::uuid AND organization_id = $2::uuid
+          AND title = ANY($3::text[])
+      `;
+      const targetsResult = await dbClient.query(findTargetsQuery, [userId, orgId, targetTitles]);
+      
+      if (targetsResult.rows.length === 0) {
+        return { created: 0, connections: [], message: 'No matching target cards found' };
+      }
+
       const results: any[] = [];
 
-      for (const conn of connections) {
+      // 2. Створюємо зв'язки з усіма знайденими ID
+      for (const target of targetsResult.rows) {
+        // Запобігаємо самопосиланню
+        if (target.id === String(mapCardId) || target.id === Number(mapCardId)) {
+          continue;
+        }
+
         const query = `
           INSERT INTO map_card_connections (source_map_card_id, target_map_card_id, connection_type, user_id)
-          VALUES ($1::bigint, $2::bigint, $3, $4::uuid)
+          VALUES ($1::bigint, $2::bigint, 'reference', $3::uuid)
           ON CONFLICT DO NOTHING
           RETURNING *
         `;
         const values = [
-          conn.source_map_card_id,
-          conn.target_map_card_id,
-          conn.connection_type ?? 'reference',
+          mapCardId,
+          target.id,
           userId,
         ];
 
