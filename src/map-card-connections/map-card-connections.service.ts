@@ -217,8 +217,9 @@ export class MapCardConnectionsService {
         }
 
         const query = `
-          INSERT INTO map_card_connections (source_map_card_id, target_map_card_id, connection_type, user_id)
-          VALUES ($1::bigint, $2::bigint, 'reference', $3::uuid)
+          INSERT INTO map_card_connections 
+            (source_map_card_id, target_map_card_id, connection_type, user_id, organization_id)
+          VALUES ($1::bigint, $2::bigint, 'reference', $3::uuid, $4::uuid)
           ON CONFLICT DO NOTHING
           RETURNING *
         `;
@@ -226,6 +227,7 @@ export class MapCardConnectionsService {
           mapCardId,
           target.id,
           userId,
+          orgId,
         ];
 
         const result = await dbClient.query(query, values);
