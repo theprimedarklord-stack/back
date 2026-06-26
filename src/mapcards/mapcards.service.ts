@@ -29,6 +29,24 @@ export class MapCardsService {
     }
   }
 
+  async search(dbClient: PoolClient, userId: string, orgId: string, query: string, limit: number = 10) {
+    try {
+      const result = await dbClient.query(
+        `SELECT id, title FROM map_cards
+         WHERE user_id = $1::uuid
+           AND organization_id = $2::uuid
+           AND title ILIKE $3
+         ORDER BY updated_at DESC
+         LIMIT $4`,
+        [userId, orgId, `%${query}%`, limit]
+      );
+      return result.rows;
+    } catch (error: any) {
+      if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
+      throw new InternalServerErrorException(`DB Search Error: ${error.message}`);
+    }
+  }
+
   /**
    * Отримати одну map card по ID.
    * Defense in Depth: user_id + organization_id у WHERE.

@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, Req, UseGuards,
+  Body, Param, Req, UseGuards, Query,
   BadRequestException, InternalServerErrorException,
 } from '@nestjs/common';
 import { MapCardsService } from './mapcards.service';
@@ -31,6 +31,21 @@ export class MapCardsController {
     // Defense in Depth: передаємо userId та orgId для явного SQL-фільтру
     // поверх RLS-контексту, вже встановленого в dbClient через RlsContextInterceptor
     return this.mapCardsService.findAll(dbClient, req.user.userId, orgId);
+  }
+
+  @Get('search')
+  async searchMapCards(
+    @Req() req: AuthenticatedRequest,
+    @Query('q') q: string = '',
+    @Query('limit') limit: string = '10',
+  ) {
+    const dbClient = req.dbClient;
+    if (!dbClient) throw new InternalServerErrorException('Database client with RLS context is missing!');
+
+    const orgId = req.headers['x-org-id'];
+    if (!orgId) throw new BadRequestException('x-org-id header is required');
+
+    return this.mapCardsService.search(dbClient, req.user.userId, orgId as string, q, Number(limit));
   }
 
   @Get(':id')
