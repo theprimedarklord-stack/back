@@ -17,28 +17,66 @@ export class PublicSharesService {
     const uuidStr = crypto.randomUUID();
     const slug = uuidStr.split('-')[0] + '-' + uuidStr.split('-')[1]; // Simple random slug, in real app better to generate something nicer
 
-    // Upsert logic matching the plan
-    const { data, error } = await adminClient
+    // Upsert logic rewritten to avoid ON CONFLICT with partial indexes
+    let query = adminClient
       .from('public_shares')
-      .upsert({
-        organization_id: orgId,
-        entity_type: entityType,
-        map_card_id: mapCardId,
-        node_id: nodeId || null,
-        slug,
-        permission,
-        published_by: userId,
-        is_active: true,
-        revoked_at: null,
-      }, {
-        onConflict: entityType === 'node' ? 'map_card_id,node_id' : 'map_card_id',
-      })
-      .select('slug')
-      .single();
+      .select('id, slug, is_active')
+      .eq('organization_id', orgId)
+      .eq('map_card_id', mapCardId)
+      .eq('entity_type', entityType);
 
-    if (error) {
-      console.error('[PublicSharesService] Publish error:', error);
-      throw new InternalServerErrorException('Failed to publish');
+    if (entityType === 'node' && nodeId) {
+      query = query.eq('node_id', nodeId);
+    } else {
+      query = query.is('node_id', null);
+    }
+
+    const { data: existing, error: findError } = await query.maybeSingle();
+
+    if (findError) {
+      console.error('[PublicSharesService] Find error:', findError);
+      throw new InternalServerErrorException('Failed to check existing share');
+    }
+
+    let resultSlug = slug;
+
+    if (existing) {
+      // Update existing
+      resultSlug = existing.slug;
+      const { error: updateError } = await adminClient
+        .from('public_shares')
+        .update({
+          is_active: true,
+          revoked_at: null,
+          permission,
+          published_by: userId
+        })
+        .eq('id', existing.id);
+
+      if (updateError) {
+        console.error('[PublicSharesService] Update error:', updateError);
+        throw new InternalServerErrorException('Failed to update share');
+      }
+    } else {
+      // Insert new
+      const { error: insertError } = await adminClient
+        .from('public_shares')
+        .insert({
+          organization_id: orgId,
+          entity_type: entityType,
+          map_card_id: mapCardId,
+          node_id: nodeId || null,
+          slug,
+          permission,
+          published_by: userId,
+          is_active: true,
+          revoked_at: null,
+        });
+
+      if (insertError) {
+        console.error('[PublicSharesService] Insert error:', insertError);
+        throw new InternalServerErrorException('Failed to insert share');
+      }
     }
 
     // If node, call sync_public_node
@@ -52,7 +90,7 @@ export class PublicSharesService {
       }
     }
 
-    return { slug: data.slug };
+    return { slug: resultSlug };
   }
 
   async updateStatus(userId: string, orgId: string, id: string, isActive: boolean) {
