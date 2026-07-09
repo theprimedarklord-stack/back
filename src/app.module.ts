@@ -34,6 +34,7 @@ import { FeedbackModule } from './feedback/feedback.module';
 import { MediaModule } from './media/media.module';
 import { CacheRedisModule } from './common/redis/cache-redis.module';
 import { BillingModule } from './billing/billing.module';
+import { PublicSharesModule } from './public-shares/public-shares.module';
 
 @Module({
   imports: [
@@ -105,6 +106,7 @@ import { BillingModule } from './billing/billing.module';
     MediaModule,
     CacheRedisModule,
     BillingModule,
+    PublicSharesModule,
   ],
   controllers: [AppController],
   providers: [
