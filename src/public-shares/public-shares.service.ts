@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
-import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class PublicSharesService {
@@ -12,9 +12,10 @@ export class PublicSharesService {
   // ---------------------------------------------------------------------------
 
   async publish(userId: string, orgId: string, mapCardId: number, nodeId?: string, permission = 'view') {
-    const adminClient = this.supabaseService.getAdminClient();
+    const adminClient = this.supabaseService.getAdminClient() as any;
     const entityType = nodeId ? 'node' : 'map_card';
-    const slug = uuidv4().split('-')[0] + '-' + uuidv4().split('-')[1]; // Simple random slug, in real app better to generate something nicer
+    const uuidStr = crypto.randomUUID();
+    const slug = uuidStr.split('-')[0] + '-' + uuidStr.split('-')[1]; // Simple random slug, in real app better to generate something nicer
 
     // Upsert logic matching the plan
     const { data, error } = await adminClient
@@ -55,7 +56,7 @@ export class PublicSharesService {
   }
 
   async updateStatus(userId: string, orgId: string, id: string, isActive: boolean) {
-    const adminClient = this.supabaseService.getAdminClient();
+    const adminClient = this.supabaseService.getAdminClient() as any;
 
     const { data: share, error: fetchError } = await adminClient
       .from('public_shares')
@@ -92,7 +93,7 @@ export class PublicSharesService {
   }
 
   async getSharesForMapCard(orgId: string, mapCardId: number) {
-    const adminClient = this.supabaseService.getAdminClient();
+    const adminClient = this.supabaseService.getAdminClient() as any;
     const { data, error } = await adminClient
       .from('public_shares')
       .select('*')
@@ -108,7 +109,7 @@ export class PublicSharesService {
   // ---------------------------------------------------------------------------
 
   async getPublicMapCard(slug: string) {
-    const anonClient = this.supabaseService.getClient(); // This uses anon_key
+    const anonClient = this.supabaseService.getClient() as any; // This uses anon_key
 
     const { data: share, error: shareError } = await anonClient
       .from('public_shares')
@@ -136,7 +137,7 @@ export class PublicSharesService {
   }
 
   async getPublicNode(slug: string) {
-    const anonClient = this.supabaseService.getClient();
+    const anonClient = this.supabaseService.getClient() as any;
 
     const { data, error } = await anonClient
       .from('public_nodes')

@@ -1,21 +1,21 @@
 // src/ai/providers/gemini.provider.ts
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType, Content, Part, Tool } from '@google/generative-ai';
 import { AIProvider, AIProviderResponse } from './ai-provider.interface';
 import { AISettings } from '../entities/ai-settings.entity';
 
 // Опис read-only інструментів пам'яті проекту
-const MEMORY_TOOLS = [
+const MEMORY_TOOLS: Tool[] = [
   {
     functionDeclarations: [
       {
         name: 'get_memory_context',
         description: 'Отримує зкомпільовану markdown-пам\'ять останніх змін проекту (корисно для отримання загального контексту проекту).',
         parameters: {
-          type: 'OBJECT',
+          type: SchemaType.OBJECT,
           properties: {
-            limit: { type: 'INTEGER', description: 'Кількість останніх чейнджлогів для читання' }
+            limit: { type: SchemaType.INTEGER, description: 'Кількість останніх чейнджлогів для читання' }
           }
         }
       },
@@ -23,9 +23,9 @@ const MEMORY_TOOLS = [
         name: 'search_memories',
         description: 'Виконує нечіткий пошук у каталозі пам\'яті проекту за ключовими словами.',
         parameters: {
-          type: 'OBJECT',
+          type: SchemaType.OBJECT,
           properties: {
-            query: { type: 'STRING', description: 'Слово або фраза для пошуку (наприклад, "admin", "virtualization")' }
+            query: { type: SchemaType.STRING, description: 'Слово або фраза для пошуку (наприклад, "admin", "virtualization")' }
           },
           required: ['query']
         }
@@ -52,6 +52,7 @@ export class GeminiProvider implements AIProvider {
     const model = genAI.getGenerativeModel({
       model: settings.model || 'gemini-2.5-flash',
       systemInstruction: {
+        role: 'system',
         parts: [{
           text: `Ти — інтелектуальний помічник розробника SmartMemory. 
 Тобі доступна локальна пам'ять проекту (чейнджлоги, історія змін, контекст). 
@@ -74,7 +75,7 @@ export class GeminiProvider implements AIProvider {
     });
 
     try {
-      const contents = [
+      const contents: Content[] = [
         { role: 'user', parts: [{ text: prompt }] }
       ];
 
@@ -111,7 +112,7 @@ export class GeminiProvider implements AIProvider {
           // 1. Додаємо запит моделі (functionCall) в історію діалогу
           contents.push({
             role: 'model',
-            parts: functionCalls.map((call) => ({ functionCall: call }))
+            parts: functionCalls.map((call) => ({ functionCall: call } as Part))
           });
 
           // 2. Виконуємо всі виклики паралельно (батчинг)
@@ -122,7 +123,7 @@ export class GeminiProvider implements AIProvider {
               console.log(`[Gemini Provider] Executing tool: ${call.name} with args:`, call.args);
               
               if (call.name === 'get_memory_context') {
-                const limit = call.args?.limit || 15;
+                const limit = (call.args as any)?.limit || 15;
                 const res = await fetch(`${clientUrl}/api/memory/context?limit=${limit}`, {
                   headers: {
                     'Authorization': `Bearer ${memoryApiKey}`,
@@ -134,7 +135,7 @@ export class GeminiProvider implements AIProvider {
                 functionResult = await res.text();
                 console.log(`[Gemini Provider] Successfully fetched context. Length: ${functionResult.length} characters.`);
               } else if (call.name === 'search_memories') {
-                const query = call.args?.query || '';
+                const query = (call.args as any)?.query || '';
                 const res = await fetch(`${clientUrl}/api/memory/search?query=${encodeURIComponent(String(query))}`, {
                   headers: {
                     'Authorization': `Bearer ${memoryApiKey}`,
@@ -160,7 +161,7 @@ export class GeminiProvider implements AIProvider {
                 name: call.name,
                 response: { result: functionResult }
               }
-            });
+            } as Part);
           }
 
           // 3. Додаємо відповіді функцій (functionResponse) в історію діалогу єдиним повідомленням (user)
