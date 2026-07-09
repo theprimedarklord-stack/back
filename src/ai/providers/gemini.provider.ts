@@ -116,7 +116,7 @@ export class GeminiProvider implements AIProvider {
           });
 
           // 2. Виконуємо всі виклики паралельно (батчинг)
-          const responseParts = [];
+          const responseParts: Part[] = [];
           for (const call of functionCalls) {
             let functionResult = '';
             try {
