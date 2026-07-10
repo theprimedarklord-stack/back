@@ -188,6 +188,6 @@ export class PublicSharesService {
       return null;
     }
 
-    return data;
+    return data.content;
   }
 }
