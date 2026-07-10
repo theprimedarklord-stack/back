@@ -72,7 +72,10 @@ export class PublicSharesController {
   }
 }
 
+import { Public } from '../common/decorators/public.decorator';
+
 // Separate controller for public unauthenticated access
+@Public()
 @Controller('public')
 export class PublicAccessController {
   constructor(private readonly publicSharesService: PublicSharesService) {}
