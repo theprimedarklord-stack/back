@@ -51,7 +51,12 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
   afterInit(server: Server) {
     this.logger.log('RuntimeGateway initialized');
     
-    this.subClient.psubscribe('runtime:*');
+    // Wait for connection to be ready before subscribing if offline queue is disabled,
+    // or just rely on the fact that we can listen to the connect/ready event.
+    this.subClient.on('ready', () => {
+      this.subClient.psubscribe('runtime:*').catch(err => this.logger.error(err));
+    });
+
     this.subClient.on('pmessage', (pattern, channel, message) => {
       this.handleRedisMessage(channel, message);
     });
