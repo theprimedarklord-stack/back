@@ -6,10 +6,11 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import * as express from 'express';
 import helmet from 'helmet';
-
+import { WsAdapter } from '@nestjs/platform-ws';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useWebSocketAdapter(new WsAdapter(app));
 
   // === КРИТИЧНО ДЛЯ GRACEFUL SHUTDOWN ===
   // Это позволяет приложению корректно завершать работу (в том числе закрывать БД)

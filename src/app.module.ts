@@ -35,7 +35,10 @@ import { MediaModule } from './media/media.module';
 import { CacheRedisModule } from './common/redis/cache-redis.module';
 import { BillingModule } from './billing/billing.module';
 import { PublicSharesModule } from './public-shares/public-shares.module';
-
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { CapabilitiesModule } from './capabilities/capabilities.module';
+import { PermissionsModule } from './capabilities/permissions/permissions.module';
+import { RuntimeModule } from './runtime/runtime.module';
 @Module({
   imports: [
     // ─── 1. Глобальный ConfigModule — всегда первым ────────────────────────
@@ -107,6 +110,10 @@ import { PublicSharesModule } from './public-shares/public-shares.module';
     CacheRedisModule,
     BillingModule,
     PublicSharesModule,
+    EventEmitterModule.forRoot(),
+    CapabilitiesModule,
+    PermissionsModule,
+    RuntimeModule,
   ],
   controllers: [AppController],
   providers: [
