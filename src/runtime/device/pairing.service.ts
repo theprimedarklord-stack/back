@@ -27,9 +27,9 @@ export class PairingService {
     const hash = crypto.createHash('sha256').update(deviceKey).digest('hex');
 
     const res = await this.db.query(
-      `INSERT INTO rt_devices (user_id, name, device_key_hash, os_info, supported_runtimes, status) 
+      `INSERT INTO devices (user_id, name, device_key_hash, os_info, capabilities, status) 
        VALUES ($1, $2, $3, $4, $5, 'online') RETURNING id`,
-      [userId, deviceName, JSON.stringify(osInfo), capabilities]
+      [userId, deviceName, hash, JSON.stringify(osInfo), capabilities]
     );
 
     await this.redis.del(`pairing:otp:${otp}`);

@@ -43,10 +43,12 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     private eventEmitter: EventEmitter2,
   ) {
     const redisUrl = this.configService.get<string>('REDIS_URL');
-    if (!redisUrl) throw new Error('REDIS_URL required for RuntimeGateway Pub/Sub');
-    
-    this.pubClient = new Redis(redisUrl, { enableOfflineQueue: false });
-    this.subClient = new Redis(redisUrl, { enableOfflineQueue: false });
+    if (redisUrl) {
+      this.pubClient = new Redis(redisUrl, { enableOfflineQueue: false });
+      this.subClient = new Redis(redisUrl, { enableOfflineQueue: false });
+    } else {
+      this.logger.warn('REDIS_URL not set — RuntimeGateway Pub/Sub disabled. Direct relay only.');
+    }
   }
 
   afterInit(server: Server) {
@@ -98,8 +100,8 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
         if (isBinary && Buffer.isBuffer(data) && data.length >= 36) {
           const sessionId = data.toString('utf-8', 0, 36).trim();
           const payload = data.subarray(36);
-          // Publish binary payload to Redis
-          this.pubClient.publishBuffer(`runtime:input:${sessionId}`, payload);
+          // ioredis publish supports Buffer
+          this.pubClient.publish(`runtime:input:${sessionId}`, payload);
         }
       });
     } catch (e) {
