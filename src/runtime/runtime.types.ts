@@ -4,14 +4,14 @@ export type RuntimeSessionStatus = 'active' | 'terminated' | 'error' | 'pending'
 /** Runtime type discriminator. */
 export type RuntimeType = 'terminal' | 'browser' | 'code' | 'file';
 
-/** Persisted runtime session row from `runtime_sessions` table. */
+/** Persisted runtime session row from `rt_runtime_sessions` table. */
 export interface RuntimeSession {
   id: string;
-  node_id: string;
+  node_id: number;
   user_id: string;
   device_id: string | null;
   agent_id: string | null;
-  runtime_type: RuntimeType;
+  runtime_kind: RuntimeType;
   runtime_config: Record<string, any>;
   status: RuntimeSessionStatus;
   started_at: string;

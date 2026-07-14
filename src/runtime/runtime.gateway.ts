@@ -54,14 +54,16 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
   afterInit(server: Server) {
     this.logger.log('RuntimeGateway initialized');
     
-    this.subClient.on('ready', () => {
-      this.subClient.psubscribe('runtime:*').catch(err => this.logger.error(err));
-    });
+    if (this.subClient) {
+      this.subClient.on('ready', () => {
+        this.subClient.psubscribe('runtime:*').catch(err => this.logger.error(err));
+      });
 
-    this.subClient.on('pmessageBuffer', (pattern, channelBuffer, messageBuffer) => {
-      const channel = channelBuffer.toString('utf-8');
-      this.handleRedisMessage(channel, messageBuffer);
-    });
+      this.subClient.on('pmessageBuffer', (pattern, channelBuffer, messageBuffer) => {
+        const channel = channelBuffer.toString('utf-8');
+        this.handleRedisMessage(channel, messageBuffer);
+      });
+    }
 
     this.pingInterval = setInterval(() => {
       this.server?.clients?.forEach((ws: ExtendedWebSocket) => {
@@ -101,7 +103,7 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
           const sessionId = data.toString('utf-8', 0, 36).trim();
           const payload = data.subarray(36);
           // ioredis publish supports Buffer
-          this.pubClient.publish(`runtime:input:${sessionId}`, payload);
+          this.pubClient?.publish(`runtime:input:${sessionId}`, payload);
         }
       });
     } catch (e) {
@@ -126,12 +128,12 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
       client.sessionId = payload.sessionId;
     }
     // Forward to agent
-    this.pubClient.publish(`runtime:create:${payload.nodeId}`, JSON.stringify(payload));
+    this.pubClient?.publish(`runtime:create:${payload.nodeId}`, JSON.stringify(payload));
   }
 
   @SubscribeMessage('runtime_resize')
   handleResize(@ConnectedSocket() client: ExtendedWebSocket, @MessageBody() payload: any) {
-    this.pubClient.publish(`runtime:resize:${payload.sessionId}`, JSON.stringify(payload));
+    this.pubClient?.publish(`runtime:resize:${payload.sessionId}`, JSON.stringify(payload));
   }
 
   @SubscribeMessage('runtime_input')
@@ -141,7 +143,7 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
       this.logger.warn(`Backpressure: client ${client.id} buffer full`);
       return;
     }
-    this.pubClient.publish(`runtime:input:${payload.sessionId}`, JSON.stringify(payload));
+    this.pubClient?.publish(`runtime:input:${payload.sessionId}`, JSON.stringify(payload));
   }
 
   private handleRedisMessage(channel: string, messageBuffer: Buffer) {

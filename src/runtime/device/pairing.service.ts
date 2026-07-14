@@ -18,8 +18,17 @@ export class PairingService {
   }
 
   async confirmPairing(otp: string, deviceName: string, osInfo: object, capabilities: string[]): Promise<{ deviceKey: string; deviceId: string }> {
-    const userId = await this.redis.get(`pairing:otp:${otp}`);
-    if (!userId) {
+    // Atomic GET + DEL via Lua script to prevent race conditions (Self-DoS or double redemption)
+    const luaScript = `
+      local val = redis.call("GET", KEYS[1])
+      if val then
+        redis.call("DEL", KEYS[1])
+      end
+      return val
+    `;
+    const userId = await this.redis.eval(luaScript, 1, `pairing:otp:${otp}`);
+    
+    if (!userId || typeof userId !== 'string') {
       throw new BadRequestException('Invalid or expired OTP');
     }
 
@@ -27,12 +36,10 @@ export class PairingService {
     const hash = crypto.createHash('sha256').update(deviceKey).digest('hex');
 
     const res = await this.db.query(
-      `INSERT INTO devices (user_id, name, device_key_hash, os_info, capabilities, status) 
+      `INSERT INTO rt_devices (user_id, name, device_key_hash, os_info, supported_runtimes, status) 
        VALUES ($1, $2, $3, $4, $5, 'online') RETURNING id`,
       [userId, deviceName, hash, JSON.stringify(osInfo), capabilities]
     );
-
-    await this.redis.del(`pairing:otp:${otp}`);
 
     return { deviceKey, deviceId: res.rows[0].id };
   }

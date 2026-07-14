@@ -14,9 +14,9 @@ export class RuntimeService {
     dto: CreateRuntimeSessionDto,
   ): Promise<RuntimeSession> {
     const res = await this.db.query(
-      `INSERT INTO runtime_sessions
-         (node_id, user_id, device_id, agent_id, runtime_type, runtime_config, status, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, 'active', $7)
+      `INSERT INTO rt_runtime_sessions
+         (node_id, user_id, device_id, agent_id, runtime_kind, runtime_config, status, metadata)
+       VALUES ($1::bigint, $2, $3, $4, $5, $6, 'active', $7)
        RETURNING *`,
       [
         dto.nodeId,
@@ -28,7 +28,7 @@ export class RuntimeService {
         JSON.stringify(dto.metadata || {}),
       ],
     );
-    this.logger.log(`Session created: ${res.rows[0].id} (type=${dto.runtimeType})`);
+    this.logger.log(`Session created: ${res.rows[0].id} (kind=${dto.runtimeType})`);
     return res.rows[0];
   }
 
@@ -36,7 +36,7 @@ export class RuntimeService {
   async listSessions(userId: string, status?: string): Promise<RuntimeSession[]> {
     if (status) {
       const res = await this.db.query(
-        `SELECT * FROM runtime_sessions
+        `SELECT * FROM rt_runtime_sessions
          WHERE user_id = $1 AND status = $2
          ORDER BY started_at DESC`,
         [userId, status],
@@ -44,7 +44,7 @@ export class RuntimeService {
       return res.rows;
     }
     const res = await this.db.query(
-      `SELECT * FROM runtime_sessions
+      `SELECT * FROM rt_runtime_sessions
        WHERE user_id = $1
        ORDER BY started_at DESC`,
       [userId],
@@ -55,7 +55,7 @@ export class RuntimeService {
   /** Get a single session by ID. */
   async getSession(sessionId: string): Promise<RuntimeSession> {
     const res = await this.db.query(
-      `SELECT * FROM runtime_sessions WHERE id = $1`,
+      `SELECT * FROM rt_runtime_sessions WHERE id = $1`,
       [sessionId],
     );
     if (res.rows.length === 0) {
@@ -67,7 +67,7 @@ export class RuntimeService {
   /** Terminate a session — sets status to 'terminated' and records ended_at. */
   async terminateSession(sessionId: string, userId: string): Promise<RuntimeSession> {
     const res = await this.db.query(
-      `UPDATE runtime_sessions
+      `UPDATE rt_runtime_sessions
        SET status = 'terminated', ended_at = NOW()
        WHERE id = $1 AND user_id = $2
        RETURNING *`,

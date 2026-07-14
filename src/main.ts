@@ -18,6 +18,15 @@ async function bootstrap() {
   // ======================================
 
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  
+  // Temporary IP logging middleware for ALB/Nginx debugging
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.path === '/runtime/pairing/confirm') {
+      console.log(`[IP DEBUG] req.ip: ${req.ip}, x-forwarded-for: ${req.headers['x-forwarded-for']}, remoteAddress: ${req.socket?.remoteAddress}`);
+    }
+    next();
+  });
+
   app.useGlobalFilters(new AllExceptionsFilter());
   const configService = app.get(ConfigService);
 
