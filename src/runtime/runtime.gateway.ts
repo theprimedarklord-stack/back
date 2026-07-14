@@ -21,6 +21,7 @@ interface ExtendedWebSocket extends WebSocket {
   deviceKey?: string;
   deviceId?: string;
   userId?: string;
+  sessionId?: string;
   permissions?: Record<string, string>;
 }
 
@@ -51,14 +52,13 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
   afterInit(server: Server) {
     this.logger.log('RuntimeGateway initialized');
     
-    // Wait for connection to be ready before subscribing if offline queue is disabled,
-    // or just rely on the fact that we can listen to the connect/ready event.
     this.subClient.on('ready', () => {
       this.subClient.psubscribe('runtime:*').catch(err => this.logger.error(err));
     });
 
-    this.subClient.on('pmessage', (pattern, channel, message) => {
-      this.handleRedisMessage(channel, message);
+    this.subClient.on('pmessageBuffer', (pattern, channelBuffer, messageBuffer) => {
+      const channel = channelBuffer.toString('utf-8');
+      this.handleRedisMessage(channel, messageBuffer);
     });
 
     this.pingInterval = setInterval(() => {
@@ -92,6 +92,16 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
       } else {
         client.close(4001, 'Unauthorized');
       }
+
+      // Handle raw binary messages (multiplexed input from browser)
+      client.on('message', (data: any, isBinary: boolean) => {
+        if (isBinary && Buffer.isBuffer(data) && data.length >= 36) {
+          const sessionId = data.toString('utf-8', 0, 36).trim();
+          const payload = data.subarray(36);
+          // Publish binary payload to Redis
+          this.pubClient.publishBuffer(`runtime:input:${sessionId}`, payload);
+        }
+      });
     } catch (e) {
       client.close(4001, 'Auth failed');
     }
@@ -108,17 +118,57 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     }
   }
 
+  @SubscribeMessage('create_runtime')
+  handleCreateRuntime(@ConnectedSocket() client: ExtendedWebSocket, @MessageBody() payload: any) {
+    if (payload.sessionId) {
+      client.sessionId = payload.sessionId;
+    }
+    // Forward to agent
+    this.pubClient.publish(`runtime:create:${payload.nodeId}`, JSON.stringify(payload));
+  }
+
+  @SubscribeMessage('runtime_resize')
+  handleResize(@ConnectedSocket() client: ExtendedWebSocket, @MessageBody() payload: any) {
+    this.pubClient.publish(`runtime:resize:${payload.sessionId}`, JSON.stringify(payload));
+  }
+
   @SubscribeMessage('runtime_input')
   handleInput(@ConnectedSocket() client: ExtendedWebSocket, @MessageBody() payload: any) {
+    // Fallback for JSON inputs if not using binary multiplexing
     if (client.bufferedAmount > 1024 * 1024) {
       this.logger.warn(`Backpressure: client ${client.id} buffer full`);
       return;
     }
-    
     this.pubClient.publish(`runtime:input:${payload.sessionId}`, JSON.stringify(payload));
   }
 
-  private handleRedisMessage(channel: string, message: string) {
-    // TODO: Routing logic
+  private handleRedisMessage(channel: string, messageBuffer: Buffer) {
+    const parts = channel.split(':');
+    if (parts[1] === 'output') {
+      const sessionId = parts[2];
+      for (const client of this.clientSockets.values()) {
+        if (client.sessionId === sessionId) {
+          client.send(messageBuffer);
+          break;
+        }
+      }
+    } else if (parts[1] === 'input') {
+      const sessionId = parts[2];
+      // Re-multiplex it for the agent (prepend sessionId)
+      const sessionBytes = Buffer.alloc(36, 32); // 32 is space
+      sessionBytes.write(sessionId, 0, 'utf-8');
+      const combined = Buffer.concat([sessionBytes, messageBuffer]);
+      for (const device of this.deviceSockets.values()) {
+        device.send(combined);
+      }
+    } else if (parts[1] === 'create' || parts[1] === 'resize') {
+      const messageStr = messageBuffer.toString('utf-8');
+      for (const device of this.deviceSockets.values()) {
+        device.send(JSON.stringify({
+          event: parts[1] === 'create' ? 'create_runtime' : 'runtime_resize',
+          data: JSON.parse(messageStr)
+        }));
+      }
+    }
   }
 }
