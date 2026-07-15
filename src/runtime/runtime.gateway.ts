@@ -9,9 +9,10 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, WebSocket } from 'ws';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { DatabaseService } from '../db/database.service';
 import Redis from 'ioredis';
 import * as crypto from 'crypto';
 
@@ -41,6 +42,8 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
   constructor(
     private configService: ConfigService,
     private eventEmitter: EventEmitter2,
+    @Inject('WS_REDIS') private wsRedis: Redis,
+    private db: DatabaseService,
   ) {
     const redisUrl = this.configService.get<string>('REDIS_URL');
     if (redisUrl) {
@@ -80,21 +83,46 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     client.on('pong', () => (client.isAlive = true));
 
     const url = new URL(request.url, 'http://localhost');
-    const token = url.searchParams.get('token');
+    const ticket = url.searchParams.get('ticket');
     const deviceKey = url.searchParams.get('deviceKey');
 
     try {
       if (deviceKey) {
+        const hash = crypto.createHash('sha256').update(deviceKey).digest('hex');
+        const res = await this.db.query(
+          `SELECT id, user_id FROM devices WHERE device_key_hash = $1 AND status != 'revoked'`,
+          [hash]
+        );
+        if (res.rows.length === 0) {
+          client.close(4003, 'Invalid device key');
+          return;
+        }
+        client.deviceId = res.rows[0].id;
+        client.userId = res.rows[0].user_id;
         client.deviceKey = deviceKey;
         this.deviceSockets.set(client.id, client);
         this.logger.log(`Device connected: ${client.id}`);
-      } else if (token) {
-        client.userId = 'user-from-token';
+      } else if (ticket) {
+        const script = `
+          local val = redis.call("GET", KEYS[1])
+          if val then
+            redis.call("DEL", KEYS[1])
+          end
+          return val
+        `;
+        const userId = await this.wsRedis.eval(script, 1, `ws:ticket:${ticket}`) as string | null;
+        
+        if (!userId) {
+          client.close(4001, 'Invalid or expired ticket');
+          return;
+        }
+        client.userId = userId;
         client.permissions = {}; 
         this.clientSockets.set(client.id, client);
-        this.logger.log(`Client connected: ${client.id}`);
+        this.logger.log(`Client connected: ${client.id} (user ${userId})`);
       } else {
         client.close(4001, 'Unauthorized');
+        return;
       }
 
       // Handle raw binary messages (multiplexed input from browser)
@@ -102,11 +130,14 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
         if (isBinary && Buffer.isBuffer(data) && data.length >= 36) {
           const sessionId = data.toString('utf-8', 0, 36).trim();
           const payload = data.subarray(36);
-          // ioredis publish supports Buffer
-          this.pubClient?.publish(`runtime:input:${sessionId}`, payload);
+          const channel = client.deviceId 
+            ? `runtime:output:${sessionId}` 
+            : `runtime:input:${sessionId}`;
+          this.pubClient?.publish(channel, payload);
         }
       });
     } catch (e) {
+      this.logger.error(`Connection auth failed: ${e.message}`);
       client.close(4001, 'Auth failed');
     }
   }
