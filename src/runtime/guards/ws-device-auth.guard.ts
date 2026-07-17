@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { DatabaseService } from '../../db/database.service';
+import { DeviceService } from '../device/device.service';
 
 /**
  * WebSocket authentication guard for device (agent) connections.
@@ -18,7 +19,10 @@ import { DatabaseService } from '../../db/database.service';
 export class WsDeviceAuthGuard implements CanActivate {
   private readonly logger = new Logger(WsDeviceAuthGuard.name);
 
-  constructor(private db: DatabaseService) {}
+  constructor(
+    private db: DatabaseService,
+    private deviceService: DeviceService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const client = context.switchToWs().getClient();
@@ -60,10 +64,7 @@ export class WsDeviceAuthGuard implements CanActivate {
       client.userId = device.user_id;
 
       // Update last_seen_at
-      await this.db.query(
-        `UPDATE devices SET status = 'online', last_seen_at = NOW() WHERE id = $1`,
-        [device.id],
-      );
+      await this.deviceService.markOnline(device.id);
 
       return true;
     } catch (err) {

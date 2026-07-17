@@ -14,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '../db/database.service';
 import { RuntimeService } from './runtime.service';
+import { DeviceService } from './device/device.service';
 import Redis from 'ioredis';
 import * as crypto from 'crypto';
 
@@ -48,6 +49,7 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     @Inject('WS_REDIS') private wsRedis: Redis,
     private db: DatabaseService,
     private runtimeService: RuntimeService,
+    private deviceService: DeviceService,
   ) {
     const redisUrl = this.configService.get<string>('REDIS_URL');
     if (redisUrl) {
@@ -160,11 +162,12 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     }
   }
 
-  handleDisconnect(client: ExtendedWebSocket) {
+  async handleDisconnect(client: ExtendedWebSocket) {
     if (client.deviceKey) {
       this.deviceSockets.delete(client.id);
       this.logger.log(`Device disconnected: ${client.id}`);
       this.eventEmitter.emit('runtime.destroyed', { deviceId: client.deviceId });
+      await this.deviceService.markOffline(client.deviceId!);
     } else {
       this.clientSockets.delete(client.id);
       this.logger.log(`Client disconnected: ${client.id}`);
