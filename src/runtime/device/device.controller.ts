@@ -3,14 +3,18 @@ import { PairingService } from './pairing.service';
 import { DeviceService } from './device.service';
 import { RuntimeService } from '../runtime.service';
 import { Public } from '../../common/decorators/public.decorator';
+import { RequireOrg } from '../../common/decorators/require-org.decorator';
 import { Throttle } from '@nestjs/throttler';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Controller('runtime')
+@RequireOrg(false)
 export class DeviceController {
   constructor(
     private pairingService: PairingService,
     private deviceService: DeviceService,
     private runtimeService: RuntimeService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   // ─── Helper ───────────────────────────────────────────────────────────────
@@ -83,6 +87,11 @@ export class DeviceController {
   @Delete('sessions/:id')
   async terminateSession(@Param('id') sessionId: string, @Req() req: any) {
     const userId = this.getUserId(req);
-    return this.runtimeService.terminateSession(sessionId, userId);
+    const session = await this.runtimeService.terminateSession(sessionId, userId);
+    this.eventEmitter.emit('runtime.terminate_requested', {
+      sessionId,
+      deviceId: session.device_id,
+    });
+    return session;
   }
 }

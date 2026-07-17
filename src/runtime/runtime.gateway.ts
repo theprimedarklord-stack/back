@@ -13,6 +13,7 @@ import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '../db/database.service';
+import { RuntimeService } from './runtime.service';
 import Redis from 'ioredis';
 import * as crypto from 'crypto';
 
@@ -23,6 +24,7 @@ interface ExtendedWebSocket extends WebSocket {
   deviceId?: string;
   userId?: string;
   sessionId?: string;
+  orgId?: string;
   permissions?: Record<string, string>;
 }
 
@@ -37,6 +39,7 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
   
   private clientSockets = new Map<string, ExtendedWebSocket>();
   private deviceSockets = new Map<string, ExtendedWebSocket>();
+  private sessionDeviceCache = new Map<string, string>();
   private pingInterval: NodeJS.Timeout;
 
   constructor(
@@ -44,6 +47,7 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     private eventEmitter: EventEmitter2,
     @Inject('WS_REDIS') private wsRedis: Redis,
     private db: DatabaseService,
+    private runtimeService: RuntimeService,
   ) {
     const redisUrl = this.configService.get<string>('REDIS_URL');
     if (redisUrl) {
@@ -52,6 +56,12 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     } else {
       this.logger.warn('REDIS_URL not set — RuntimeGateway Pub/Sub disabled. Direct relay only.');
     }
+
+    this.eventEmitter.on('runtime.terminate_requested', async (payload: { sessionId: string; deviceId: string }) => {
+      await this.wsRedis.del(`runtime:session_device:${payload.sessionId}`);
+      this.sessionDeviceCache.delete(payload.sessionId);
+      this.pubClient?.publish(`runtime:destroy:${payload.sessionId}`, JSON.stringify(payload));
+    });
   }
 
   afterInit(server: Server) {
@@ -90,7 +100,7 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
       if (deviceKey) {
         const hash = crypto.createHash('sha256').update(deviceKey).digest('hex');
         const res = await this.db.query(
-          `SELECT id, user_id FROM devices WHERE device_key_hash = $1 AND status != 'revoked'`,
+          `SELECT id, user_id FROM rt_devices WHERE device_key_hash = $1 AND status != 'revoked'`,
           [hash]
         );
         if (res.rows.length === 0) {
@@ -134,6 +144,14 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
             ? `runtime:output:${sessionId}` 
             : `runtime:input:${sessionId}`;
           this.pubClient?.publish(channel, payload);
+        } else if (!isBinary) {
+          try {
+            const messageStr = Buffer.isBuffer(data) ? data.toString('utf-8') : data.toString();
+            const parsed = JSON.parse(messageStr);
+            this.handleDeviceEvent(client, parsed);
+          } catch (e) {
+            this.logger.error(`Failed to parse non-binary message: ${e.message}`);
+          }
         }
       });
     } catch (e) {
@@ -154,10 +172,49 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
   }
 
   @SubscribeMessage('create_runtime')
-  handleCreateRuntime(@ConnectedSocket() client: ExtendedWebSocket, @MessageBody() payload: any) {
+  async handleCreateRuntime(@ConnectedSocket() client: ExtendedWebSocket, @MessageBody() payload: any) {
     if (payload.sessionId) {
       client.sessionId = payload.sessionId;
     }
+    
+    const deviceId = payload.deviceId;
+    if (!deviceId) {
+      this.logger.error(`create_runtime failed: no deviceId provided`);
+      client.send(JSON.stringify({ event: 'runtime.error', data: { error: 'Missing deviceId', sessionId: payload.sessionId } }));
+      return;
+    }
+
+    const activeCount = await this.runtimeService.countActiveSessions(deviceId);
+    if (activeCount >= 5) {
+      this.logger.warn(`Device ${deviceId} reached 5 sessions limit`);
+      client.send(JSON.stringify({ event: 'runtime.error', data: { error: 'Device reached 5 sessions limit', sessionId: payload.sessionId } }));
+      return;
+    }
+
+    try {
+      await this.runtimeService.createSession(client.userId!, {
+        nodeId: payload.nodeId,
+        deviceId: deviceId,
+        runtimeType: payload.type || 'terminal',
+        runtimeProvider: payload.provider || 'local',
+        runtimeConfig: payload.config,
+        metadata: { clientSessionId: payload.sessionId },
+        mapCardId: payload.mapCardId,
+        organizationId: client.orgId,
+      });
+    } catch (e) {
+      this.logger.error(`Failed to create session in DB: ${e.message}`);
+      client.send(JSON.stringify({ event: 'runtime.error', data: { error: 'Failed to create session', sessionId: payload.sessionId } }));
+      return;
+    }
+
+    if (payload.sessionId) {
+      this.sessionDeviceCache.set(payload.sessionId, deviceId);
+      if (this.wsRedis) {
+        await this.wsRedis.setex(`runtime:session_device:${payload.sessionId}`, 86400, deviceId);
+      }
+    }
+
     // Forward to agent
     this.pubClient?.publish(`runtime:create:${payload.nodeId}`, JSON.stringify(payload));
   }
@@ -177,8 +234,57 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     this.pubClient?.publish(`runtime:input:${payload.sessionId}`, JSON.stringify(payload));
   }
 
-  private handleRedisMessage(channel: string, messageBuffer: Buffer) {
+  private async handleDeviceEvent(client: ExtendedWebSocket, payload: any) {
+    if (!payload || !payload.event) return;
+    const data = payload.data || {};
+    const sessionId = data.sessionId;
+
+    switch (payload.event) {
+      case 'runtime.created':
+        if (sessionId) await this.runtimeService.activateSession(sessionId);
+        this.relayToSession(sessionId, payload);
+        break;
+      case 'runtime.error':
+        if (sessionId) await this.runtimeService.failSession(sessionId);
+        this.relayToSession(sessionId, payload);
+        break;
+      case 'runtime.resumed':
+        if (sessionId) await this.runtimeService.resumeSession(sessionId);
+        this.relayToSession(sessionId, payload);
+        break;
+      case 'device_info':
+        if (client.deviceId) {
+          await this.db.query(
+            `UPDATE rt_devices SET os_info = $1 WHERE id = $2`,
+            [JSON.stringify(data), client.deviceId],
+          );
+        }
+        break;
+      case 'sessions_alive': {
+        const aliveIds: string[] = data.sessionIds || [];
+        if (client.deviceId) {
+          await this.runtimeService.syncAliveSessions(client.deviceId, aliveIds);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  private relayToSession(sessionId: string, payload: any) {
+    if (!sessionId) return;
+    for (const browserClient of this.clientSockets.values()) {
+      if (browserClient.sessionId === sessionId) {
+        browserClient.send(JSON.stringify(payload));
+        break;
+      }
+    }
+  }
+
+  private async handleRedisMessage(channel: string, messageBuffer: Buffer) {
     const parts = channel.split(':');
+
     if (parts[1] === 'output') {
       const sessionId = parts[2];
       for (const client of this.clientSockets.values()) {
@@ -189,20 +295,57 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
       }
     } else if (parts[1] === 'input') {
       const sessionId = parts[2];
-      // Re-multiplex it for the agent (prepend sessionId)
-      const sessionBytes = Buffer.alloc(36, 32); // 32 is space
+      const sessionBytes = Buffer.alloc(36, 32);
       sessionBytes.write(sessionId, 0, 'utf-8');
       const combined = Buffer.concat([sessionBytes, messageBuffer]);
+
+      const targetDeviceId = this.sessionDeviceCache.get(sessionId)
+        ?? await this.wsRedis.get(`runtime:session_device:${sessionId}`);
+
+      if (!targetDeviceId) {
+        this.logger.warn(`No device mapping for session ${sessionId}, input dropped`);
+        for (const client of this.clientSockets.values()) {
+          if (client.sessionId === sessionId) {
+            client.send(JSON.stringify({
+              event: 'runtime.error',
+              data: { error: 'Device not found for session', sessionId }
+            }));
+            break;
+          }
+        }
+        return;
+      }
+
       for (const device of this.deviceSockets.values()) {
-        device.send(combined);
+        if (device.deviceId === targetDeviceId) {
+          device.send(combined);
+          break;
+        }
       }
     } else if (parts[1] === 'create' || parts[1] === 'resize') {
       const messageStr = messageBuffer.toString('utf-8');
+      const data = JSON.parse(messageStr);
+      const targetDeviceId = data.deviceId;
+
+      if (!targetDeviceId) {
+        this.logger.error(`Missing deviceId in ${parts[1]} message, rejecting`);
+        return;
+      }
+
+      let delivered = false;
       for (const device of this.deviceSockets.values()) {
-        device.send(JSON.stringify({
-          event: parts[1] === 'create' ? 'create_runtime' : 'runtime_resize',
-          data: JSON.parse(messageStr)
-        }));
+        if (device.deviceId === targetDeviceId) {
+          device.send(JSON.stringify({
+            event: parts[1] === 'create' ? 'create_runtime' : 'runtime_resize',
+            data,
+          }));
+          delivered = true;
+          break;
+        }
+      }
+
+      if (!delivered) {
+        this.logger.warn(`Device ${targetDeviceId} not connected, ${parts[1]} message dropped`);
       }
     }
   }

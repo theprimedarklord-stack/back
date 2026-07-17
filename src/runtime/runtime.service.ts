@@ -15,20 +15,23 @@ export class RuntimeService {
   ): Promise<RuntimeSession> {
     const res = await this.db.query(
       `INSERT INTO rt_runtime_sessions
-         (node_id, user_id, device_id, agent_id, runtime_kind, runtime_config, status, metadata)
-       VALUES ($1::bigint, $2, $3, $4, $5, $6, 'active', $7)
+         (node_id, user_id, device_id, agent_id, runtime_kind, runtime_provider, runtime_config, status, metadata, map_card_id, organization_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'creating', $8, $9, $10)
        RETURNING *`,
       [
         dto.nodeId,
         userId,
-        dto.deviceId || null,
+        dto.deviceId,
         dto.agentId || null,
         dto.runtimeType,
+        dto.runtimeProvider,
         JSON.stringify(dto.runtimeConfig || {}),
         JSON.stringify(dto.metadata || {}),
+        dto.mapCardId || null,
+        dto.organizationId || null,
       ],
     );
-    this.logger.log(`Session created: ${res.rows[0].id} (kind=${dto.runtimeType})`);
+    this.logger.log(`Session created: ${res.rows[0].id} (kind=${dto.runtimeType}, status=creating)`);
     return res.rows[0];
   }
 
@@ -78,5 +81,74 @@ export class RuntimeService {
     }
     this.logger.log(`Session terminated: ${sessionId}`);
     return res.rows[0];
+  }
+  async activateSession(sessionId: string): Promise<RuntimeSession> {
+    const res = await this.db.query(
+      `UPDATE rt_runtime_sessions SET status = 'active' WHERE id = $1 RETURNING *`,
+      [sessionId],
+    );
+    return res.rows[0];
+  }
+
+  async failSession(sessionId: string, error?: string): Promise<RuntimeSession> {
+    const res = await this.db.query(
+      `UPDATE rt_runtime_sessions 
+       SET status = 'error', ended_at = NOW(), 
+           metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('error', $2::text)
+       WHERE id = $1 RETURNING *`,
+      [sessionId, error || 'Unknown error'],
+    );
+    return res.rows[0];
+  }
+
+  async pauseSession(sessionId: string): Promise<RuntimeSession> {
+    const res = await this.db.query(
+      `UPDATE rt_runtime_sessions SET status = 'paused' WHERE id = $1 RETURNING *`,
+      [sessionId],
+    );
+    return res.rows[0];
+  }
+
+  async resumeSession(sessionId: string): Promise<RuntimeSession> {
+    const res = await this.db.query(
+      `UPDATE rt_runtime_sessions SET status = 'active' WHERE id = $1 RETURNING *`,
+      [sessionId],
+    );
+    return res.rows[0];
+  }
+
+  async countActiveSessions(deviceId: string): Promise<number> {
+    const res = await this.db.query(
+      `SELECT COUNT(*) as count FROM rt_runtime_sessions 
+       WHERE device_id = $1 AND status IN ('active', 'creating', 'paused', 'disconnected')`,
+      [deviceId],
+    );
+    return parseInt(res.rows[0].count, 10);
+  }
+
+  async syncAliveSessions(deviceId: string, aliveSessionIds: string[]): Promise<void> {
+    if (!aliveSessionIds || aliveSessionIds.length === 0) {
+      await this.db.query(
+        `UPDATE rt_runtime_sessions 
+         SET status = 'disconnected' 
+         WHERE device_id = $1 AND status IN ('active', 'creating', 'paused')`,
+        [deviceId]
+      );
+    } else {
+      await this.db.query(
+        `UPDATE rt_runtime_sessions 
+         SET status = 'disconnected' 
+         WHERE device_id = $1 AND status IN ('active', 'creating', 'paused') AND id <> ALL($2::uuid[])`,
+        [deviceId, aliveSessionIds]
+      );
+    }
+  }
+
+  async listSessionsByMapCard(mapCardId: number): Promise<RuntimeSession[]> {
+    const res = await this.db.query(
+      `SELECT * FROM rt_runtime_sessions WHERE map_card_id = $1 ORDER BY started_at DESC`,
+      [mapCardId],
+    );
+    return res.rows;
   }
 }
