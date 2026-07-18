@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Param, Body, Req, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Param, Body, Req, Query, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { PairingService } from './pairing.service';
 import { DeviceService } from './device.service';
 import { RuntimeService } from '../runtime.service';
@@ -7,7 +7,10 @@ import { RequireOrg } from '../../common/decorators/require-org.decorator';
 import { Throttle } from '@nestjs/throttler';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
+import { CognitoAuthGuard } from '../../auth/cognito-auth.guard';
+
 @Controller('runtime')
+@UseGuards(CognitoAuthGuard)
 @RequireOrg(false)
 export class DeviceController {
   constructor(
@@ -76,11 +79,28 @@ export class DeviceController {
 
   // ─── Sessions ─────────────────────────────────────────────────────────────
 
-  /** GET /runtime/sessions — list active sessions for the current user. */
   @Get('sessions')
-  async listSessions(@Req() req: any) {
+  async listSessions(@Req() req: any, @Query('mapCardId') mapCardId?: string) {
     const userId = this.getUserId(req);
+    if (mapCardId) {
+      return this.runtimeService.listSessionsByMapCard(parseInt(mapCardId, 10), userId);
+    }
     return this.runtimeService.listSessions(userId, 'active');
+  }
+
+  /** POST /runtime/sessions/:id/pause — pause a session. */
+  @Post('sessions/:id/pause')
+  async pauseSession(@Param('id') sessionId: string, @Req() req: any) {
+    const userId = this.getUserId(req);
+    return this.runtimeService.pauseSession(sessionId, userId);
+  }
+
+  /** POST /runtime/sessions/:id/resume — resume a session. */
+  @Post('sessions/:id/resume')
+  async resumeSession(@Param('id') sessionId: string, @Req() req: any) {
+    const userId = this.getUserId(req);
+    this.eventEmitter.emit('runtime.resume_requested', { sessionId, userId });
+    return { status: 'resuming' };
   }
 
   /** DELETE /runtime/sessions/:id — terminate a session. */

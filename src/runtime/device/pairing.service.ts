@@ -37,7 +37,7 @@ export class PairingService {
 
     const res = await this.db.query(
       `INSERT INTO rt_devices (user_id, name, device_key_hash, os_info, supported_runtimes, status) 
-       VALUES ($1, $2, $3, $4, $5, 'online') RETURNING id`,
+       VALUES ($1, $2, $3, $4, $5, 'offline') RETURNING id`,
       [userId, deviceName, hash, JSON.stringify(osInfo), capabilities]
     );
 

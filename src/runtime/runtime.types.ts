@@ -27,7 +27,7 @@ export interface CreateRuntimeSessionDto {
   nodeId: string;
   deviceId: string;
   mapCardId?: number;
-  organizationId?: string;
+  organizationId?: string | null;
   agentId?: string;
   runtimeType: RuntimeType;
   runtimeProvider: string;

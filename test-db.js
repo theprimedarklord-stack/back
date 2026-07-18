@@ -1,15 +1,33 @@
-const { PrismaClient } = require('./node_modules/@prisma/client');
-const prisma = new PrismaClient();
+const { Client } = require('pg');
 
-async function test() {
-  const card = await prisma.mapCard.findFirst({ orderBy: { id: 'desc' }});
-  if (card && card.data_core && card.data_core.nodes) {
-    const tableNodes = card.data_core.nodes.filter(n => n.type === 'table' || (n.data && n.data.nodeType === 'table'));
-    console.log("DB MAPCARD ID:", card.id);
-    console.log(JSON.stringify(tableNodes, null, 2));
+const client = new Client({
+  connectionString: 'postgresql://app_backend.xvcbxejefbigtrtugmaw:Gfeevf5GhJHh6ddsaHHGH123GGHgd@aws-0-us-west-1.pooler.supabase.com:5432/postgres',
+  ssl: { rejectUnauthorized: false }
+});
+
+async function run() {
+  await client.connect();
+  const res = await client.query('SELECT id, updated_at, data_core FROM map_cards ORDER BY updated_at DESC LIMIT 1;');
+  if (res.rows.length > 0) {
+    const row = res.rows[0];
+    console.log(`MapCard ID: ${row.id}`);
+    console.log(`Updated at: ${row.updated_at}`);
+    const runtimeNode = row.data_core?.nodes?.find(n => n.type === 'runtime');
+    if (runtimeNode) {
+      console.log('Runtime node found!');
+      console.log('Node Data:', JSON.stringify(runtimeNode.data, null, 2));
+      if ('mapCardId' in runtimeNode.data) {
+        console.log('FAIL: mapCardId is present!');
+      } else {
+        console.log('SUCCESS: mapCardId is missing from data!');
+      }
+    } else {
+      console.log('No runtime node found in this map_card.');
+    }
   } else {
-    console.log("No card or nodes found.");
+    console.log('No map_cards found.');
   }
+  await client.end();
 }
 
-test().catch(console.error).finally(() => prisma.$disconnect());
+run().catch(console.error);

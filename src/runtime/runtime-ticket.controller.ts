@@ -15,8 +15,10 @@ export class RuntimeTicketController {
   @UseGuards(CognitoAuthGuard)
   @Post('ws-ticket')
   async issueWsTicket(@Req() req: AuthenticatedRequest) {
+    const orgId = req.headers['x-org-id'] as string;
     const ticket = crypto.randomBytes(24).toString('hex');
-    await this.wsRedis.set(`ws:ticket:${ticket}`, req.user.userId, 'EX', 30);
+    const payload = JSON.stringify({ userId: req.user.userId, orgId });
+    await this.wsRedis.set(`ws:ticket:${ticket}`, payload, 'EX', 30);
     return { ticket };
   }
 }

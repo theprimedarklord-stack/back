@@ -101,11 +101,14 @@ export class RuntimeService {
     return res.rows[0];
   }
 
-  async pauseSession(sessionId: string): Promise<RuntimeSession> {
+  async pauseSession(sessionId: string, userId: string): Promise<RuntimeSession> {
     const res = await this.db.query(
-      `UPDATE rt_runtime_sessions SET status = 'paused' WHERE id = $1 RETURNING *`,
-      [sessionId],
+      `UPDATE rt_runtime_sessions SET status = 'paused' WHERE id = $1 AND user_id = $2 RETURNING *`,
+      [sessionId, userId],
     );
+    if (res.rows.length === 0) {
+      throw new NotFoundException(`Session ${sessionId} not found or not owned by user`);
+    }
     return res.rows[0];
   }
 
@@ -144,10 +147,10 @@ export class RuntimeService {
     }
   }
 
-  async listSessionsByMapCard(mapCardId: number): Promise<RuntimeSession[]> {
+  async listSessionsByMapCard(mapCardId: number, userId: string): Promise<RuntimeSession[]> {
     const res = await this.db.query(
-      `SELECT * FROM rt_runtime_sessions WHERE map_card_id = $1 ORDER BY started_at DESC`,
-      [mapCardId],
+      `SELECT * FROM rt_runtime_sessions WHERE map_card_id = $1 AND user_id = $2 ORDER BY started_at DESC`,
+      [mapCardId, userId],
     );
     return res.rows;
   }

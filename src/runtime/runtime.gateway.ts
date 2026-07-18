@@ -25,7 +25,7 @@ interface ExtendedWebSocket extends WebSocket {
   deviceId?: string;
   userId?: string;
   sessionId?: string;
-  orgId?: string;
+  orgId?: string | null;
   permissions?: Record<string, string>;
 }
 
@@ -42,6 +42,7 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
   private deviceSockets = new Map<string, ExtendedWebSocket>();
   private sessionDeviceCache = new Map<string, string>();
   private pingInterval: NodeJS.Timeout;
+  private deviceDisconnectTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private configService: ConfigService,
@@ -63,6 +64,18 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
       await this.wsRedis.del(`runtime:session_device:${payload.sessionId}`);
       this.sessionDeviceCache.delete(payload.sessionId);
       this.pubClient?.publish(`runtime:destroy:${payload.sessionId}`, JSON.stringify(payload));
+    });
+
+
+
+    this.eventEmitter.on('runtime.resume_requested', async (payload: { sessionId: string; userId: string }) => {
+      const targetDeviceId = this.sessionDeviceCache.get(payload.sessionId)
+        ?? await this.wsRedis.get(`runtime:session_device:${payload.sessionId}`);
+      if (!targetDeviceId) {
+        this.logger.warn(`No device mapping for session ${payload.sessionId}, cannot resume`);
+        return;
+      }
+      this.pubClient?.publish(`runtime:resume:${payload.sessionId}`, JSON.stringify({ sessionId: payload.sessionId }));
     });
   }
 
@@ -113,6 +126,15 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
         client.userId = res.rows[0].user_id;
         client.deviceKey = deviceKey;
         this.deviceSockets.set(client.id, client);
+        
+        const existingTimer = this.deviceDisconnectTimers.get(client.deviceId!);
+        if (existingTimer) {
+          clearTimeout(existingTimer);
+          this.deviceDisconnectTimers.delete(client.deviceId!);
+          this.logger.log(`Device ${client.deviceId!} reconnected within grace period`);
+        }
+        
+        await this.deviceService.markOnline(client.deviceId!);
         this.logger.log(`Device connected: ${client.id}`);
       } else if (ticket) {
         const script = `
@@ -122,16 +144,23 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
           end
           return val
         `;
-        const userId = await this.wsRedis.eval(script, 1, `ws:ticket:${ticket}`) as string | null;
+        const raw = await this.wsRedis.eval(script, 1, `ws:ticket:${ticket}`) as string | null;
         
-        if (!userId) {
+        if (!raw) {
           client.close(4001, 'Invalid or expired ticket');
           return;
         }
-        client.userId = userId;
+        try {
+          const parsed = JSON.parse(raw);
+          client.userId = parsed.userId;
+          client.orgId = parsed.orgId ?? null;
+        } catch {
+          client.userId = raw;
+          client.orgId = null;
+        }
         client.permissions = {}; 
         this.clientSockets.set(client.id, client);
-        this.logger.log(`Client connected: ${client.id} (user ${userId})`);
+        this.logger.log(`Client connected: ${client.id} (user ${client.userId})`);
       } else {
         client.close(4001, 'Unauthorized');
         return;
@@ -167,7 +196,32 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
       this.deviceSockets.delete(client.id);
       this.logger.log(`Device disconnected: ${client.id}`);
       this.eventEmitter.emit('runtime.destroyed', { deviceId: client.deviceId });
-      await this.deviceService.markOffline(client.deviceId!);
+      
+      const timer = setTimeout(async () => {
+        try {
+          this.logger.warn(`Device ${client.deviceId!} did not reconnect within grace period, marking offline`);
+          await this.deviceService.markOffline(client.deviceId!);
+          await this.db.query(
+            "UPDATE rt_runtime_sessions SET status='disconnected' WHERE device_id=$1 AND status IN ('active','creating')",
+            [client.deviceId!]
+          );
+          
+          const offlineEvent = JSON.stringify({
+            type: 'device.offline',
+            payload: { deviceId: client.deviceId! }
+          });
+          
+          for (const clientSocket of this.clientSockets.values()) {
+            clientSocket.send(offlineEvent);
+          }
+        } catch (e) {
+          this.logger.error(`Grace period timeout handler failed for device ${client.deviceId!}: ${e.message}`, e.stack);
+        } finally {
+          this.deviceDisconnectTimers.delete(client.deviceId!);
+        }
+      }, 45_000);
+      
+      this.deviceDisconnectTimers.set(client.deviceId!, timer);
     } else {
       this.clientSockets.delete(client.id);
       this.logger.log(`Client disconnected: ${client.id}`);
@@ -325,23 +379,33 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
           break;
         }
       }
-    } else if (parts[1] === 'create' || parts[1] === 'resize') {
+    } else if (parts[1] === 'create' || parts[1] === 'resize' || parts[1] === 'destroy' || parts[1] === 'resume') {
       const messageStr = messageBuffer.toString('utf-8');
       const data = JSON.parse(messageStr);
-      const targetDeviceId = data.deviceId;
+      let targetDeviceId = data.deviceId;
+
+      if (parts[1] === 'resume') {
+        const sessionId = parts[2];
+        targetDeviceId = this.sessionDeviceCache.get(sessionId)
+          ?? await this.wsRedis.get(`runtime:session_device:${sessionId}`);
+      }
 
       if (!targetDeviceId) {
-        this.logger.error(`Missing deviceId in ${parts[1]} message, rejecting`);
+        this.logger.error(`Missing targetDeviceId in ${parts[1]} message, rejecting`);
         return;
       }
 
       let delivered = false;
       for (const device of this.deviceSockets.values()) {
         if (device.deviceId === targetDeviceId) {
-          device.send(JSON.stringify({
-            event: parts[1] === 'create' ? 'create_runtime' : 'runtime_resize',
+          const payloadStr = JSON.stringify({
+            event: parts[1] === 'create' ? 'create_runtime' : 
+                   parts[1] === 'resize' ? 'runtime_resize' : 
+                   parts[1] === 'destroy' ? 'destroy_runtime' : 'resume_runtime',
             data,
-          }));
+          });
+          this.logger.log(`Sending to device ${targetDeviceId}: ${payloadStr}`);
+          device.send(payloadStr);
           delivered = true;
           break;
         }
