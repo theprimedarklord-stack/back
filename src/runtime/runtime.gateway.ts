@@ -250,6 +250,7 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
 
     try {
       await this.runtimeService.createSession(client.userId!, {
+        sessionId: payload.sessionId,
         nodeId: payload.nodeId,
         deviceId: deviceId,
         runtimeType: payload.type || 'terminal',

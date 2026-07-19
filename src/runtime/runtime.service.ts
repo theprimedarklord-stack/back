@@ -13,24 +13,47 @@ export class RuntimeService {
     userId: string,
     dto: CreateRuntimeSessionDto,
   ): Promise<RuntimeSession> {
-    const res = await this.db.query(
-      `INSERT INTO rt_runtime_sessions
-         (node_id, user_id, device_id, agent_id, runtime_kind, runtime_provider, runtime_config, status, metadata, map_card_id, organization_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'creating', $8, $9, $10)
-       RETURNING *`,
-      [
-        dto.nodeId,
-        userId,
-        dto.deviceId,
-        dto.agentId || null,
-        dto.runtimeType,
-        dto.runtimeProvider,
-        JSON.stringify(dto.runtimeConfig || {}),
-        JSON.stringify(dto.metadata || {}),
-        dto.mapCardId || null,
-        dto.organizationId || null,
-      ],
-    );
+    let res;
+    if (dto.sessionId) {
+      res = await this.db.query(
+        `INSERT INTO rt_runtime_sessions
+           (id, node_id, user_id, device_id, agent_id, runtime_kind, runtime_provider, runtime_config, status, metadata, map_card_id, organization_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'creating', $9, $10, $11)
+         RETURNING *`,
+        [
+          dto.sessionId,
+          dto.nodeId,
+          userId,
+          dto.deviceId,
+          dto.agentId || null,
+          dto.runtimeType,
+          dto.runtimeProvider,
+          JSON.stringify(dto.runtimeConfig || {}),
+          JSON.stringify(dto.metadata || {}),
+          dto.mapCardId || null,
+          dto.organizationId || null,
+        ],
+      );
+    } else {
+      res = await this.db.query(
+        `INSERT INTO rt_runtime_sessions
+           (node_id, user_id, device_id, agent_id, runtime_kind, runtime_provider, runtime_config, status, metadata, map_card_id, organization_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'creating', $8, $9, $10)
+         RETURNING *`,
+        [
+          dto.nodeId,
+          userId,
+          dto.deviceId,
+          dto.agentId || null,
+          dto.runtimeType,
+          dto.runtimeProvider,
+          JSON.stringify(dto.runtimeConfig || {}),
+          JSON.stringify(dto.metadata || {}),
+          dto.mapCardId || null,
+          dto.organizationId || null,
+        ],
+      );
+    }
     this.logger.log(`Session created: ${res.rows[0].id} (kind=${dto.runtimeType}, status=creating)`);
     return res.rows[0];
   }

@@ -24,6 +24,7 @@ export interface RuntimeSession {
 
 /** Payload to create a runtime session. */
 export interface CreateRuntimeSessionDto {
+  sessionId?: string;
   nodeId: string;
   deviceId: string;
   mapCardId?: number;
