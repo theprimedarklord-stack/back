@@ -282,6 +282,33 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     this.pubClient?.publish(`runtime:resize:${payload.sessionId}`, JSON.stringify(payload));
   }
 
+  @SubscribeMessage('resume_runtime')
+  async handleResumeRuntime(@ConnectedSocket() client: ExtendedWebSocket, @MessageBody() payload: any) {
+    const sessionId = payload?.sessionId;
+    if (!sessionId || !client.userId) {
+      client.send(JSON.stringify({ event: 'runtime.error', data: { error: 'Missing session ID', sessionId } }));
+      return;
+    }
+
+    try {
+      const session = await this.runtimeService.getSessionForUser(sessionId, client.userId);
+      if (session.status === 'terminated' || session.status === 'error') {
+        client.send(JSON.stringify({ event: 'runtime.error', data: { error: 'Session can no longer be resumed', sessionId } }));
+        return;
+      }
+
+      client.sessionId = sessionId;
+      this.sessionDeviceCache.set(sessionId, session.device_id);
+      if (this.wsRedis) {
+        await this.wsRedis.setex(`runtime:session_device:${sessionId}`, 86400, session.device_id);
+      }
+      this.pubClient?.publish(`runtime:resume:${sessionId}`, JSON.stringify({ sessionId, deviceId: session.device_id }));
+    } catch (error) {
+      this.logger.warn(`Unable to resume session ${sessionId}: ${error.message}`);
+      client.send(JSON.stringify({ event: 'runtime.error', data: { error: 'Unable to resume terminal session', sessionId } }));
+    }
+  }
+
   @SubscribeMessage('runtime_input')
   handleInput(@ConnectedSocket() client: ExtendedWebSocket, @MessageBody() payload: any) {
     // Fallback for JSON inputs if not using binary multiplexing
@@ -313,8 +340,12 @@ export class RuntimeGateway implements OnGatewayInit, OnGatewayConnection, OnGat
       case 'device_info':
         if (client.deviceId) {
           await this.db.query(
-            `UPDATE rt_devices SET os_info = $1 WHERE id = $2`,
-            [JSON.stringify(data), client.deviceId],
+            `UPDATE rt_devices
+             SET name = COALESCE(NULLIF($1, ''), name),
+                 os_info = $2,
+                 last_seen_at = NOW()
+             WHERE id = $3`,
+            [data.hostname || '', JSON.stringify(data), client.deviceId],
           );
         }
         break;

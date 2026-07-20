@@ -90,6 +90,18 @@ export class RuntimeService {
     return res.rows[0];
   }
 
+  /** Get a session only when it belongs to the requesting user. */
+  async getSessionForUser(sessionId: string, userId: string): Promise<RuntimeSession> {
+    const res = await this.db.query(
+      `SELECT * FROM rt_runtime_sessions WHERE id = $1 AND user_id = $2`,
+      [sessionId, userId],
+    );
+    if (res.rows.length === 0) {
+      throw new NotFoundException(`Session ${sessionId} not found or not owned by user`);
+    }
+    return res.rows[0];
+  }
+
   /** Terminate a session — sets status to 'terminated' and records ended_at. */
   async terminateSession(sessionId: string, userId: string): Promise<RuntimeSession> {
     const res = await this.db.query(
