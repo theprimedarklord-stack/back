@@ -39,6 +39,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CapabilitiesModule } from './capabilities/capabilities.module';
 import { PermissionsModule } from './capabilities/permissions/permissions.module';
 import { RuntimeModule } from './runtime/runtime.module';
+import { MapCanvasNodesModule } from './map-canvas-nodes/map-canvas-nodes.module';
+import { MapSmartTableRowsModule } from './map-smart-table-rows/map-smart-table-rows.module';
 @Module({
   imports: [
     // ─── 1. Глобальный ConfigModule — всегда первым ────────────────────────
@@ -114,6 +116,8 @@ import { RuntimeModule } from './runtime/runtime.module';
     CapabilitiesModule,
     PermissionsModule,
     RuntimeModule,
+    MapCanvasNodesModule,
+    MapSmartTableRowsModule,
   ],
   controllers: [AppController],
   providers: [
