@@ -11,6 +11,7 @@ export class UiTogglesDto {
     @IsOptional() @IsBoolean() isPomodoroActive?: boolean;
     @IsOptional() @IsBoolean() isFullscreen?: boolean;
     @IsOptional() @IsBoolean() isFpsMonitorActive?: boolean;
+    @IsOptional() @IsBoolean() isFeedbackWidgetHidden?: boolean;
 }
 
 export class SidebarFooterConfigDto {
