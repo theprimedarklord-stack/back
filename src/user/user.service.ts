@@ -44,8 +44,12 @@ export class UserService {
      * 4. class-validator DTO с forbidNonWhitelisted: true — NestJS отсекает мусор ДО контроллера
      */
     async updateSettings(dbClient: any, dto: UpdateUserSettingsDto) {
-        // 1. Фильтруем ключи строго по whitelist
-        const keys = Object.keys(dto).filter(k => this.ALLOWED_SETTINGS_COLUMNS.has(k));
+        // 1. Фильтруем ключи строго по whitelist и отсекаем undefined/null
+        const keys = Object.keys(dto).filter(
+            k => this.ALLOWED_SETTINGS_COLUMNS.has(k) 
+              && dto[k as keyof UpdateUserSettingsDto] !== undefined 
+              && dto[k as keyof UpdateUserSettingsDto] !== null
+        );
 
         if (keys.length === 0) {
             return { success: true, message: 'No valid fields provided' };
