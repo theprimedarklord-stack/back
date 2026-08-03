@@ -41,6 +41,7 @@ import { PermissionsModule } from './capabilities/permissions/permissions.module
 import { RuntimeModule } from './runtime/runtime.module';
 import { MapCanvasNodesModule } from './map-canvas-nodes/map-canvas-nodes.module';
 import { MapSmartTableRowsModule } from './map-smart-table-rows/map-smart-table-rows.module';
+import { ArchitectureModule } from './architecture/architecture.module';
 @Module({
   imports: [
     // ─── 1. Глобальный ConfigModule — всегда первым ────────────────────────
@@ -118,6 +119,7 @@ import { MapSmartTableRowsModule } from './map-smart-table-rows/map-smart-table-
     RuntimeModule,
     MapCanvasNodesModule,
     MapSmartTableRowsModule,
+    ArchitectureModule,
   ],
   controllers: [AppController],
   providers: [
