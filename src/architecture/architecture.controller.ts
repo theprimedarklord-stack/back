@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Body, UseGuards, Req, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, UseGuards, Req, HttpStatus, ForbiddenException } from '@nestjs/common';
 import { ArchitectureService } from './architecture.service';
 import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -41,11 +41,7 @@ export class ArchitectureController {
   async getModules(@Req() req: AuthenticatedRequest) {
     const isAdmin = await this.checkAdminRole(req.user.id);
     if (!isAdmin) {
-      return {
-        success: false,
-        error: 'Forbidden',
-        status: HttpStatus.FORBIDDEN,
-      };
+      throw new ForbiddenException('Admin access required');
     }
     
     const modules = await this.architectureService.getModules();
@@ -57,11 +53,7 @@ export class ArchitectureController {
   async getModuleById(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const isAdmin = await this.checkAdminRole(req.user.id);
     if (!isAdmin) {
-      return {
-        success: false,
-        error: 'Forbidden',
-        status: HttpStatus.FORBIDDEN,
-      };
+      throw new ForbiddenException('Admin access required');
     }
 
     const moduleData = await this.architectureService.getModuleById(id);
@@ -73,11 +65,7 @@ export class ArchitectureController {
   async updateModule(@Param('id') id: string, @Body() body: any, @Req() req: AuthenticatedRequest) {
     const isAdmin = await this.checkAdminRole(req.user.id);
     if (!isAdmin) {
-      return {
-        success: false,
-        error: 'Forbidden',
-        status: HttpStatus.FORBIDDEN,
-      };
+      throw new ForbiddenException('Admin access required');
     }
 
     const updatedModule = await this.architectureService.updateModule(id, body);
@@ -89,11 +77,7 @@ export class ArchitectureController {
   async getAgentContext(@Req() req: AuthenticatedRequest) {
     const isAdmin = await this.checkAdminRole(req.user.id);
     if (!isAdmin) {
-      return {
-        success: false,
-        error: 'Forbidden',
-        status: HttpStatus.FORBIDDEN,
-      };
+      throw new ForbiddenException('Admin access required');
     }
 
     return await this.architectureService.getAgentContext();
