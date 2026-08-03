@@ -10,7 +10,7 @@ export class ArchitectureService {
   }
 
   async getModules() {
-    const { data, error } = await this.supabase
+    const { data, error } = await (this.supabase as any)
       .from('arch_modules')
       .select('*');
 
@@ -37,7 +37,7 @@ export class ArchitectureService {
   }
 
   async getModuleById(id: string) {
-    const { data, error } = await this.supabase
+    const { data, error } = await (this.supabase as any)
       .from('arch_modules')
       .select('*')
       .eq('id', id)
@@ -54,7 +54,7 @@ export class ArchitectureService {
   }
 
   async updateModule(id: string, updateData: any) {
-    const { data, error } = await this.supabase
+    const { data, error } = await (this.supabase as any)
       .from('arch_modules')
       .update(updateData)
       .eq('id', id)
