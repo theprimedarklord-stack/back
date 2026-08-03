@@ -2,6 +2,7 @@ import { Controller, Get, Patch, Param, Body, UseGuards, Req, HttpStatus } from 
 import { ArchitectureService } from './architecture.service';
 import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { SupabaseService } from '../supabase/supabase.service';
+import { RequireOrg } from '../common/decorators/require-org.decorator';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -13,6 +14,7 @@ interface AuthenticatedRequest extends Request {
 
 @Controller('architecture')
 @UseGuards(CognitoAuthGuard)
+@RequireOrg(false)
 export class ArchitectureController {
   constructor(
     private readonly architectureService: ArchitectureService,
