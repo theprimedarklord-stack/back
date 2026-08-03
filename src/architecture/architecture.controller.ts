@@ -37,6 +37,7 @@ export class ArchitectureController {
   }
 
   @Get('modules')
+  @RequireOrg(false)
   async getModules(@Req() req: AuthenticatedRequest) {
     const isAdmin = await this.checkAdminRole(req.user.id);
     if (!isAdmin) {
@@ -52,6 +53,7 @@ export class ArchitectureController {
   }
 
   @Get('modules/:id')
+  @RequireOrg(false)
   async getModuleById(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const isAdmin = await this.checkAdminRole(req.user.id);
     if (!isAdmin) {
@@ -67,6 +69,7 @@ export class ArchitectureController {
   }
 
   @Patch('modules/:id')
+  @RequireOrg(false)
   async updateModule(@Param('id') id: string, @Body() body: any, @Req() req: AuthenticatedRequest) {
     const isAdmin = await this.checkAdminRole(req.user.id);
     if (!isAdmin) {
@@ -82,6 +85,7 @@ export class ArchitectureController {
   }
 
   @Get('agent-context')
+  @RequireOrg(false)
   async getAgentContext(@Req() req: AuthenticatedRequest) {
     const isAdmin = await this.checkAdminRole(req.user.id);
     if (!isAdmin) {

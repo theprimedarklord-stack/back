@@ -34,6 +34,7 @@ export class RlsContextInterceptor implements NestInterceptor {
       path.startsWith('/api/v1/telemetry') ||
       path.startsWith('/auth/') ||
       path.startsWith('/me/') ||
+      path.startsWith('/architecture/') || path === '/architecture' ||
       req.method === 'OPTIONS';
 
     if (isPublicPath) {
