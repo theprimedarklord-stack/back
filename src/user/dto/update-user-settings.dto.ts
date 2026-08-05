@@ -12,6 +12,9 @@ export class UiTogglesDto {
     @IsOptional() @IsBoolean() isFullscreen?: boolean;
     @IsOptional() @IsBoolean() isFpsMonitorActive?: boolean;
     @IsOptional() @IsBoolean() isFeedbackWidgetHidden?: boolean;
+    @IsOptional() @IsBoolean() isArchitectureMiniMapHidden?: boolean;
+    @IsOptional() @IsString() sidePeekDefaultMode?: string;
+    @IsOptional() @IsNumber() sidePeekDefaultWidth?: number;
 }
 
 export class SidebarFooterConfigDto {
