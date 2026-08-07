@@ -1,7 +1,9 @@
 // src/admin/admin.controller.ts
-import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, HttpStatus, Inject } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
+import { CACHE_REDIS_CLIENT } from '../common/redis/cache-redis.module';
+import Redis from 'ioredis';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -13,7 +15,7 @@ interface AuthenticatedRequest extends Request {
 
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly supabaseService: SupabaseService) { }
+  constructor(private readonly supabaseService: SupabaseService, @Inject(CACHE_REDIS_CLIENT) private readonly cacheRedis: Redis) { }
 
   // Проверка роли администратора
   private async checkAdminRole(userId: string) {
@@ -110,7 +112,7 @@ export class AdminController {
       const { data: users, error } = await this.supabaseService
         .getClient()
         .from('users')
-        .select('user_id, email, role, created_at, last_sign_in_at')
+        .select('user_id, email, username, role, created_at, last_seen_at, avatar_url, full_name')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -122,9 +124,32 @@ export class AdminController {
         };
       }
 
+      // Batch check online status from Redis
+      const userIds = (users || []).map(u => u.user_id).filter((id): id is string => Boolean(id));
+      let onlineMap: Record<string, boolean> = {};
+      
+      if (userIds.length > 0) {
+        try {
+          const redisKeys = userIds.map(id => `presence:${id}`);
+          const results = await this.cacheRedis.mget(...redisKeys);
+          userIds.forEach((id, index) => {
+            onlineMap[id] = results[index] !== null;
+          });
+        } catch (redisErr) {
+          console.error('[Admin] Redis MGET for presence failed (non-fatal):', redisErr);
+          // Continue without online status — graceful degradation
+        }
+      }
+
+      // Merge online status into user objects
+      const usersWithPresence = (users || []).map(u => ({
+        ...u,
+        is_online: u.user_id ? !!onlineMap[u.user_id as string] : false,
+      }));
+
       return {
         success: true,
-        users: users,
+        users: usersWithPresence,
       };
     } catch (error) {
       console.error('Ошибка получения пользователей:', error);

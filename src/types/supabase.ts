@@ -1369,6 +1369,7 @@ export type Database = {
           theme: string | null
           theme_index: number | null
           updated_at: string | null
+          last_seen_at: string | null
           user_id: string | null
           username: string | null
         }
@@ -1385,6 +1386,7 @@ export type Database = {
           theme?: string | null
           theme_index?: number | null
           updated_at?: string | null
+          last_seen_at?: string | null
           user_id?: string | null
           username?: string | null
         }
@@ -1401,6 +1403,7 @@ export type Database = {
           theme?: string | null
           theme_index?: number | null
           updated_at?: string | null
+          last_seen_at?: string | null
           user_id?: string | null
           username?: string | null
         }
