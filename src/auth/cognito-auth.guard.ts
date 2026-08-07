@@ -172,8 +172,11 @@ export class CognitoAuthGuard implements CanActivate {
    * Это критически важно для работы RLS-политик Supabase.
    * Использует admin-клиент (serviceRoleKey), который обходит RLS.
    *
-   * Atomic UPSERT — исключает race condition при конкурентных
-   * первых запросах от нового пользователя.
+   * ARCHITECTURE (2026-08-07 FIX):
+   * Было: UPSERT ON CONFLICT DO UPDATE → перезаписывал username на cognitoSub.slice(0,8)
+   * каждые 5 минут (TTL LRU), потому что Access Token не содержит email claim.
+   * Стало: SELECT first → INSERT only for new users (ignoreDuplicates = true).
+   * Существующие пользователи НИКОГДА не перезаписываются.
    */
   private async ensureUserExists(
     cognitoSub: string,
@@ -181,28 +184,54 @@ export class CognitoAuthGuard implements CanActivate {
   ): Promise<string> {
     const adminSupabase = this.supabaseService.getAdminClient();
 
-    // Atomic UPSERT — ON CONFLICT (cognito_sub) DO UPDATE
-    // Гарантирует: один INSERT при первом логине, никаких race conditions.
-    // Email обновляется при каждом cache-miss (синхронизация с Cognito).
+    // 1. Fast path: find existing user (99.9% of requests)
+    const { data: existing } = await adminSupabase
+      .from('users')
+      .select('user_id')
+      .eq('cognito_sub', cognitoSub)
+      .maybeSingle();
+
+    if (existing?.user_id) {
+      this.logger.debug(`User found: userId=${existing.user_id}`);
+      return existing.user_id as string;
+    }
+
+    // 2. User doesn't exist — create with safe defaults
+    //    ignoreDuplicates: true → ON CONFLICT DO NOTHING (race-safe)
+    //    Never use cognitoSub as username — it's a UUID hash, not a name.
+    const fallbackUsername = email ? email.split('@')[0] : 'User';
+
     const { data, error } = await adminSupabase
       .from('users')
       .upsert(
         {
           cognito_sub: cognitoSub,
           email: email || undefined,
-          username: email ? email.split('@')[0] : cognitoSub.slice(0, 8),
+          username: fallbackUsername,
         },
-        { onConflict: 'cognito_sub' },
+        { onConflict: 'cognito_sub', ignoreDuplicates: true },
       )
       .select('user_id')
       .single();
 
+    // If ignoreDuplicates caused empty result (concurrent insert won), re-fetch
     if (error || !data) {
+      const { data: refetched } = await adminSupabase
+        .from('users')
+        .select('user_id')
+        .eq('cognito_sub', cognitoSub)
+        .single();
+
+      if (refetched?.user_id) {
+        this.logger.debug(`User found after race: userId=${refetched.user_id}`);
+        return refetched.user_id as string;
+      }
+
       this.logger.error(`User sync failed: ${error?.message}`);
       throw new UnauthorizedException('User sync failed');
     }
 
-    // Idempotent: гарантируем что default user_settings существует.
+    // 3. Idempotent: ensure default user_settings exists.
     // ON CONFLICT DO NOTHING — если настройки уже есть, ничего не трогаем.
     const { error: settingsErr } = await adminSupabase
       .from('user_settings')
@@ -213,10 +242,9 @@ export class CognitoAuthGuard implements CanActivate {
 
     if (settingsErr) {
       this.logger.warn(`Failed to ensure user_settings: ${settingsErr.message}`);
-      // Не фатально — getProfile обработает fallback
     }
 
-    this.logger.debug(`User synced: userId=${data.user_id}`);
+    this.logger.debug(`New user created: userId=${data.user_id}`);
     return data.user_id as string;
   }
 }
