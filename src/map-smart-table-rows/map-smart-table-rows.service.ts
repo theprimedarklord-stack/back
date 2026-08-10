@@ -97,19 +97,25 @@ export class MapSmartTableRowsService {
       const posRes = await dbClient.query(posQuery, [tableNodeId, userId, orgId]);
       let nextPos = parseInt(posRes.rows[0].next_pos, 10);
 
+      // Values are bound, never interpolated: row ids and cell contents are
+      // user-controlled and a single quote would otherwise break (or rewrite)
+      // the statement.
+      const values: any[] = [];
       const rowsToInsert = dtos.map(dto => {
         const pos = nextPos++;
-        return `(
-          '${dto.id}', 
-          '${dto.table_node_id}', 
-          ${dto.map_card_id}, 
-          '${userId}'::uuid, 
-          '${orgId}'::uuid, 
-          ${pos}, 
-          '${dto.height || 'normal'}', 
-          '${JSON.stringify(dto.properties || {}).replace(/'/g, "''")}'::jsonb, 
-          '${JSON.stringify(dto.content_blocks || []).replace(/'/g, "''")}'::jsonb
-        )`;
+        const p = values.length;
+        values.push(
+          dto.id,
+          dto.table_node_id,
+          dto.map_card_id,
+          userId,
+          orgId,
+          pos,
+          dto.height || 'normal',
+          JSON.stringify(dto.properties || {}),
+          JSON.stringify(dto.content_blocks || []),
+        );
+        return `($${p + 1}, $${p + 2}, $${p + 3}, $${p + 4}::uuid, $${p + 5}::uuid, $${p + 6}, $${p + 7}, $${p + 8}::jsonb, $${p + 9}::jsonb)`;
       }).join(', ');
 
       const query = `
@@ -120,8 +126,8 @@ export class MapSmartTableRowsService {
         VALUES ${rowsToInsert}
         RETURNING *
       `;
-      
-      const result = await dbClient.query(query);
+
+      const result = await dbClient.query(query, values);
       return result.rows;
     } catch (error: any) {
       if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
@@ -181,23 +187,26 @@ export class MapSmartTableRowsService {
 
   async reorder(dbClient: PoolClient, dto: ReorderRowsDto, userId: string, orgId: string) {
     try {
-      // Build CASE statement for updating positions
-      const cases = dto.order.map((item, index) => {
-        return `WHEN id = '${item.id}' THEN ${item.position}`;
-      }).join(' ');
+      if (!dto.order || dto.order.length === 0) return { success: true };
 
-      const ids = dto.order.map(item => `'${item.id}'`).join(', ');
-
-      if (!ids) return { success: true };
-
+      // Positions arrive as two bound arrays and are joined in SQL — no ids are
+      // interpolated into the statement.
       const query = `
-        UPDATE map_smart_table_rows
-        SET position = CASE ${cases} END,
+        UPDATE map_smart_table_rows AS r
+        SET position = v.position,
             updated_at = NOW()
-        WHERE id IN (${ids}) AND user_id = $1::uuid AND organization_id = $2::uuid
+        FROM unnest($3::text[], $4::int[]) AS v(id, position)
+        WHERE r.id = v.id
+          AND r.user_id = $1::uuid
+          AND r.organization_id = $2::uuid
       `;
-      
-      await dbClient.query(query, [userId, orgId]);
+
+      await dbClient.query(query, [
+        userId,
+        orgId,
+        dto.order.map(item => item.id),
+        dto.order.map(item => item.position),
+      ]);
       return { success: true };
     } catch (error: any) {
       if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
@@ -229,12 +238,11 @@ export class MapSmartTableRowsService {
   async bulkRemove(dbClient: PoolClient, ids: string[], userId: string, orgId: string) {
     if (!ids || ids.length === 0) return { success: true };
     try {
-      const idsString = ids.map(id => `'${id}'`).join(', ');
       const query = `
         DELETE FROM map_smart_table_rows
-        WHERE id IN (${idsString}) AND user_id = $1::uuid AND organization_id = $2::uuid
+        WHERE id = ANY($3::text[]) AND user_id = $1::uuid AND organization_id = $2::uuid
       `;
-      await dbClient.query(query, [userId, orgId]);
+      await dbClient.query(query, [userId, orgId, ids]);
       return { success: true };
     } catch (error: any) {
       if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
