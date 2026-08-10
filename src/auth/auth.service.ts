@@ -243,10 +243,22 @@ export class AuthService {
     });
 
     try {
-      await this.cognitoClient.send(command);
+      const response = await this.cognitoClient.send(command);
+      // Destination приходит уже замаскированным самим Cognito (a***@g***.com)
+      console.log(
+        '[ForgotPassword] Cognito принял запрос. Доставка:',
+        response.CodeDeliveryDetails?.DeliveryMedium ?? 'UNKNOWN',
+        '→',
+        response.CodeDeliveryDetails?.Destination ?? 'нет CodeDeliveryDetails',
+      );
       return genericResponse;
     } catch (error: any) {
       if (error.name === 'UserNotFoundException') {
+        // Клиенту отдаём тот же ответ, но в логе фиксируем: без этого
+        // «код отправлен» при отсутствующем письме неотличимо от успеха
+        console.warn(
+          '[ForgotPassword] Пользователь не найден в пуле — письмо не отправлялось',
+        );
         return genericResponse;
       }
       if (error.name === 'UserNotConfirmedException') {

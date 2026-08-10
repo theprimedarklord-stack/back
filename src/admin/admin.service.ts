@@ -136,7 +136,7 @@ export class AdminService {
     const { data: existingUser, error: checkError } = await this.supabaseService
       .getClient()
       .from('users')
-      .select('user_id, email, role')
+      .select('user_id, email, role, cognito_sub')
       .eq('user_id', userId)
       .single();
 
@@ -166,15 +166,27 @@ export class AdminService {
     }
 
     // 4. Удаляем из AWS Cognito
-    try {
-      // userId в нашей таблице users — это cognito_sub
-      const command = new AdminDeleteUserCommand({
-        UserPoolId: process.env.COGNITO_USER_POOL_ID,
-        Username: userId,
-      });
-      await this.cognitoClient.send(command);
-    } catch (authDeleteError) {
-      console.error('Ошибка удаления Cognito пользователя:', authDeleteError);
+    //
+    // Username берём из cognito_sub, а НЕ из user_id: они совпадают только у
+    // юзеров, зарегистрированных через register(). У легаси-аккаунтов, заведённых
+    // до Cognito и перенесённых миграцией, user_id остался прежним, а sub — новый.
+    // Фоллбэк на email: пул создаёт юзеров с Username = email (см. auth.service).
+    const cognitoUsername = existingUser.cognito_sub || existingUser.email;
+
+    if (!cognitoUsername) {
+      console.error(
+        `Не удалось определить Cognito Username для user_id=${userId} — аккаунт останется в пуле`,
+      );
+    } else {
+      try {
+        const command = new AdminDeleteUserCommand({
+          UserPoolId: process.env.COGNITO_USER_POOL_ID,
+          Username: cognitoUsername,
+        });
+        await this.cognitoClient.send(command);
+      } catch (authDeleteError) {
+        console.error('Ошибка удаления Cognito пользователя:', authDeleteError);
+      }
     }
 
     // Логируем действие
