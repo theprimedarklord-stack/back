@@ -23,7 +23,7 @@ export class AdminController {
   // Проверка роли администратора
   private async checkAdminRole(userId: string) {
     const { data: userData, error } = await this.supabaseService
-      .getClient()
+      .getAdminClient()
       .from('users')
       .select('role')
       .eq('user_id', userId)
@@ -113,7 +113,7 @@ export class AdminController {
 
       // Получаем всех пользователей
       const { data: users, error } = await this.supabaseService
-        .getClient()
+        .getAdminClient()
         .from('users')
         .select('user_id, email, username, role, created_at, last_seen_at, avatar_url, full_name')
         .order('created_at', { ascending: false });
