@@ -2,7 +2,7 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, HttpStatus, Inject } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
-import { CACHE_REDIS_CLIENT } from '../common/redis/cache-redis.module';
+import { SESSION_REDIS_CLIENT } from '../common/redis/session-redis.module';
 import Redis from 'ioredis';
 
 interface AuthenticatedRequest extends Request {
@@ -15,7 +15,10 @@ interface AuthenticatedRequest extends Request {
 
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly supabaseService: SupabaseService, @Inject(CACHE_REDIS_CLIENT) private readonly cacheRedis: Redis) { }
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    @Inject(SESSION_REDIS_CLIENT) private readonly sessionRedis: Redis,
+  ) {}
 
   // Проверка роли администратора
   private async checkAdminRole(userId: string) {
@@ -130,8 +133,9 @@ export class AdminController {
       
       if (userIds.length > 0) {
         try {
-          const redisKeys = userIds.map(id => `presence:${id}`);
-          const results = await this.cacheRedis.mget(...redisKeys);
+          // Full key: "cache:presence:{id}" — no keyPrefix on session Redis
+          const redisKeys = userIds.map(id => `cache:presence:${id}`);
+          const results = await this.sessionRedis.mget(...redisKeys);
           userIds.forEach((id, index) => {
             onlineMap[id] = results[index] !== null;
           });

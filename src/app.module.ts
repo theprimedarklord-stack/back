@@ -33,6 +33,7 @@ import { HealthModule } from './health/health.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { MediaModule } from './media/media.module';
 import { CacheRedisModule } from './common/redis/cache-redis.module';
+import { SessionRedisModule } from './common/redis/session-redis.module';
 import { BillingModule } from './billing/billing.module';
 import { PublicSharesModule } from './public-shares/public-shares.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -111,6 +112,7 @@ import { ArchitectureModule } from './architecture/architecture.module';
     FeedbackModule,
     MediaModule,
     CacheRedisModule,
+    SessionRedisModule,
     BillingModule,
     PublicSharesModule,
     EventEmitterModule.forRoot(),
