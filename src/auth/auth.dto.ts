@@ -33,3 +33,25 @@ export class RegisterDto {
   })
   username: string;
 }
+
+export class ForgotPasswordDto {
+  @IsEmail({}, { message: 'Некорректный формат email' })
+  email: string;
+}
+
+export class ConfirmForgotPasswordDto {
+  @IsEmail({}, { message: 'Некорректный формат email' })
+  email: string;
+
+  @IsString({ message: 'Код подтверждения должен быть строкой' })
+  @Matches(/^\d{6}$/, { message: 'Код подтверждения состоит из 6 цифр' })
+  code: string;
+
+  // Требования к паролю совпадают с RegisterDto
+  @IsString({ message: 'Пароль должен быть строкой' })
+  @MinLength(6, { message: 'Пароль должен быть не короче 6 символов' })
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*_])[A-Za-z\d!@#$%^&*_]+$/, {
+    message: 'Пароль должен содержать заглавные и строчные буквы, цифры и специальные символы',
+  })
+  newPassword: string;
+}

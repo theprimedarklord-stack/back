@@ -15,7 +15,12 @@ import { AuthService } from './auth.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CognitoAuthGuard } from './cognito-auth.guard';
 import { UseGuards } from '@nestjs/common';
-import { LoginDto, RegisterDto } from './auth.dto';
+import {
+  LoginDto,
+  RegisterDto,
+  ForgotPasswordDto,
+  ConfirmForgotPasswordDto,
+} from './auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -156,6 +161,32 @@ export class AuthController {
       return result;
     } catch (error) {
       console.error('Confirm error:', error.message);
+      throw error;
+    }
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // Anti-abuse: рассылка кодов на чужие email
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: ForgotPasswordDto) {
+    try {
+      return await this.authService.forgotPassword(body.email);
+    } catch (error) {
+      console.error('Forgot password error:', error.message);
+      throw error;
+    }
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // Anti-brute-force: защита от перебора OTP-кодов
+  @Post('confirm-forgot-password')
+  async confirmForgotPassword(@Body() body: ConfirmForgotPasswordDto) {
+    try {
+      return await this.authService.confirmForgotPassword(
+        body.email,
+        body.code,
+        body.newPassword,
+      );
+    } catch (error) {
+      console.error('Confirm forgot password error:', error.message);
       throw error;
     }
   }

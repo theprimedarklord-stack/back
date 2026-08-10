@@ -4,12 +4,16 @@ import {
   BadRequestException,
   UnauthorizedException,
   InternalServerErrorException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   CognitoIdentityProviderClient,
   SignUpCommand,
   InitiateAuthCommand,
   ConfirmSignUpCommand,
+  ForgotPasswordCommand,
+  ConfirmForgotPasswordCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import * as crypto from 'crypto';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -216,6 +220,107 @@ export class AuthService {
       }
       console.error('Cognito InitiateAuth error:', error);
       throw new InternalServerErrorException('Ошибка входа');
+    }
+  }
+
+  /**
+   * Запросить код восстановления пароля (Cognito ForgotPassword).
+   *
+   * Username передаётся ровно в том виде, в котором пользователь был создан
+   * в register() — без нормализации регистра, иначе Cognito не найдёт юзера.
+   */
+  async forgotPassword(email: string) {
+    // Ответ намеренно не зависит от существования email (anti-enumeration)
+    const genericResponse = {
+      success: true,
+      message: 'Если email зарегистрирован, код восстановления отправлен',
+    };
+
+    const command = new ForgotPasswordCommand({
+      ClientId: this.clientId,
+      SecretHash: this.generateSecretHash(email),
+      Username: email,
+    });
+
+    try {
+      await this.cognitoClient.send(command);
+      return genericResponse;
+    } catch (error: any) {
+      if (error.name === 'UserNotFoundException') {
+        return genericResponse;
+      }
+      if (error.name === 'UserNotConfirmedException') {
+        throw new BadRequestException(
+          'Email не подтверждён. Сначала подтвердите регистрацию',
+        );
+      }
+      if (error.name === 'InvalidParameterException') {
+        throw new BadRequestException(
+          'Для этого аккаунта не подтверждён email — восстановление недоступно',
+        );
+      }
+      if (
+        error.name === 'LimitExceededException' ||
+        error.name === 'TooManyRequestsException'
+      ) {
+        throw new HttpException(
+          'Превышен лимит попыток. Попробуйте позже',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      console.error('Cognito ForgotPassword error:', error.name, error.message);
+      throw new InternalServerErrorException('Ошибка запроса кода восстановления');
+    }
+  }
+
+  /**
+   * Подтвердить восстановление: код из письма + новый пароль
+   */
+  async confirmForgotPassword(email: string, code: string, newPassword: string) {
+    const command = new ConfirmForgotPasswordCommand({
+      ClientId: this.clientId,
+      SecretHash: this.generateSecretHash(email),
+      Username: email,
+      ConfirmationCode: code,
+      Password: newPassword,
+    });
+
+    try {
+      await this.cognitoClient.send(command);
+      return { success: true, message: 'Пароль успешно изменён' };
+    } catch (error: any) {
+      if (error.name === 'InvalidPasswordException') {
+        throw new BadRequestException(
+          'Пароль не соответствует требованиям безопасности',
+        );
+      }
+      if (error.name === 'ExpiredCodeException') {
+        throw new BadRequestException('Срок действия кода истёк. Запросите новый');
+      }
+      if (
+        error.name === 'LimitExceededException' ||
+        error.name === 'TooManyRequestsException'
+      ) {
+        throw new HttpException(
+          'Превышен лимит попыток. Попробуйте позже',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      // CodeMismatchException и UserNotFoundException отдаём одинаково,
+      // чтобы по ответу нельзя было проверить существование аккаунта
+      if (
+        error.name === 'CodeMismatchException' ||
+        error.name === 'UserNotFoundException'
+      ) {
+        console.error('Cognito ConfirmForgotPassword rejected:', error.name);
+        throw new BadRequestException('Неверный код подтверждения');
+      }
+      console.error(
+        'Cognito ConfirmForgotPassword error:',
+        error.name,
+        error.message,
+      );
+      throw new InternalServerErrorException('Не удалось изменить пароль');
     }
   }
 }
