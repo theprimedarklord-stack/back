@@ -185,12 +185,57 @@ export class StudioService {
       );
     }
 
+    // -------------------------------------------------------------------------
     // Дедупликация: тот же checksum в той же организации — переиспользуем.
+    //
+    // ВАЖНО: наличие строки в studio_assets НЕ доказывает, что файл лежит в
+    // Storage. Строка пишется ДО загрузки байтов (чтобы получить id для пути),
+    // поэтому любая неудача после неё — оборванная сеть, закрытая вкладка,
+    // отказ Storage — оставляет запись без файла.
+    //
+    // Раньше дедупликация верила такой записи на слово: клиент получал
+    // deduplicated=true, байты не отправлял, модель рисовалась из локального
+    // файла и выглядела рабочей. Ломалось всё только при восстановлении сцены
+    // на другом устройстве — «Object not found», причём чинить это было нечем:
+    // повторная загрузка того же файла снова дедуплицировалась на битую строку.
+    //
+    // Теперь наличие объекта проверяется, и запись без файла лечится выдачей
+    // новой ссылки на ту же строку — id ассета сохраняется, поэтому уже
+    // сохранённые сцены, которые на него ссылаются, после повторной загрузки
+    // начинают работать.
+    // -------------------------------------------------------------------------
     if (input.checksum) {
       const existing = await this.findAssetByChecksum(userId, orgId, input.checksum);
       if (existing) {
-        this.logger.debug(`Asset deduplicated by checksum for org ${orgId}`);
-        return { asset: existing, uploadUrl: null, deduplicated: true };
+        if (await this.objectExists(existing.storage_path)) {
+          this.logger.debug(`Asset deduplicated by checksum for org ${orgId}`);
+          return {
+            asset: existing,
+            uploadUrl: null,
+            deduplicated: true,
+            expiresInSec: this.UPLOAD_URL_TTL_SEC,
+          };
+        }
+
+        this.logger.warn(
+          `Asset ${existing.id} has a row but no object at "${existing.storage_path}" — ` +
+            `re-issuing upload URL instead of deduplicating`,
+        );
+
+        // storage_path пуст только если прошлая попытка упала между INSERT и
+        // UPDATE. Восстанавливаем его по тому же правилу, что и для новой строки.
+        let storagePath: string = existing.storage_path;
+        if (!storagePath) {
+          storagePath = `${orgId}/${existing.id}.${ext}`;
+          await this.setAssetStoragePath(userId, orgId, existing.id, storagePath);
+        }
+
+        return {
+          asset: { ...existing, storage_path: storagePath },
+          uploadUrl: await this.issueUploadUrl(storagePath),
+          deduplicated: false,
+          expiresInSec: this.UPLOAD_URL_TTL_SEC,
+        };
       }
     }
 
@@ -214,33 +259,72 @@ export class StudioService {
 
     const storagePath = `${orgId}/${asset.id}.${ext}`;
 
+    let uploadUrl: { signedUrl: string; token: string; path: string };
+    try {
+      uploadUrl = await this.issueUploadUrl(storagePath);
+    } catch (err) {
+      // Ссылку выдать не смогли — убираем строку, чтобы не осталась запись
+      // без файла.
+      await this.hardDeleteAssetRow(userId, orgId, asset.id);
+      throw err;
+    }
+
+    await this.setAssetStoragePath(userId, orgId, asset.id, storagePath);
+
+    return {
+      asset: { id: asset.id, file_name: input.fileName, storage_path: storagePath },
+      uploadUrl,
+      deduplicated: false,
+      expiresInSec: this.UPLOAD_URL_TTL_SEC,
+    };
+  }
+
+  /**
+   * Лежит ли объект по пути в Storage.
+   *
+   * Через createSignedUrl намеренно: это ровно та операция, которая потом
+   * выполняется при восстановлении сцены. Проверять другим способом (list,
+   * info) значило бы проверять не то, что сломается.
+   */
+  private async objectExists(storagePath: string | null | undefined): Promise<boolean> {
+    if (!storagePath) return false;
+
+    const { data, error } = await this.supabaseService
+      .getAdminClient()
+      .storage.from(this.BUCKET)
+      .createSignedUrl(storagePath, 60);
+
+    return !error && !!data;
+  }
+
+  /** Подписанная ссылка на ЗАГРУЗКУ по готовому пути. */
+  private async issueUploadUrl(storagePath: string) {
     const { data, error } = await this.supabaseService
       .getAdminClient()
       .storage.from(this.BUCKET)
       .createSignedUploadUrl(storagePath, { upsert: true });
 
     if (error || !data) {
-      // Ссылку выдать не смогли — убираем строку, чтобы не осталась запись
-      // без файла.
-      await this.hardDeleteAssetRow(userId, orgId, asset.id);
       this.logger.error(`createSignedUploadUrl failed for ${storagePath}`, error);
       throw new BadRequestException(error?.message || 'Failed to create upload URL');
     }
 
+    return { signedUrl: data.signedUrl, token: data.token, path: storagePath };
+  }
+
+  private async setAssetStoragePath(
+    userId: string,
+    orgId: string,
+    assetId: string,
+    storagePath: string,
+  ) {
     await this.databaseService.withUserContext(userId, orgId, async (client) => {
       await client.query(
         `UPDATE public.studio_assets SET storage_path = $3
          WHERE id = $1::uuid AND organization_id = $2::uuid`,
-        [asset.id, orgId, storagePath],
+        [assetId, orgId, storagePath],
       );
     });
-
-    return {
-      asset: { id: asset.id, file_name: input.fileName, storage_path: storagePath },
-      uploadUrl: { signedUrl: data.signedUrl, token: data.token, path: storagePath },
-      deduplicated: false,
-      expiresInSec: this.UPLOAD_URL_TTL_SEC,
-    };
   }
 
   async listAssets(userId: string, orgId: string) {
