@@ -24,6 +24,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { AIModule } from './ai/ai.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
 import { MapCardsModule } from './mapcards/mapcards.module';
+import { StudioModule } from './studio/studio.module';
 import { MapCardConnectionsModule } from './map-card-connections/map-card-connections.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { OrganizationsModule } from './organizations/organizations.module';
@@ -97,6 +98,7 @@ import { ArchitectureModule } from './architecture/architecture.module';
     AIModule,
     SuggestionsModule,
     MapCardsModule,
+    StudioModule,
     MapCardConnectionsModule,
     TelemetryModule,
 
