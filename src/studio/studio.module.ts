@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { StudioController } from './studio.controller';
+import { StudioPublicController } from './studio-public.controller';
 import { StudioService } from './studio.service';
 import { DatabaseModule } from '../db/database.module';
 
@@ -7,7 +8,7 @@ import { DatabaseModule } from '../db/database.module';
 // без явного импорта — как и в других модулях проекта.
 @Module({
   imports: [DatabaseModule],
-  controllers: [StudioController],
+  controllers: [StudioController, StudioPublicController],
   providers: [StudioService],
   exports: [StudioService],
 })

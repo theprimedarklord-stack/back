@@ -330,6 +330,73 @@ export class StudioController {
   }
 
   // ---------------------------------------------------------------------------
+  // Публикация модели
+  // ---------------------------------------------------------------------------
+
+  @Get('assets/:id/publication')
+  async getAssetPublication(
+    @Req() req: Request,
+    @Headers('x-org-id') orgId: string,
+    @Param('id') id: string,
+  ) {
+    const auth = this.requireAuth(req, orgId);
+    if ('error' in auth) return auth;
+
+    try {
+      const publication = await this.studioService.getAssetPublication(auth.userId, auth.orgId, id);
+      return { success: true, publication };
+    } catch (error) {
+      return this.fail('Не удалось получить состояние публикации', error);
+    }
+  }
+
+  @Post('assets/:id/publication')
+  async publishAsset(
+    @Req() req: Request,
+    @Headers('x-org-id') orgId: string,
+    @Param('id') id: string,
+    @Body() body: { allowModel?: boolean },
+  ) {
+    const auth = this.requireAuth(req, orgId);
+    if ('error' in auth) return auth;
+
+    try {
+      const publication = await this.studioService.publishAsset(
+        auth.userId,
+        auth.orgId,
+        id,
+        body?.allowModel === true,
+      );
+      return { success: true, publication };
+    } catch (error) {
+      return this.fail('Не удалось опубликовать модель', error);
+    }
+  }
+
+  @Patch('assets/:id/publication')
+  async updateAssetPublication(
+    @Req() req: Request,
+    @Headers('x-org-id') orgId: string,
+    @Param('id') id: string,
+    @Body() body: { isActive?: boolean; allowModel?: boolean },
+  ) {
+    const auth = this.requireAuth(req, orgId);
+    if ('error' in auth) return auth;
+
+    try {
+      const publication = await this.studioService.setAssetPublication(
+        auth.userId,
+        auth.orgId,
+        id,
+        body ?? {},
+      );
+      return { success: true, publication };
+    } catch (error) {
+      return this.fail('Не удалось изменить публикацию', error);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Общее
   // ---------------------------------------------------------------------------
 

@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { DatabaseService } from '../db/database.service';
 
@@ -643,6 +644,207 @@ export class StudioService {
     }
 
     return result;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Публичные ссылки на модель
+  //
+  // ТРЕБУЕТ ТАБЛИЦЫ studio_public_links — см. STUDIO_SETUP.txt, ЧАСТЬ 9.
+  //
+  // МОДЕЛЬ ДОСТУПА. Слаг САМ ПО СЕБЕ является правом доступа: кто знает
+  // адрес — тот смотрит. Право распространяется ровно на один ассет, на
+  // который ссылается строка, и ни на что больше в организации. Отозвали
+  // ссылку — выдача прекращается тем же мгновением, потому что каждая отдача
+  // байтов заново перечитывает строку.
+  //
+  // ПОЧЕМУ АДМИН-КЛИЕНТ. Публичный зритель приходит без сессии и без
+  // организации, поэтому RLS-контекст выставить не из чего. Проверку прав
+  // здесь делает сам запрос: строка ищется по слагу И по признаку активности,
+  // а organization_id берётся из найденной строки, а не из запроса. Так же
+  // устроен PublicSharesService.
+  // ---------------------------------------------------------------------------
+
+  /** Разрешено ли отдавать сам файл модели, а не только картинки. */
+  private readonly PUBLIC_MODEL_URL_TTL_SEC = 300;
+
+  /**
+   * Публикует модель. Повторный вызов переиспользует существующую ссылку.
+   *
+   * Переиспользование, а не новый адрес: иначе каждое нажатие «Поделиться»
+   * плодило бы ссылки, каждую из которых потом надо отзывать отдельно, и
+   * человек не смог бы закрыть доступ, не помня их все.
+   */
+  async publishAsset(userId: string, orgId: string, assetId: string, allowModel = false) {
+    return this.databaseService.withUserContext(userId, orgId, async (client) => {
+      const asset = await client.query(
+        `SELECT id FROM public.studio_assets
+         WHERE id = $1::uuid AND organization_id = $2::uuid`,
+        [assetId, orgId],
+      );
+      if (asset.rows.length === 0) throw new NotFoundException('Asset not found');
+
+      const existing = await client.query(
+        `SELECT id, slug FROM public.studio_public_links
+         WHERE asset_id = $1::uuid AND organization_id = $2::uuid`,
+        [assetId, orgId],
+      );
+
+      if (existing.rows.length > 0) {
+        const updated = await client.query(
+          `UPDATE public.studio_public_links
+           SET is_active = true, revoked_at = NULL, allow_model = $2, published_by = $3
+           WHERE id = $1::uuid
+           RETURNING slug, is_active, allow_model`,
+          [existing.rows[0].id, allowModel, userId],
+        );
+        return updated.rows[0];
+      }
+
+      // Слаг той же формы, что у public_shares: два первых сегмента uuid.
+      // Достаточно случаен, чтобы не перебирался, и достаточно короток, чтобы
+      // ссылка читалась в сообщении.
+      const uuid = randomUUID();
+      const slug = `${uuid.split('-')[0]}-${uuid.split('-')[1]}`;
+
+      const inserted = await client.query(
+        `INSERT INTO public.studio_public_links
+           (asset_id, organization_id, slug, allow_model, published_by)
+         VALUES ($1::uuid, $2::uuid, $3, $4, $5)
+         RETURNING slug, is_active, allow_model`,
+        [assetId, orgId, slug, allowModel, userId],
+      );
+
+      return inserted.rows[0];
+    });
+  }
+
+  /** Состояние публикации модели или null, если её никогда не публиковали. */
+  async getAssetPublication(userId: string, orgId: string, assetId: string) {
+    const rows = await this.databaseService.withUserContext(userId, orgId, async (client) => {
+      const res = await client.query(
+        `SELECT slug, is_active, allow_model, created_at
+         FROM public.studio_public_links
+         WHERE asset_id = $1::uuid AND organization_id = $2::uuid`,
+        [assetId, orgId],
+      );
+      return res.rows;
+    });
+
+    return rows[0] ?? null;
+  }
+
+  /**
+   * Включает или выключает доступ.
+   *
+   * Строка не удаляется: отозвали, потом передумали — тот же адрес оживает.
+   * Удаление освободило бы слаг под другую модель, и старая ссылка однажды
+   * открыла бы не то, что открывала раньше.
+   */
+  async setAssetPublication(
+    userId: string,
+    orgId: string,
+    assetId: string,
+    patch: { isActive?: boolean; allowModel?: boolean },
+  ) {
+    const rows = await this.databaseService.withUserContext(userId, orgId, async (client) => {
+      const res = await client.query(
+        `UPDATE public.studio_public_links
+         SET is_active  = COALESCE($3, is_active),
+             allow_model = COALESCE($4, allow_model),
+             revoked_at = CASE WHEN $3 = false THEN now() ELSE NULL END
+         WHERE asset_id = $1::uuid AND organization_id = $2::uuid
+         RETURNING slug, is_active, allow_model`,
+        [
+          assetId,
+          orgId,
+          patch.isActive === undefined ? null : patch.isActive,
+          patch.allowModel === undefined ? null : patch.allowModel,
+        ],
+      );
+      return res.rows;
+    });
+
+    if (rows.length === 0) throw new NotFoundException('Publication not found');
+    return rows[0];
+  }
+
+  // --- Публичное чтение (без сессии) -----------------------------------------
+
+  /**
+   * Находит активную публикацию по слагу.
+   *
+   * Возвращает ровно то, что можно показать постороннему: имя файла и размер.
+   * Ни организации, ни владельца, ни пути в хранилище — эти сведения зрителю
+   * не нужны, а утечь через публичный ответ могут только один раз.
+   */
+  async getPublicAsset(slug: string) {
+    const admin = this.supabaseService.getAdminClient() as any;
+
+    const { data, error } = await admin
+      .from('studio_public_links')
+      .select('asset_id, organization_id, allow_model, studio_assets(file_name, size_bytes)')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (error) {
+      this.logger.error(`Public link lookup failed for slug ${slug}`, error);
+      return null;
+    }
+    if (!data) return null;
+
+    const asset = Array.isArray(data.studio_assets) ? data.studio_assets[0] : data.studio_assets;
+
+    return {
+      assetId: data.asset_id as string,
+      orgId: data.organization_id as string,
+      allowModel: data.allow_model as boolean,
+      fileName: (asset?.file_name as string) ?? 'model',
+      sizeBytes: (asset?.size_bytes as number) ?? null,
+    };
+  }
+
+  /**
+   * Подписанная ссылка на файл публично опубликованной модели.
+   *
+   * kind разделён намеренно: картинки отдаются всегда, сам .glb — только с
+   * разрешения владельца.
+   *
+   * ВАЖНО И БЕЗ ИЛЛЮЗИЙ: разрешив .glb, вы разрешаете и живое 3D, и сохранение
+   * файла. Это одни и те же байты — браузер обязан получить модель целиком,
+   * чтобы её нарисовать. Отдельного права «смотреть, но не скачивать» здесь
+   * нет и быть не может; кто увидел модель в 3D, тот уже держит её файл.
+   * Настоящая защита от выноса — не отдавать .glb вовсе, и тогда посторонним
+   * остаётся турнтейбл из картинок.
+   */
+  async getPublicAssetFileUrl(slug: string, kind: 'still' | 'spin' | 'model') {
+    const link = await this.getPublicAsset(slug);
+    if (!link) return null;
+
+    if (kind === 'model' && !link.allowModel) return null;
+
+    let path: string;
+    if (kind === 'model') {
+      const admin = this.supabaseService.getAdminClient() as any;
+      const { data, error } = await admin
+        .from('studio_assets')
+        .select('storage_path')
+        .eq('id', link.assetId)
+        .maybeSingle();
+
+      if (error || !data?.storage_path) return null;
+      path = data.storage_path as string;
+    } else {
+      path = this.previewPath(link.orgId, link.assetId, kind);
+    }
+
+    const { data, error } = await this.supabaseService
+      .getAdminClient()
+      .storage.from(this.BUCKET)
+      .createSignedUrl(path, this.PUBLIC_MODEL_URL_TTL_SEC);
+
+    if (error || !data) return null;
+    return data.signedUrl;
   }
 
   // ---------------------------------------------------------------------------
