@@ -112,4 +112,21 @@ export class UpdateUserSettingsDto {
     @ValidateNested({ each: true })
     @Type(() => PinnedFavoriteDto)
     pinned_favorites?: PinnedFavoriteDto[];
+
+    /**
+     * Настройки раздела /studio.
+     *
+     * Состав НЕ описан вложенным DTO намеренно: он живёт в реестре на фронте
+     * (studio/_lib/studioSettings.ts), в движке настроек будут сотни, и
+     * дублировать список здесь означало бы править бекенд на каждую галочку.
+     *
+     * Безопасно, потому что: колонка одна и своя, RLS режет по app.user_id,
+     * значение уходит в jsonb параметром (не в SQL-текст), а фронт при чтении
+     * прогоняет объект через withDefaults — неизвестные ключи отбрасываются,
+     * типы и границы проверяются. То есть мусор в колонке максимум занимает
+     * место, но в код не попадает.
+     */
+    @IsOptional()
+    @IsObject()
+    studio_settings?: Record<string, unknown>;
 }
