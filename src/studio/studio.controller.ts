@@ -125,6 +125,81 @@ export class StudioController {
   }
 
   // ---------------------------------------------------------------------------
+  // История версий
+  //
+  // Пути вложены в сцену (/scenes/:id/versions/...), потому что версия вне
+  // своей сцены не существует. Идентификатор сцены при этом участвует в WHERE
+  // каждого запроса — чужую версию не подставить, даже зная её id.
+  // ---------------------------------------------------------------------------
+
+  @Get('scenes/:id/versions')
+  async listSceneVersions(
+    @Req() req: Request,
+    @Headers('x-org-id') orgId: string,
+    @Param('id') id: string,
+  ) {
+    const auth = this.requireAuth(req, orgId);
+    if ('error' in auth) return auth;
+
+    try {
+      const versions = await this.studioService.listSceneVersions(auth.userId, auth.orgId, id);
+      return { success: true, versions };
+    } catch (error) {
+      return this.fail('Не удалось получить историю версий', error);
+    }
+  }
+
+  @Get('scenes/:id/versions/:versionId')
+  async getSceneVersion(
+    @Req() req: Request,
+    @Headers('x-org-id') orgId: string,
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+  ) {
+    const auth = this.requireAuth(req, orgId);
+    if ('error' in auth) return auth;
+
+    try {
+      const version = await this.studioService.getSceneVersion(
+        auth.userId,
+        auth.orgId,
+        id,
+        versionId,
+      );
+      return { success: true, version };
+    } catch (error) {
+      return this.fail('Не удалось открыть версию', error);
+    }
+  }
+
+  /**
+   * POST, а не PATCH: восстановление — это действие, а не правка ресурса по
+   * адресу. Тело не нужно, всё в пути.
+   */
+  @Post('scenes/:id/versions/:versionId/restore')
+  async restoreSceneVersion(
+    @Req() req: Request,
+    @Headers('x-org-id') orgId: string,
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+  ) {
+    const auth = this.requireAuth(req, orgId);
+    if ('error' in auth) return auth;
+
+    try {
+      const result = await this.studioService.restoreSceneVersion(
+        auth.userId,
+        auth.orgId,
+        id,
+        versionId,
+      );
+      return { success: true, ...result };
+    } catch (error) {
+      return this.fail('Не удалось восстановить версию', error);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Ассеты
   // ---------------------------------------------------------------------------
 

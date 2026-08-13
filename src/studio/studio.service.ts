@@ -152,6 +152,129 @@ export class StudioService {
   }
 
   // ---------------------------------------------------------------------------
+  // История версий
+  //
+  // Снимки создаёт ТРИГГЕР trg_studio_scenes_archive_version на UPDATE
+  // studio_scenes (см. db/migrations/20260813_create_studio_scene_versions.sql).
+  // Здесь только чтение и восстановление — писать историю из кода нельзя,
+  // иначе снимок и инкремент version перестанут быть атомарными.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Точки восстановления сцены, свежие сверху.
+   *
+   * data НЕ выбирается СОЗНАТЕЛЬНО: снимок сцены весит от десятков килобайт до
+   * мегабайт, а держим мы до 50 снимков на сцену. Отдать их одним списком
+   * значило бы слать мегабайты ради колонки, которую список даже не показывает.
+   * Содержимое достаётся отдельно, по одной версии.
+   *
+   * instance_count — сколько моделей было в сцене на момент снимка. Без него
+   * список превращается в столбец одинаковых дат, по которому невозможно
+   * выбрать, куда возвращаться. jsonb_array_length падает на не-массиве,
+   * поэтому тип проверяется явно: в старых снимках поля может не быть.
+   */
+  async listSceneVersions(userId: string, orgId: string, sceneId: string) {
+    return this.databaseService.withUserContext(userId, orgId, async (client) => {
+      const sql = `
+        SELECT id, version, name, created_by, created_at,
+               CASE WHEN jsonb_typeof(data->'instances') = 'array'
+                    THEN jsonb_array_length(data->'instances')
+                    ELSE 0
+               END AS instance_count
+        FROM public.studio_scene_versions
+        WHERE scene_id = $1::uuid AND organization_id = $2::uuid
+        ORDER BY created_at DESC
+      `;
+      const res = await client.query(sql, [sceneId, orgId]);
+      return res.rows;
+    });
+  }
+
+  /** Содержимое одной версии — для предпросмотра без восстановления. */
+  async getSceneVersion(userId: string, orgId: string, sceneId: string, versionId: string) {
+    const rows = await this.databaseService.withUserContext(userId, orgId, async (client) => {
+      const sql = `
+        SELECT id, version, name, data, created_by, created_at
+        FROM public.studio_scene_versions
+        WHERE id = $1::uuid AND scene_id = $2::uuid AND organization_id = $3::uuid
+      `;
+      const res = await client.query(sql, [versionId, sceneId, orgId]);
+      return res.rows;
+    });
+
+    if (rows.length === 0) throw new NotFoundException('Version not found');
+    return rows[0];
+  }
+
+  /**
+   * Возвращает сцену к состоянию снимка.
+   *
+   * ВОССТАНОВЛЕНИЕ САМО ОБРАТИМО. Перед перезаписью текущее состояние явно
+   * кладётся в историю — иначе человек, откатившийся не туда, терял бы работу
+   * безвозвратно. Полагаться на триггер здесь нельзя: он прореживает снимки и
+   * пропускает запись, если предыдущая моложе 5 минут, а откат сразу после
+   * сохранения — как раз этот случай.
+   *
+   * Ручная вставка и триггер друг друга не дублируют: триггер в той же
+   * транзакции увидит только что вставленную строку, посчитает её свежей и
+   * пропустит свою запись.
+   *
+   * Имя сцены снимок НЕ возвращает, хотя и хранит. Переименование версию не
+   * создаёт (см. функцию триггера), поэтому имя в снимке может быть сколь
+   * угодно устаревшим — откат содержимого не повод менять название документа.
+   */
+  async restoreSceneVersion(
+    userId: string,
+    orgId: string,
+    sceneId: string,
+    versionId: string,
+  ) {
+    return this.databaseService.withUserContext(userId, orgId, async (client) => {
+      const snapshot = await client.query(
+        `SELECT data, version
+         FROM public.studio_scene_versions
+         WHERE id = $1::uuid AND scene_id = $2::uuid AND organization_id = $3::uuid`,
+        [versionId, sceneId, orgId],
+      );
+
+      if (snapshot.rows.length === 0) throw new NotFoundException('Version not found');
+
+      const restoredData = JSON.stringify(snapshot.rows[0].data);
+
+      // Архивируем то, что есть сейчас. Условие data IS DISTINCT FROM отсекает
+      // откат на состояние, которое и так открыто, — плодить одинаковые снимки
+      // незачем.
+      //
+      // Отсечка «последние 50» тут не повторяется: лишняя строка проживёт до
+      // следующего сохранения, когда триггер подрежет историю штатно.
+      await client.query(
+        `INSERT INTO public.studio_scene_versions
+           (scene_id, organization_id, version, name, data, created_by)
+         SELECT id, organization_id, version, name, data, $3
+         FROM public.studio_scenes
+         WHERE id = $1::uuid
+           AND organization_id = $2::uuid
+           AND data IS DISTINCT FROM $4::jsonb`,
+        [sceneId, orgId, userId, restoredData],
+      );
+
+      const updated = await client.query(
+        `UPDATE public.studio_scenes
+         SET data = $3::jsonb,
+             version = version + 1,
+             updated_at = now()
+         WHERE id = $1::uuid AND organization_id = $2::uuid
+         RETURNING id, organization_id, owner_id, name, version, created_at, updated_at`,
+        [sceneId, orgId, restoredData],
+      );
+
+      if (updated.rows.length === 0) throw new NotFoundException('Scene not found');
+
+      return { scene: updated.rows[0], restoredFrom: snapshot.rows[0].version as number };
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Ассеты
   // ---------------------------------------------------------------------------
 
