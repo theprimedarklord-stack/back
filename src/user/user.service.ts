@@ -78,16 +78,20 @@ export class UserService {
 
 
     async getMe(dbClient: any, userId: string) {
+        // org_slug джойним так же, как в GET /user/me/context — без него фронт
+        // не мог собрать субдомен активной орги и подставлял в хост пустое значение.
         const queryText = `
-            SELECT 
-                user_id, 
-                full_name, 
-                avatar_url, 
-                email, 
-                username, 
-                last_active_org_id
-            FROM users 
-            WHERE user_id = $1
+            SELECT
+                u.user_id,
+                u.full_name,
+                u.avatar_url,
+                u.email,
+                u.username,
+                u.last_active_org_id,
+                o.slug AS org_slug
+            FROM users u
+            LEFT JOIN org_organizations o ON u.last_active_org_id = o.id
+            WHERE u.user_id = $1
         `;
 
         const result = await dbClient.query(queryText, [userId]);
@@ -109,6 +113,7 @@ export class UserService {
             active_org_id: data.last_active_org_id ?? null,
             // Backward/forward compatible alias
             last_active_org_id: data.last_active_org_id ?? null,
+            org_slug: data.org_slug ?? null,
             // Normalize display name: prefer full_name, fallback to username
             name: fullName || username || null,
         };
