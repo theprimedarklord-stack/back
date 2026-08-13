@@ -259,6 +259,59 @@ export class StudioController {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Превью моделей
+  // ---------------------------------------------------------------------------
+
+  /** Ссылки на запись превью: клиент рисует кадр и льёт его прямо в Storage. */
+  @Post('assets/:id/preview-upload-urls')
+  async createPreviewUploadUrls(
+    @Req() req: Request,
+    @Headers('x-org-id') orgId: string,
+    @Param('id') id: string,
+  ) {
+    const auth = this.requireAuth(req, orgId);
+    if ('error' in auth) return auth;
+
+    try {
+      const result = await this.studioService.createPreviewUploadUrls(auth.userId, auth.orgId, id);
+      return { success: true, ...result };
+    } catch (error) {
+      return this.fail('Не удалось подготовить загрузку превью', error);
+    }
+  }
+
+  /**
+   * Ссылки на чтение превью пачкой.
+   *
+   * POST, а не GET, при том что это чтение: список идентификаторов на сотню
+   * элементов в строку запроса не помещается — упрётся в лимит длины URL.
+   */
+  @Post('previews/urls')
+  async getPreviewUrls(
+    @Req() req: Request,
+    @Headers('x-org-id') orgId: string,
+    @Body() body: { assetIds?: string[] },
+  ) {
+    const auth = this.requireAuth(req, orgId);
+    if ('error' in auth) return auth;
+
+    if (!Array.isArray(body?.assetIds)) {
+      return { success: false, error: 'assetIds must be an array', status: HttpStatus.BAD_REQUEST };
+    }
+
+    try {
+      const previews = await this.studioService.getPreviewUrls(
+        auth.userId,
+        auth.orgId,
+        body.assetIds,
+      );
+      return { success: true, previews };
+    } catch (error) {
+      return this.fail('Не удалось получить превью', error);
+    }
+  }
+
   @Delete('assets/:id')
   async deleteAsset(
     @Req() req: Request,

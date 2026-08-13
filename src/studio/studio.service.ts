@@ -526,6 +526,126 @@ export class StudioService {
   }
 
   // ---------------------------------------------------------------------------
+  // Превью моделей
+  //
+  // ПОЧЕМУ БЕЗ КОЛОНКИ В БАЗЕ. Путь превью выводится из id ассета, а не
+  // хранится: адрес детерминирован, значит колонка была бы копией того, что и
+  // так известно, плюс лишний источник рассинхрона. Наличие превью узнаётся
+  // попыткой подписать путь — тем же способом, каким проверяется наличие
+  // самой модели.
+  //
+  // ПОЧЕМУ ТОТ ЖЕ БАКЕТ. Превью лежат в studio-models под префиксом
+  // thumbnails/. Отдельный бакет означал бы отдельные политики и отдельную
+  // выдачу прав, а изоляция по организации здесь ровно та же — первым
+  // сегментом пути идёт orgId. Разнести можно позже копированием, ничего в
+  // коде не меняя, кроме префикса.
+  //
+  // ВЕРСИЯ В ПУТИ. Улучшили пайплайн отрисовки — подняли PREVIEW_VERSION, и
+  // все клиенты берут новые файлы. Без версии пришлось бы сбрасывать кеши
+  // параметром в адресе, а он ломает кеширование на CDN.
+  // ---------------------------------------------------------------------------
+
+  private readonly PREVIEW_VERSION = 1;
+  private readonly PREVIEW_URL_TTL_SEC = 3600;
+
+  /** Детерминированный путь превью. Единственное место, где он собирается. */
+  private previewPath(orgId: string, assetId: string, kind: 'still' | 'spin') {
+    return `thumbnails/${orgId}/${assetId}/v${this.PREVIEW_VERSION}/${kind}.webp`;
+  }
+
+  /**
+   * Подписанные ссылки на ЗАПИСЬ превью.
+   *
+   * Ассет проверяется на принадлежность организации до выдачи: без этого
+   * знание чужого id позволило бы писать файлы в чужую папку.
+   */
+  async createPreviewUploadUrls(userId: string, orgId: string, assetId: string) {
+    const rows = await this.databaseService.withUserContext(userId, orgId, async (client) => {
+      const res = await client.query(
+        `SELECT id FROM public.studio_assets
+         WHERE id = $1::uuid AND organization_id = $2::uuid`,
+        [assetId, orgId],
+      );
+      return res.rows;
+    });
+
+    if (rows.length === 0) throw new NotFoundException('Asset not found');
+
+    const [still, spin] = await Promise.all([
+      this.issueUploadUrl(this.previewPath(orgId, assetId, 'still')),
+      this.issueUploadUrl(this.previewPath(orgId, assetId, 'spin')),
+    ]);
+
+    return { still, spin, expiresInSec: this.UPLOAD_URL_TTL_SEC };
+  }
+
+  /**
+   * Подписанные ссылки на ЧТЕНИЕ превью — пачкой.
+   *
+   * Пачкой принципиально: сетка витрины показывает десятки моделей, и запрос
+   * на каждую превратил бы открытие страницы в лавину round-trip'ов.
+   * createSignedUrls подписывает весь список одним обращением к Storage.
+   *
+   * Отсутствующий файл — не ошибка, а нормальное состояние: превью для старых
+   * ассетов ещё не нарисованы. Такой ассет получает null, и витрина ставит его
+   * в очередь на отрисовку.
+   */
+  async getPreviewUrls(userId: string, orgId: string, assetIds: string[]) {
+    if (assetIds.length === 0) return {};
+
+    // Ограничение сверху: список приходит от клиента, и без потолка одним
+    // запросом можно было бы попросить подписать десятки тысяч путей.
+    const MAX_BATCH = 200;
+    const ids = assetIds.slice(0, MAX_BATCH);
+
+    // Проверяем принадлежность организации ОДНИМ запросом, а не по одному на
+    // ассет. Чужие id просто не вернутся из выборки и до подписи не дойдут.
+    const owned = await this.databaseService.withUserContext(userId, orgId, async (client) => {
+      const res = await client.query(
+        `SELECT id FROM public.studio_assets
+         WHERE organization_id = $1::uuid AND id = ANY($2::uuid[])`,
+        [orgId, ids],
+      );
+      return res.rows.map((r: { id: string }) => r.id);
+    });
+
+    if (owned.length === 0) return {};
+
+    const paths = owned.flatMap((id: string) => [
+      this.previewPath(orgId, id, 'still'),
+      this.previewPath(orgId, id, 'spin'),
+    ]);
+
+    const { data, error } = await this.supabaseService
+      .getAdminClient()
+      .storage.from(this.BUCKET)
+      .createSignedUrls(paths, this.PREVIEW_URL_TTL_SEC);
+
+    if (error) {
+      this.logger.error('createSignedUrls failed for previews', error);
+      throw new BadRequestException(error.message || 'Failed to sign preview URLs');
+    }
+
+    // Ответ Storage сопоставляем по пути, а не по порядку: полагаться на
+    // порядок в массиве — молчаливое допущение, которое однажды перестанет
+    // выполняться и перепутает превью между моделями.
+    const byPath = new Map<string, string>();
+    for (const row of data ?? []) {
+      if (row.signedUrl && !row.error && row.path) byPath.set(row.path, row.signedUrl);
+    }
+
+    const result: Record<string, { still: string | null; spin: string | null }> = {};
+    for (const id of owned) {
+      result[id] = {
+        still: byPath.get(this.previewPath(orgId, id, 'still')) ?? null,
+        spin: byPath.get(this.previewPath(orgId, id, 'spin')) ?? null,
+      };
+    }
+
+    return result;
+  }
+
+  // ---------------------------------------------------------------------------
   // Вспомогательное
   // ---------------------------------------------------------------------------
 
