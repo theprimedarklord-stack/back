@@ -427,6 +427,11 @@ export class StudioController {
       return {
         success: false,
         error: (error as any)?.response?.message || (error as Error)?.message || message,
+        // Машиночитаемый код, если сервис его дал. Нужен там, где клиент обязан
+        // ПОСТУПИТЬ по-разному, а не просто показать другой текст: разбирать
+        // для этого сообщение на человеческом языке — значит сломать поведение
+        // при первой же правке формулировки.
+        code: (error as any)?.response?.code,
         status,
       };
     }

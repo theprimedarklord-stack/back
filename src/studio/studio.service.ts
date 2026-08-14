@@ -421,6 +421,25 @@ export class StudioService {
     return !error && !!data;
   }
 
+  /**
+   * Отличает «объекта нет» от прочих отказов Storage.
+   *
+   * По тексту и по статусу сразу: Storage отвечает на это по-разному в
+   * зависимости от версии, а ошибиться в сторону «нет файла» дороже, чем
+   * в сторону общей ошибки — пользователю предложат перезалить работающую
+   * модель. Поэтому оба признака проверяются, но ни один не додумывается.
+   */
+  private isObjectMissing(error: unknown): boolean {
+    if (!error) return false;
+
+    const status = (error as { status?: number; statusCode?: number | string }).status;
+    const statusCode = Number((error as { statusCode?: number | string }).statusCode);
+    if (status === 404 || statusCode === 404) return true;
+
+    const message = (error as Error).message?.toLowerCase() ?? '';
+    return message.includes('not found');
+  }
+
   /** Подписанная ссылка на ЗАГРУЗКУ по готовому пути. */
   private async issueUploadUrl(storagePath: string) {
     const { data, error } = await this.supabaseService
@@ -482,6 +501,21 @@ export class StudioService {
     if (rows.length === 0) throw new NotFoundException('Asset not found');
     const asset = rows[0];
 
+    // Строка в studio_assets НЕ доказывает, что файл лежит в Storage: она
+    // пишется до загрузки байтов, поэтому оборванная загрузка оставляет запись
+    // без файла (см. комментарий к дедупликации в prepareUpload).
+    //
+    // Такой отказ выделен отдельным кодом СОЗНАТЕЛЬНО. Снаружи он выглядел
+    // неотличимо от сорвавшейся отрисовки превью, и витрина предлагала
+    // «Ещё раз» — кнопку, которая обречена падать вечно, потому что качать
+    // нечего. Вылечить запись можно только повторной загрузкой того же файла.
+    if (!asset.storage_path) {
+      throw new NotFoundException({
+        code: 'MODEL_FILE_MISSING',
+        message: 'Файл модели не найден в хранилище',
+      });
+    }
+
     const { data, error } = await this.supabaseService
       .getAdminClient()
       .storage.from(this.BUCKET)
@@ -489,6 +523,14 @@ export class StudioService {
 
     if (error || !data) {
       this.logger.error(`createSignedUrl failed for ${asset.storage_path}`, error);
+
+      if (this.isObjectMissing(error)) {
+        throw new NotFoundException({
+          code: 'MODEL_FILE_MISSING',
+          message: 'Файл модели не найден в хранилище',
+        });
+      }
+
       throw new BadRequestException(error?.message || 'Failed to create download URL');
     }
 
