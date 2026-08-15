@@ -1,6 +1,6 @@
 import { IsArray, IsString, IsNumber } from 'class-validator';
 
-export class UpdateNotionContentDto {
+export class UpdateMultiNodeContentDto {
   @IsArray()
   blocks: any[];
 

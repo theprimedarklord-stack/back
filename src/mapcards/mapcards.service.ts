@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, ForbiddenException, NotFoundE
 import { PoolClient } from 'pg';
 import { CreateMapCardDto } from './dto/create-mapcard.dto';
 import { UpdateMapCardDto } from './dto/update-mapcard.dto';
-import { UpdateNotionContentDto } from './dto/update-notion-content.dto';
+import { UpdateMultiNodeContentDto } from './dto/update-multinode-content.dto';
 
 @Injectable()
 export class MapCardsService {
@@ -333,10 +333,10 @@ export class MapCardsService {
   }
 
   /**
-   * Оновлення контенту Notion ноди
+   * Оновлення контенту мультиноди
    * Defense in Depth: user_id + organization_id + content_version у WHERE
    */
-  async updateNotionContent(dbClient: PoolClient, id: string, dto: UpdateNotionContentDto, userId: string, orgId: string) {
+  async updateMultiNodeContent(dbClient: PoolClient, id: string, dto: UpdateMultiNodeContentDto, userId: string, orgId: string) {
     try {
       const updateQuery = `
         UPDATE map_cards
@@ -380,7 +380,7 @@ export class MapCardsService {
       if (error.code === '42501') {
         throw new ForbiddenException(`Відмовлено в доступі RLS`);
       }
-      throw new InternalServerErrorException(`DB Update Notion Content Error: ${error.message}`);
+      throw new InternalServerErrorException(`DB Update MultiNode Content Error: ${error.message}`);
     }
   }
 }
