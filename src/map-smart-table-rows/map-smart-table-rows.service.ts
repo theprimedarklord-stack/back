@@ -83,9 +83,15 @@ export class MapSmartTableRowsService {
     }
   }
 
-  async bulkCreate(dbClient: PoolClient, dtos: CreateTableRowDto[], userId: string, orgId: string) {
-    if (!dtos || dtos.length === 0) return [];
-    
+  async bulkCreate(dbClient: PoolClient, rawDtos: CreateTableRowDto[], userId: string, orgId: string) {
+    if (!rawDtos || rawDtos.length === 0) return [];
+
+    // `ON CONFLICT DO UPDATE` refuses to touch the same row twice in one
+    // statement, so a repeated id in the batch would fail the whole insert.
+    const unique = new Map<string, CreateTableRowDto>();
+    for (const dto of rawDtos) unique.set(dto.id, dto);
+    const dtos = [...unique.values()];
+
     try {
       // Find max position
       const tableNodeId = dtos[0].table_node_id;
@@ -118,12 +124,27 @@ export class MapSmartTableRowsService {
         return `($${p + 1}, $${p + 2}, $${p + 3}, $${p + 4}::uuid, $${p + 5}::uuid, $${p + 6}, $${p + 7}, $${p + 8}::jsonb, $${p + 9}::jsonb)`;
       }).join(', ');
 
+      // Upsert, not a plain insert: the reconcile in `useSmartTableRows` decides
+      // what is missing from a snapshot that a second tab — or a retry after a
+      // failed sync — may already have created. A duplicate key would otherwise
+      // fail the whole batch and drop the table back to JSON-only.
+      //
+      // `content_blocks` stays out of the DO UPDATE list: a re-created row
+      // carries none, and that is the row's side-peek body.
       const query = `
         INSERT INTO map_smart_table_rows (
           id, table_node_id, map_card_id, user_id, organization_id,
           position, height, properties, content_blocks
         )
         VALUES ${rowsToInsert}
+        ON CONFLICT (id) DO UPDATE
+           SET position = EXCLUDED.position,
+               height = EXCLUDED.height,
+               properties = EXCLUDED.properties,
+               updated_at = NOW()
+         WHERE map_smart_table_rows.user_id = EXCLUDED.user_id
+           AND map_smart_table_rows.organization_id = EXCLUDED.organization_id
+           AND map_smart_table_rows.table_node_id = EXCLUDED.table_node_id
         RETURNING *
       `;
 

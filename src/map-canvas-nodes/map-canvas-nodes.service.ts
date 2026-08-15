@@ -43,13 +43,32 @@ export class MapCanvasNodesService {
     }
   }
 
+  /**
+   * Upsert rather than a plain insert.
+   *
+   * The canvas mints node ids in memory and only later finds out whether a row
+   * exists, so the same create legitimately arrives more than once — a reconcile
+   * racing a debounced save, a second tab, a StrictMode double mount. A hard
+   * insert answers that with a 500 and (in the bulk case) drops every other node
+   * in the batch with it.
+   *
+   * `content_blocks`, `title` and `tags` are deliberately absent from the DO
+   * UPDATE list: a repeat create carries an empty body, and overwriting with it
+   * would erase the content this row exists to hold.
+   */
   async create(dbClient: PoolClient, dto: CreateCanvasNodeDto, userId: string, orgId: string) {
     try {
       const query = `
         INSERT INTO map_canvas_nodes (
           id, map_card_id, user_id, organization_id, node_type, content_blocks, title, tags
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2::bigint, $3::uuid, $4::uuid, $5, $6::jsonb, $7, $8::text[])
+        ON CONFLICT (id) DO UPDATE
+           SET node_type = EXCLUDED.node_type,
+               updated_at = NOW()
+         WHERE map_canvas_nodes.user_id = EXCLUDED.user_id
+           AND map_canvas_nodes.organization_id = EXCLUDED.organization_id
+           AND map_canvas_nodes.map_card_id = EXCLUDED.map_card_id
         RETURNING *
       `;
       const values = [
@@ -58,16 +77,82 @@ export class MapCanvasNodesService {
         userId,
         orgId,
         dto.node_type,
-        dto.content_blocks ? JSON.stringify(dto.content_blocks) : '[]',
-        dto.title || '',
-        dto.tags || '{}'
+        JSON.stringify(dto.content_blocks ?? []),
+        dto.title ?? '',
+        dto.tags ?? [],
       ];
-      
+
       const result = await dbClient.query(query, values);
+
+      if (result.rows.length === 0) {
+        // The primary key is a bare id and node ids are minted from a timestamp
+        // (`NodeFactory`), so a row belonging to another owner — or to another
+        // card of the same owner — can collide on it. The DO UPDATE guard turns
+        // that into a no-op instead of letting this node adopt that row and
+        // write its content there.
+        throw new ForbiddenException('Node id already belongs to another owner or map card');
+      }
+
       return result.rows[0];
     } catch (error: any) {
+      if (error instanceof ForbiddenException) throw error;
       if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
       throw new InternalServerErrorException(`DB Insert Error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Same upsert, one statement for the whole batch — the reconcile pass creates
+   * every missing node of a card at once.
+   */
+  async bulkCreate(dbClient: PoolClient, dtos: CreateCanvasNodeDto[], userId: string, orgId: string) {
+    if (!dtos || dtos.length === 0) return [];
+
+    // `ON CONFLICT DO UPDATE` refuses to touch the same row twice in one
+    // statement, so a repeated id in the batch would fail the whole insert.
+    const unique = new Map<string, CreateCanvasNodeDto>();
+    for (const dto of dtos) unique.set(dto.id, dto);
+
+    try {
+      // Values are bound, never interpolated: ids and block contents are
+      // user-controlled text.
+      const values: any[] = [];
+      const tuples = [...unique.values()]
+        .map((dto) => {
+          const p = values.length;
+          values.push(
+            dto.id,
+            dto.map_card_id,
+            userId,
+            orgId,
+            dto.node_type,
+            JSON.stringify(dto.content_blocks ?? []),
+            dto.title ?? '',
+            dto.tags ?? [],
+          );
+          return `($${p + 1}, $${p + 2}::bigint, $${p + 3}::uuid, $${p + 4}::uuid, $${p + 5}, $${p + 6}::jsonb, $${p + 7}, $${p + 8}::text[])`;
+        })
+        .join(', ');
+
+      const query = `
+        INSERT INTO map_canvas_nodes (
+          id, map_card_id, user_id, organization_id, node_type, content_blocks, title, tags
+        )
+        VALUES ${tuples}
+        ON CONFLICT (id) DO UPDATE
+           SET node_type = EXCLUDED.node_type,
+               updated_at = NOW()
+         WHERE map_canvas_nodes.user_id = EXCLUDED.user_id
+           AND map_canvas_nodes.organization_id = EXCLUDED.organization_id
+           AND map_canvas_nodes.map_card_id = EXCLUDED.map_card_id
+        RETURNING *
+      `;
+
+      const result = await dbClient.query(query, values);
+      return result.rows;
+    } catch (error: any) {
+      if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
+      throw new InternalServerErrorException(`DB Bulk Insert Error: ${error.message}`);
     }
   }
 

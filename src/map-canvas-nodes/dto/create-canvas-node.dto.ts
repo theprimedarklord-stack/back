@@ -1,4 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, IsArray, IsIn } from 'class-validator';
+import { CANVAS_NODE_TYPES } from '../canvas-node-types';
 
 export class CreateCanvasNodeDto {
   @IsString()
@@ -10,7 +11,7 @@ export class CreateCanvasNodeDto {
   map_card_id: string;
 
   @IsString()
-  @IsIn(['notion', 'smart_table', 'info', 'runtime'])
+  @IsIn([...CANVAS_NODE_TYPES])
   node_type: string;
 
   @IsArray()
