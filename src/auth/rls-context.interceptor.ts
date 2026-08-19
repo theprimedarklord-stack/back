@@ -1,6 +1,7 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable, lastValueFrom } from 'rxjs';
+import { LRUCache } from 'lru-cache';
 import { DatabaseService } from '../db/database.service';
 import { REQUIRE_ORG_KEY } from '../common/decorators/require-org.decorator';
 import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
@@ -9,6 +10,26 @@ import { READ_ONLY_KEY } from '../common/decorators/read-only.decorator';
 @Injectable()
 export class RlsContextInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RlsContextInterceptor.name);
+
+  /**
+   * Членство в организации — короткий кэш.
+   *
+   * Проверка стоила отдельной транзакции: соединение, `BEGIN`, `set_config`,
+   * `SELECT 1`, `COMMIT` — четыре круга до базы ради ответа, который меняется
+   * раз в месяц. При задержке 155 мс это ~620 мс на каждом запросе.
+   *
+   * Кэшируется только положительный ответ и только на полминуты. Отказ не
+   * кэшируется никогда: свежевыданный доступ должен работать сразу.
+   *
+   * Что это стоит: исключённый из организации сохранит доступ до полуминуты.
+   * Граница риска узкая — все запросы сервисов и без того фильтруют по
+   * `user_id = <его собственный>`, поэтому увидеть он сможет только то, что
+   * принадлежит ему самому, и только в этой организации.
+   */
+  private readonly memberships = new LRUCache<string, true>({
+    max: 5000,
+    ttl: 30_000,
+  });
 
   constructor(
     private readonly db: DatabaseService,
@@ -44,14 +65,6 @@ export class RlsContextInterceptor implements NestInterceptor {
     const userId = req.user?.userId || req.user?.id || req.user?.sub || req.headers['x-user-id'];
     // Читаем ID организации из заголовка (который должен присылать BFF/фронтенд)
     const orgId = req.headers['x-org-id'];
-
-    console.log('========== RLS DEBUG ==========');
-    console.log('1. Raw req.user:', req.user);
-    console.log('2. Extracted userId:', userId);
-    console.log('3. Extracted orgId:', orgId);
-    console.log('===============================');
-
-    this.logger.debug(`RLS Context: userId=${userId}, orgId=${orgId}`);
 
     if (!userId) {
       this.logger.warn(`No userId found for ${req.method} ${path}, skipping RLS context`);
@@ -98,20 +111,8 @@ export class RlsContextInterceptor implements NestInterceptor {
       });
     }
 
-    // 🔒 БЕЗОПАСНОСТЬ B2B: Проверяем, что юзер реально состоит в этой организации
-    // (Используем прямой SQL запрос, так как мы доверяем только базе данных)
-    const isMemberValid = await this.db.withUserContext(userId, async (client) => {
-      const res = await client.query(
-        `SELECT 1 FROM public.org_organization_members WHERE organization_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
-        [orgId, userId]
-      );
-      return res.rows.length > 0;
-    }, { readOnly: true, label: `membership-check ${req.method} ${path}` });
-
-    if (!isMemberValid) {
-      this.logger.error(`User ${userId} attempted to access organization ${orgId} without permissions`);
-      throw new ForbiddenException('You do not have access to this organization');
-    }
+    const membershipKey = `${userId}:${orgId}`;
+    const membershipKnown = this.memberships.get(membershipKey) === true;
 
     // Wrap request handling in a transaction with app.user_id AND app.org_id set locally
     return new Observable((subscriber) => {
@@ -119,6 +120,26 @@ export class RlsContextInterceptor implements NestInterceptor {
         userId,
         orgId,
         async (client) => {
+        // 🔒 БЕЗОПАСНОСТЬ B2B: юзер обязан состоять в этой организации.
+        // Проверка идёт первым запросом уже открытой транзакции, а не в своей
+        // собственной: та стоила четырёх лишних кругов до базы.
+        if (!membershipKnown) {
+          const res = await client.query(
+            `SELECT 1 FROM public.org_organization_members WHERE organization_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
+            [orgId, userId],
+          );
+
+          if (res.rows.length === 0) {
+            this.memberships.delete(membershipKey);
+            this.logger.error(
+              `User ${userId} attempted to access organization ${orgId} without permissions`,
+            );
+            throw new ForbiddenException('You do not have access to this organization');
+          }
+
+          this.memberships.set(membershipKey, true);
+        }
+
         req.dbClient = client;
         try {
           const result = await lastValueFrom(next.handle());
