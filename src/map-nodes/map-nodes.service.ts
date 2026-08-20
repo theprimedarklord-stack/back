@@ -96,7 +96,8 @@ export class MapNodesService {
                 (SELECT count(*) FROM map_nodes c
                   WHERE c.deleted_at IS NULL
                     AND (
-                      (n.kind = 'mapcard' AND c.root_id = n.id AND c.parent_id IS NULL AND c.kind <> 'mapcard')
+                      (n.kind = 'mapcard' AND c.root_id = n.id AND c.kind <> 'mapcard'
+                        AND (c.parent_id IS NULL OR c.parent_id = n.id))
                       OR (n.kind = 'cluster' AND c.parent_id = n.id)
                     )) AS children_count
            FROM map_nodes n
@@ -382,7 +383,9 @@ export class MapNodesService {
        * «Діти» означають різне залежно від того, хто батько.
        *
        * У картки це вузли її канваса — вони мають `root_id` картки і
-       * `parent_id IS NULL`, бо всередині картки нікому не належать.
+       * `parent_id IS NULL`, бо всередині картки нікому не належать. Плюс ті,
+       * що заведені кнопкою «+» прямо під карткою: у них `parent_id` = картка.
+       * Без другої умови така нода зникала б одразу після створення.
        * У кластера і у звичайного вузла це прямий `parent_id`.
        *
        * Одна умова на обидва випадки: інакше дерево показувало б картки
@@ -396,12 +399,14 @@ export class MapNodesService {
                 (SELECT count(*) FROM map_nodes c
                   WHERE c.deleted_at IS NULL
                     AND (
-                      (n.kind = 'mapcard' AND c.root_id = n.id AND c.parent_id IS NULL AND c.kind <> 'mapcard')
+                      (n.kind = 'mapcard' AND c.root_id = n.id AND c.kind <> 'mapcard'
+                        AND (c.parent_id IS NULL OR c.parent_id = n.id))
                       OR (n.kind <> 'mapcard' AND c.parent_id = n.id)
                     )) AS children_count
            FROM map_nodes p
            JOIN map_nodes n ON (
-                  (p.kind = 'mapcard' AND n.root_id = p.id AND n.parent_id IS NULL AND n.kind <> 'mapcard')
+                  (p.kind = 'mapcard' AND n.root_id = p.id AND n.kind <> 'mapcard'
+                    AND (n.parent_id IS NULL OR n.parent_id = p.id))
                OR (p.kind <> 'mapcard' AND n.parent_id = p.id)
              )
           WHERE p.id = $1
