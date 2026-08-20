@@ -8,7 +8,6 @@ import { CognitoAuthGuard } from '../auth/cognito-auth.guard';
 import { CreateMapCardDto } from './dto/create-mapcard.dto';
 import { UpdateMapCardDto } from './dto/update-mapcard.dto';
 import { ToggleFavoriteDto } from './dto/toggle-favorite.dto';
-import { UpdateMultiNodeContentDto } from './dto/update-multinode-content.dto';
 import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
 
 @Controller('mapcards')
@@ -120,25 +119,6 @@ export class MapCardsController {
     }
 
     return this.mapCardsService.update(dbClient, id, dto, req.user.userId, orgId);
-  }
-
-  @Patch(':id/multinode-content')
-  async updateMultiNodeContent(
-    @Param('id') id: string,
-    @Body() dto: UpdateMultiNodeContentDto,
-    @Req() req: AuthenticatedRequest,
-  ) {
-    const dbClient = req.dbClient;
-    if (!dbClient) {
-      throw new InternalServerErrorException('Database client with RLS context is missing!');
-    }
-
-    const orgId = req.headers['x-org-id'];
-    if (!orgId) {
-      throw new BadRequestException('x-org-id header is required');
-    }
-
-    return this.mapCardsService.updateMultiNodeContent(dbClient, id, dto, req.user.userId, orgId as string);
   }
 
   @Patch(':id/favorite')
