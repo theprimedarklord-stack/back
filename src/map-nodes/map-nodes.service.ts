@@ -117,6 +117,165 @@ export class MapNodesService {
   }
 
   /**
+   * Граф на заданому рівні.
+   *
+   * ## Що є вершиною
+   *
+   * `card` (типово) — картки. `cluster` — теки. `node` — самі вузли.
+   * `expand` розкриває одну картку у її вузли, лишаючи решту згорнутими.
+   *
+   * ## Чому агрегація в SQL
+   *
+   * На рівні картки ребро — це не одне посилання, а всі посилання між двома
+   * картками разом, з вагою. Порахувати це в браузері означало б спершу
+   * привезти туди всі посилання всіх вузлів — тобто рівно те, чого рівень
+   * картки й уникає.
+   *
+   * Саме заради цього запиту денормалізований `root_id`: без нього кожне ребро
+   * вимагало б підйому по `path` до кореня.
+   *
+   * ## Чого тут немає
+   *
+   * Вкладеності. Вона ієрархія, а не зв'язок (MAP_NODE_MODEL.md, І7): якщо
+   * малювати `parent_id` тими самими лініями, скелет дерева поглине смислові
+   * зв'язки. Ребра типу `parent` з канваса теж не беремо — це розкладка
+   * tree-режиму, а не те, що людина мала на увазі.
+   */
+  async getGraph(
+    dbClient: PoolClient,
+    userId: string,
+    orgId: string,
+    options: { level?: string; expand?: string | null; limit?: number } = {},
+  ) {
+    const level = ['card', 'node', 'cluster'].includes(options.level ?? '')
+      ? (options.level as 'card' | 'node' | 'cluster')
+      : 'card';
+    const expand = level === 'card' ? options.expand ?? null : null;
+    const limit = options.limit && options.limit > 0 ? options.limit : 5000;
+
+    try {
+      // ── Вершини ───────────────────────────────────────────────────────
+      let vertexSql: string;
+      const vertexValues: any[] = [userId, orgId, limit];
+
+      if (level === 'cluster') {
+        vertexSql = `
+          SELECT id, kind, title, map_card_id
+            FROM map_nodes
+           WHERE kind = 'cluster'
+             AND user_id = $1::uuid AND organization_id = $2::uuid
+             AND deleted_at IS NULL
+           ORDER BY updated_at DESC
+           LIMIT $3::int`;
+      } else if (level === 'node') {
+        vertexSql = `
+          SELECT id, kind, title, map_card_id, root_id
+            FROM map_nodes
+           WHERE kind NOT IN ('mapcard', 'cluster')
+             AND user_id = $1::uuid AND organization_id = $2::uuid
+             AND deleted_at IS NULL
+           ORDER BY updated_at DESC
+           LIMIT $3::int`;
+      } else {
+        // Розкрита картка поступається місцем своїм вузлам.
+        vertexSql = `
+          SELECT id, kind, title, map_card_id, root_id
+            FROM map_nodes
+           WHERE user_id = $1::uuid AND organization_id = $2::uuid
+             AND deleted_at IS NULL
+             AND (
+               (kind = 'mapcard' AND ($4::text IS NULL OR id <> $4))
+               OR ($4::text IS NOT NULL AND root_id = $4 AND kind NOT IN ('mapcard', 'cluster'))
+             )
+           ORDER BY updated_at DESC
+           LIMIT $3::int`;
+        vertexValues.push(expand);
+      }
+
+      const vertexResult = await dbClient.query(vertexSql, vertexValues);
+      const vertices = vertexResult.rows;
+
+      if (vertices.length === 0) {
+        return { level, expand, nodes: [], edges: [], total: 0 };
+      }
+
+      // ── Ребра ─────────────────────────────────────────────────────────
+      /**
+       * Кінець ребра зводиться до вершини свого рівня:
+       *   node    — сам вузол;
+       *   card    — його картка (`root_id`), окрім розкритої;
+       *   cluster — тека, в якій лежить картка.
+       *
+       * Один вираз на всі три рівні: інакше довелося б тримати три майже
+       * однакові запити, які розходяться від першої ж правки.
+       */
+      let endpoint: string;
+      if (level === 'node') {
+        endpoint = '%s.id';
+      } else if (level === 'cluster') {
+        endpoint = '(SELECT c.parent_id FROM map_nodes c WHERE c.id = %s.root_id)';
+      } else {
+        endpoint = "CASE WHEN %s.root_id = $3::text THEN %s.id ELSE %s.root_id END";
+      }
+
+      const srcExpr = endpoint.replace(/%s/g, 's');
+      const dstExpr = endpoint.replace(/%s/g, 't');
+
+      const edgeValues: any[] = [userId, orgId];
+      if (level === 'card') edgeValues.push(expand);
+
+      const edgeResult = await dbClient.query(
+        `WITH resolved AS (
+           SELECT ${srcExpr} AS source, ${dstExpr} AS target, l.kind
+             FROM map_node_links l
+             JOIN map_nodes s ON s.id = l.from_node AND s.deleted_at IS NULL
+             JOIN map_nodes t ON t.id = l.to_node   AND t.deleted_at IS NULL
+            WHERE l.user_id = $1::uuid
+              AND l.organization_id = $2::uuid
+              AND l.kind IN ('ref', 'embed')
+         )
+         SELECT source, target, count(*)::int AS weight
+           FROM resolved
+          WHERE source IS NOT NULL AND target IS NOT NULL AND source <> target
+          GROUP BY source, target`,
+        edgeValues,
+      );
+
+      // Ребро, кінець якого не потрапив у вибірку вершин, малювати нікуди.
+      const known = new Set(vertices.map((v: any) => v.id));
+      const edges = edgeResult.rows
+        .filter((e: any) => known.has(e.source) && known.has(e.target))
+        .map((e: any) => ({
+          id: `${e.source}::${e.target}`,
+          source: e.source,
+          target: e.target,
+          weight: e.weight,
+        }));
+
+      // Розмір вершини в Sigma рахується з кількості зв'язків.
+      const degree = new Map<string, number>();
+      for (const edge of edges) {
+        degree.set(edge.source, (degree.get(edge.source) ?? 0) + edge.weight);
+        degree.set(edge.target, (degree.get(edge.target) ?? 0) + edge.weight);
+      }
+
+      return {
+        level,
+        expand,
+        nodes: vertices.map((v: any) => ({
+          ...v,
+          connectionCount: degree.get(v.id) ?? 0,
+        })),
+        edges,
+        total: vertices.length,
+      };
+    } catch (error: any) {
+      if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
+      throw new InternalServerErrorException(`DB Graph Error: ${error.message}`);
+    }
+  }
+
+  /**
    * Пошук по вузлах організації.
    *
    * `ILIKE`, а не повнотекстовий запит: людина шукає по шматку слова

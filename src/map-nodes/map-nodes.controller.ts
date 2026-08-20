@@ -46,6 +46,25 @@ export class MapNodesController {
     );
   }
 
+  /**
+   * Граф на заданому рівні: `card` (типово), `node`, `cluster`.
+   * `expand` розкриває одну картку в її вузли.
+   */
+  @Get('graph')
+  async getGraph(
+    @Req() req: AuthenticatedRequest,
+    @Query('level') level?: string,
+    @Query('expand') expand?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const { dbClient, orgId } = this.context(req);
+    return this.mapNodesService.getGraph(dbClient, req.user.userId, orgId, {
+      level,
+      expand: expand || null,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
   /** Пошук по вузлах організації. */
   @Get('search')
   async search(
