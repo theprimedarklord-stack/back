@@ -179,8 +179,15 @@ export class MapCardConnectionsService {
   }
 
   /**
-   * Масове створення з'єднань за масивом назв карток (для парсингу wiki-links з будь-якого тексту).
-   * Спочатку шукає картки за title (targetTitles), потім робить INSERT ... ON CONFLICT DO NOTHING.
+   * Масове створення з'єднань за wiki-посиланнями документа.
+   *
+   * `targetIds` — основний шлях: посилання, обране з автодоповнення, несе id
+   * картки в пропсах. Перейменування картки такий зв'язок не рве.
+   * `targetTitles` — запасний: посилання, набране руками як `[[Назва]]`, id не
+   * має, і картку доводиться шукати за title з усією неоднозначністю тезок.
+   *
+   * Обидва списки перевіряються на належність користувачу й організації, далі
+   * один INSERT ... ON CONFLICT DO NOTHING на весь набір.
    */
   async bulkSync(
     dbClient: PoolClient,
@@ -188,53 +195,61 @@ export class MapCardConnectionsService {
     targetTitles: string[],
     userId: string,
     orgId: string,
+    targetIds: number[] = [],
   ) {
     try {
-      if (!targetTitles || targetTitles.length === 0) {
+      const hasIds = Array.isArray(targetIds) && targetIds.length > 0;
+      const hasTitles = Array.isArray(targetTitles) && targetTitles.length > 0;
+      if (!hasIds && !hasTitles) {
         return { created: 0, connections: [] };
       }
 
-      // 1. Знаходимо ID цільових карток за їхніми назвами
-      const findTargetsQuery = `
-        SELECT id, title
-        FROM map_cards
-        WHERE user_id = $1::uuid AND organization_id = $2::uuid
-          AND title = ANY($3::text[])
-      `;
-      const targetsResult = await dbClient.query(findTargetsQuery, [userId, orgId, targetTitles]);
-      
-      if (targetsResult.rows.length === 0) {
+      // Ціль задає id, назва — лише запасний шлях для посилань, набраних руками.
+      // Обидва списки все одно проходять перевірку належності: чужу картку
+      // зв'язати не можна навіть знаючи її id.
+      const resolved = new Set<number>();
+
+      if (hasIds) {
+        const byId = await dbClient.query(
+          `SELECT id FROM map_cards
+            WHERE user_id = $1::uuid AND organization_id = $2::uuid
+              AND id = ANY($3::bigint[])`,
+          [userId, orgId, targetIds],
+        );
+        for (const row of byId.rows) resolved.add(Number(row.id));
+      }
+
+      if (hasTitles) {
+        const byTitle = await dbClient.query(
+          `SELECT id FROM map_cards
+            WHERE user_id = $1::uuid AND organization_id = $2::uuid
+              AND title = ANY($3::text[])`,
+          [userId, orgId, targetTitles],
+        );
+        for (const row of byTitle.rows) resolved.add(Number(row.id));
+      }
+
+      // Самопосилання відкидаємо тут, а не в SQL: воно нічого не означає,
+      // але створило б ребро картки саму на себе в графі.
+      resolved.delete(Number(mapCardId));
+
+      if (resolved.size === 0) {
         return { created: 0, connections: [], message: 'No matching target cards found' };
       }
 
-      const results: any[] = [];
+      // Один стейтмент на весь набір: раніше на кожну ціль ішов окремий запит,
+      // а посилань у документі бувають десятки, і кожне автозбереження
+      // проганяло їх по колу.
+      const insertResult = await dbClient.query(
+        `INSERT INTO map_card_connections (source_map_card_id, target_map_card_id, connection_type, user_id)
+         SELECT $1::bigint, t.id, 'reference', $2::uuid
+           FROM unnest($3::bigint[]) AS t(id)
+         ON CONFLICT DO NOTHING
+         RETURNING *`,
+        [mapCardId, userId, Array.from(resolved)],
+      );
 
-      // 2. Створюємо зв'язки з усіма знайденими ID
-      for (const target of targetsResult.rows) {
-        // Запобігаємо самопосиланню
-        if (target.id === String(mapCardId) || target.id === Number(mapCardId)) {
-          continue;
-        }
-
-        const query = `
-          INSERT INTO map_card_connections (source_map_card_id, target_map_card_id, connection_type, user_id)
-          VALUES ($1::bigint, $2::bigint, 'reference', $3::uuid)
-          ON CONFLICT DO NOTHING
-          RETURNING *
-        `;
-        const values = [
-          mapCardId,
-          target.id,
-          userId,
-        ];
-
-        const result = await dbClient.query(query, values);
-        if (result.rows.length > 0) {
-          results.push(result.rows[0]);
-        }
-      }
-
-      return { created: results.length, connections: results };
+      return { created: insertResult.rows.length, connections: insertResult.rows };
     } catch (error: any) {
       if (error.code === '42501') {
         throw new ForbiddenException(`Відмовлено в доступі RLS`);

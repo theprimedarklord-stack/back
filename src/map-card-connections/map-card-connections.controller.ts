@@ -105,9 +105,10 @@ export class MapCardConnectionsController {
     return this.mapCardConnectionsService.bulkSync(
       dbClient,
       dto.mapCardId,
-      dto.targetTitles,
+      dto.targetTitles ?? [],
       req.user.userId,
       orgId as string,
+      dto.targetIds ?? [],
     );
   }
 
