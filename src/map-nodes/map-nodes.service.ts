@@ -93,6 +93,7 @@ export class MapNodesService {
     try {
       const result = await dbClient.query(
         `SELECT n.id, n.kind, n.title, n.map_card_id, n.updated_at,
+                COALESCE((n.props->>'pinned')::boolean, false) AS pinned,
                 (SELECT count(*) FROM map_nodes c
                   WHERE c.deleted_at IS NULL
                     AND (
@@ -106,7 +107,9 @@ export class MapNodesService {
             AND n.user_id = $1::uuid
             AND n.organization_id = $2::uuid
             AND n.deleted_at IS NULL
-          ORDER BY (n.kind = 'cluster') DESC, n.updated_at DESC
+          ORDER BY COALESCE((n.props->>'pinned')::boolean, false) DESC,
+                   (n.kind = 'cluster') DESC,
+                   n.updated_at DESC
           LIMIT $3::int`,
         [userId, orgId, limit],
       );
@@ -396,6 +399,7 @@ export class MapNodesService {
         `SELECT n.id, n.kind, n.parent_id, n.root_id, n.depth, n.path, n.position,
                 n.title, n.content_text, n.props, n.map_card_id,
                 n.content_version, n.updated_at,
+                COALESCE((n.props->>'pinned')::boolean, false) AS pinned,
                 (SELECT count(*) FROM map_nodes c
                   WHERE c.deleted_at IS NULL
                     AND (
@@ -416,7 +420,8 @@ export class MapNodesService {
             AND n.user_id = $2::uuid
             AND n.organization_id = $3::uuid
             AND n.deleted_at IS NULL
-          ORDER BY n.position ASC, n.created_at ASC`,
+          ORDER BY COALESCE((n.props->>'pinned')::boolean, false) DESC,
+                   n.position ASC, n.created_at ASC`,
         [parentId, userId, orgId],
       );
       return result.rows;
@@ -574,6 +579,46 @@ export class MapNodesService {
       if (error instanceof NotFoundException) throw error;
       if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
       throw new InternalServerErrorException(`DB Insert Error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Закріплення вузла або картки.
+   *
+   * Живе в `props`, а не окремою колонкою: це властивість цього вузла, а не
+   * нова сутність, і заводити під прапорець міграцію не варто. `jsonb_set`
+   * замість запису всього `props` — інакше клієнт мусив би спершу прочитати
+   * решту полів і міг би затерти те, чого не бачив.
+   */
+  async setPinned(
+    dbClient: PoolClient,
+    id: string,
+    pinned: boolean,
+    userId: string,
+    orgId: string,
+  ) {
+    try {
+      const result = await dbClient.query(
+        `UPDATE map_nodes
+            SET props = jsonb_set(COALESCE(props, '{}'::jsonb), '{pinned}', to_jsonb($1::boolean)),
+                updated_at = now()
+          WHERE id = $2
+            AND user_id = $3::uuid
+            AND organization_id = $4::uuid
+            AND deleted_at IS NULL
+         RETURNING id, (props->>'pinned')::boolean AS pinned`,
+        [pinned, id, userId, orgId],
+      );
+
+      if (result.rows.length === 0) {
+        throw new NotFoundException('Node not found or access denied');
+      }
+
+      return result.rows[0];
+    } catch (error: any) {
+      if (error instanceof NotFoundException) throw error;
+      if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
+      throw new InternalServerErrorException(`DB Pin Error: ${error.message}`);
     }
   }
 

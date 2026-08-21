@@ -165,6 +165,17 @@ export class MapNodesController {
     );
   }
 
+  /** Закріпити або відкріпити вузол чи картку. */
+  @Post(':id/pin')
+  async pin(
+    @Param('id') id: string,
+    @Body() body: { pinned: boolean },
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const { dbClient, orgId } = this.context(req);
+    return this.mapNodesService.setPinned(dbClient, id, !!body?.pinned, req.user.userId, orgId);
+  }
+
   /** Предки вузла з назвами — хлібні крихти. */
   @Get(':id/ancestors')
   async getAncestors(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
