@@ -307,7 +307,9 @@ export class MapNodesService {
           WHERE user_id = $1::uuid
             AND organization_id = $2::uuid
             AND deleted_at IS NULL
-            AND kind <> 'mapcard'
+            -- Кластер — тека, а не документ: посилатися на нього нема на що,
+            -- і в підказці wiki-посилань він тільки заважає.
+            AND kind NOT IN ('mapcard', 'cluster')
             AND ($5::boolean OR title ILIKE $3 OR content_text ILIKE $3)
           ORDER BY updated_at DESC
           LIMIT $4::int`,
