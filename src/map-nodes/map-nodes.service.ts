@@ -206,7 +206,9 @@ export class MapNodesService {
                  AND p.deleted_at IS NULL
           WHERE n.user_id = $1::uuid
             AND n.organization_id = $2::uuid
-            AND n.deleted_at IS NULL${where}
+            AND n.deleted_at IS NULL
+            -- Покажчик на канвасі — не окремий документ (див. findChildren).
+            AND n.kind <> 'nodeRef'${where}
           ORDER BY n.updated_at DESC
           LIMIT $${values.length}::int`,
         values,
@@ -524,6 +526,10 @@ export class MapNodesService {
             AND n.user_id = $2::uuid
             AND n.organization_id = $3::uuid
             AND n.deleted_at IS NULL
+            -- kind = nodeRef це покажчик на вкладену ноду, поставлений на
+            -- канвасі. Сама нода вже є в списку своїм рядком; показати ще й
+            -- покажчик означало б показати її двічі.
+            AND n.kind <> 'nodeRef'
           ORDER BY COALESCE((n.props->>'pinned')::boolean, false) DESC,
                    n.position ASC, n.created_at ASC`,
         [parentId, userId, orgId],
