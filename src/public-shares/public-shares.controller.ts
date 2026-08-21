@@ -64,8 +64,11 @@ export class PublicSharesController {
     const orgId = req.headers['x-org-id'] as string;
     if (!orgId) throw new BadRequestException('x-org-id header is required');
 
+    // Без `map_card_id` — усе, що опублікувала ця людина. Раніше запит без
+    // параметра був помилкою, і списку своїх публікацій не існувало взагалі:
+    // дізнатися про посилання можна було, лише відкривши саму картку.
     if (!mapCardId) {
-      throw new BadRequestException('map_card_id query parameter is required');
+      return this.publicSharesService.getSharesForUser(orgId, req.user.userId);
     }
 
     return this.publicSharesService.getSharesForMapCard(orgId, Number(mapCardId));

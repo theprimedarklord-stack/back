@@ -121,6 +121,104 @@ export class MapNodesService {
   }
 
   /**
+   * Закріплені вузли — будь-якого рівня, не лише верхнього.
+   *
+   * `props->>'pinned'` замість окремої колонки: прапорець — властивість
+   * вузла, і заводити під нього міграцію не варто (див. `setPinned`).
+   * Прізвище теки поруч у відповіді, щоб у сайдбарі було видно, звідки рядок.
+   */
+  async findPinned(dbClient: PoolClient, userId: string, orgId: string, limit = 100) {
+    try {
+      const result = await dbClient.query(
+        `SELECT n.id, n.kind, n.title, n.map_card_id, n.parent_id, n.root_id,
+                n.updated_at, true AS pinned,
+                p.title AS parent_title, p.kind AS parent_kind
+           FROM map_nodes n
+           LEFT JOIN map_nodes p
+                  ON p.id = COALESCE(n.parent_id, NULLIF(n.root_id, n.id))
+                 AND p.deleted_at IS NULL
+          WHERE COALESCE((n.props->>'pinned')::boolean, false) IS TRUE
+            AND n.user_id = $1::uuid
+            AND n.organization_id = $2::uuid
+            AND n.deleted_at IS NULL
+          ORDER BY n.updated_at DESC
+          LIMIT $3::int`,
+        [userId, orgId, limit],
+      );
+      return result.rows;
+    } catch (error: any) {
+      if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
+      throw new InternalServerErrorException(`DB Select Error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Нещодавно змінене — плаский перелік для «Бібліотеки».
+   *
+   * Плаский навмисно: дерево відповідає на «де лежить», бібліотека — на «над
+   * чим я працював». Тека приїжджає полем `parent_title`, і згрупувати за нею
+   * клієнт може без жодного додаткового запиту.
+   *
+   * `kind` розуміє три значення: `mapcard`, `cluster` і `node` (усе інше —
+   * тобто вміст карток). Порожній `kind` означає «усе».
+   */
+  async findRecent(
+    dbClient: PoolClient,
+    userId: string,
+    orgId: string,
+    options: { limit?: number; kind?: string; query?: string } = {},
+  ) {
+    const limit = Math.min(options.limit ?? 60, 200);
+    const values: any[] = [userId, orgId];
+    let where = '';
+
+    if (options.kind === 'mapcard' || options.kind === 'cluster') {
+      values.push(options.kind);
+      where += ` AND n.kind = $${values.length}`;
+    } else if (options.kind === 'node') {
+      where += ` AND n.kind NOT IN ('mapcard', 'cluster')`;
+    }
+
+    if (options.query && options.query.trim()) {
+      // ILIKE, а не FTS: у сайдбарі шукають по шматку слова, а не по слову.
+      values.push(`%${options.query.trim()}%`);
+      where += ` AND n.title ILIKE $${values.length}`;
+    }
+
+    values.push(limit);
+
+    try {
+      const result = await dbClient.query(
+        `SELECT n.id, n.kind, n.title, n.map_card_id, n.parent_id, n.root_id,
+                n.updated_at,
+                COALESCE((n.props->>'pinned')::boolean, false) AS pinned,
+                p.title AS parent_title, p.kind AS parent_kind,
+                (SELECT count(*) FROM map_nodes c
+                  WHERE c.deleted_at IS NULL
+                    AND (
+                      (n.kind = 'mapcard' AND c.root_id = n.id AND c.kind <> 'mapcard'
+                        AND (c.parent_id IS NULL OR c.parent_id = n.id))
+                      OR (n.kind <> 'mapcard' AND c.parent_id = n.id)
+                    )) AS children_count
+           FROM map_nodes n
+           LEFT JOIN map_nodes p
+                  ON p.id = COALESCE(n.parent_id, NULLIF(n.root_id, n.id))
+                 AND p.deleted_at IS NULL
+          WHERE n.user_id = $1::uuid
+            AND n.organization_id = $2::uuid
+            AND n.deleted_at IS NULL${where}
+          ORDER BY n.updated_at DESC
+          LIMIT $${values.length}::int`,
+        values,
+      );
+      return result.rows;
+    } catch (error: any) {
+      if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
+      throw new InternalServerErrorException(`DB Select Error: ${error.message}`);
+    }
+  }
+
+  /**
    * Граф на заданому рівні.
    *
    * ## Що є вершиною

@@ -130,6 +130,58 @@ export class PublicSharesService {
     return { success: true };
   }
 
+  /**
+   * Усе, що ця людина опублікувала в цій організації.
+   *
+   * Назви приїжджають окремими запитами, а не через `join`: `public_shares`
+   * адресує ноду парою `(map_card_id, node_id)`, і зв'язку на `map_nodes` у
+   * таблиці немає — з'єднати їх у PostgREST нічим.
+   *
+   * Фільтр по `published_by` тут обов'язковий: клієнт адміністратора обходить
+   * RLS, і без нього в сайдбар приїхали б чужі публікації організації.
+   */
+  async getSharesForUser(orgId: string, userId: string) {
+    const adminClient = this.supabaseService.getAdminClient() as any;
+
+    const { data, error } = await adminClient
+      .from('public_shares')
+      .select('*')
+      .eq('organization_id', orgId)
+      .eq('published_by', userId)
+      .order('published_at', { ascending: false });
+
+    if (error) throw new InternalServerErrorException('Failed to fetch shares');
+
+    const shares = data || [];
+    if (shares.length === 0) return [];
+
+    const cardIds = [...new Set(shares.map((row: any) => row.map_card_id).filter(Boolean))];
+    const nodeIds = [...new Set(shares.map((row: any) => row.node_id).filter(Boolean))];
+
+    const [cards, nodes] = await Promise.all([
+      cardIds.length
+        ? adminClient.from('map_cards').select('id, title').in('id', cardIds)
+        : Promise.resolve({ data: [] }),
+      nodeIds.length
+        ? adminClient.from('map_nodes').select('id, title, kind').in('id', nodeIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const cardTitle = new Map<string, string>(
+      (cards.data || []).map((row: any) => [String(row.id), row.title]),
+    );
+    const nodeRow = new Map<string, any>((nodes.data || []).map((row: any) => [row.id, row]));
+
+    return shares.map((share: any) => {
+      const node = share.node_id ? nodeRow.get(share.node_id) : null;
+      return {
+        ...share,
+        title: node?.title || cardTitle.get(String(share.map_card_id)) || '',
+        node_kind: node?.kind || null,
+      };
+    });
+  }
+
   async getSharesForMapCard(orgId: string, mapCardId: number) {
     const adminClient = this.supabaseService.getAdminClient() as any;
     const { data, error } = await adminClient

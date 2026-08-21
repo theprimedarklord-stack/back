@@ -47,6 +47,45 @@ export class MapNodesController {
   }
 
   /**
+   * Закріплені вузли будь-якого рівня.
+   *
+   * Окрема ручка, а не фільтр над `roots`: закріпити можна і вкладену ноду,
+   * а `roots` за визначенням бачить лише верхній рівень.
+   */
+  @Get('pinned')
+  async getPinned(@Req() req: AuthenticatedRequest, @Query('limit') limit?: string) {
+    const { dbClient, orgId } = this.context(req);
+    return this.mapNodesService.findPinned(
+      dbClient,
+      req.user.userId,
+      orgId,
+      limit ? Number(limit) : undefined,
+    );
+  }
+
+  /**
+   * Нещодавно змінене — плаский перелік для «Бібліотеки».
+   *
+   * `kind` звужує до одного типу (`mapcard`, `cluster` або будь-який вузол),
+   * `q` шукає по назві. Групування по теках рахує клієнт: назва батька вже
+   * приїжджає в рядку.
+   */
+  @Get('recent')
+  async getRecent(
+    @Req() req: AuthenticatedRequest,
+    @Query('limit') limit?: string,
+    @Query('kind') kind?: string,
+    @Query('q') q?: string,
+  ) {
+    const { dbClient, orgId } = this.context(req);
+    return this.mapNodesService.findRecent(dbClient, req.user.userId, orgId, {
+      limit: limit ? Number(limit) : undefined,
+      kind,
+      query: q,
+    });
+  }
+
+  /**
    * Граф на заданому рівні: `card` (типово), `node`, `cluster`.
    * `expand` розкриває одну картку в її вузли.
    */
