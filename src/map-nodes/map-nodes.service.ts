@@ -577,11 +577,71 @@ export class MapNodesService {
     }
   }
 
+  /**
+   * Переписує вихідні `ref`-зв'язки перелічених вузлів.
+   *
+   * Заміна цілком, а не звірка поштучно: `[[посилання]]` живуть у тексті, свого
+   * id не мають, і «те саме посилання» від «іншого, але схожого» не відрізнити.
+   * Переписати весь набір одного вузла — єдиний спосіб не залишити мертвих.
+   *
+   * Ціль може не існувати (посилання на видалену ноду) — такі відсіюємо
+   * приєднанням, інакше зовнішній ключ завалив би весь стейтмент.
+   */
+  private async replaceRefs(
+    dbClient: PoolClient,
+    refsByNode: Map<string, string[]>,
+    userId: string,
+    orgId: string,
+  ) {
+    if (refsByNode.size === 0) return;
+
+    const sources = [...refsByNode.keys()];
+
+    await dbClient.query(
+      `DELETE FROM map_node_links
+        WHERE kind = 'ref'
+          AND from_node = ANY($1::text[])
+          AND user_id = $2::uuid
+          AND organization_id = $3::uuid`,
+      [sources, userId, orgId],
+    );
+
+    const values: any[] = [];
+    const tuples: string[] = [];
+    for (const [from, targets] of refsByNode) {
+      for (const to of new Set(targets)) {
+        // Посилання на самого себе нічого не означає, а в графі стало б петлею.
+        if (!to || to === from) continue;
+        const p = values.length;
+        values.push(orgId, userId, from, to);
+        tuples.push(`($${p + 1}::uuid, $${p + 2}::uuid, $${p + 3}, $${p + 4})`);
+      }
+    }
+
+    if (tuples.length === 0) return;
+
+    await dbClient.query(
+      `INSERT INTO map_node_links (organization_id, user_id, from_node, to_node, kind)
+       SELECT v.org, v.usr, v.src, v.dst, 'ref'
+         FROM (VALUES ${tuples.join(', ')}) AS v(org, usr, src, dst)
+         JOIN map_nodes s ON s.id = v.src AND s.deleted_at IS NULL
+         JOIN map_nodes t ON t.id = v.dst AND t.deleted_at IS NULL
+       ON CONFLICT DO NOTHING`,
+      values,
+    );
+  }
+
   /** Зміст або назва одного вузла — те, чим користується редактор панелі. */
   async updateOne(
     dbClient: PoolClient,
     id: string,
-    dto: { title?: string; content?: any[]; content_text?: string; props?: Record<string, any> },
+    dto: {
+      title?: string;
+      content?: any[];
+      content_text?: string;
+      props?: Record<string, any>;
+      refs?: string[];
+    },
     userId: string,
     orgId: string,
   ) {
@@ -605,6 +665,12 @@ export class MapNodesService {
       if (dto.props !== undefined) {
         sets.push(`props = $${i++}::jsonb`);
         values.push(JSON.stringify(dto.props));
+      }
+
+      // Ссылки — отдельная от колонок работа: их можно обновить и тогда, когда
+      // сам текст не менялся.
+      if (dto.refs !== undefined) {
+        await this.replaceRefs(dbClient, new Map([[id, dto.refs]]), userId, orgId);
       }
 
       if (sets.length === 0) return null;
@@ -926,6 +992,15 @@ export class MapNodesService {
           [rootId, userId, orgId, ids],
         );
       }
+
+      // ── Посилання `[[wiki]]` ────────────────────────────────────────────
+      // Тільки для вузлів, які прислали `refs`: відсутність поля означає
+      // «не рахували», і затирати чужу роботу через це не можна.
+      const refsByNode = new Map<string, string[]>();
+      for (const node of nodes) {
+        if (node.refs !== undefined) refsByNode.set(node.id, node.refs ?? []);
+      }
+      await this.replaceRefs(dbClient, refsByNode, userId, orgId);
 
       // ── Ребра канваса ───────────────────────────────────────────────────
       // Перезаписуємо цілком: ребер у картці одиниці, а звіряти їх поштучно

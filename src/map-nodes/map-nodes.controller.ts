@@ -175,7 +175,13 @@ export class MapNodesController {
   @Patch(':id')
   async updateOne(
     @Param('id') id: string,
-    @Body() dto: { title?: string; content?: any[]; content_text?: string; props?: Record<string, any> },
+    @Body() dto: {
+      title?: string;
+      content?: any[];
+      content_text?: string;
+      props?: Record<string, any>;
+      refs?: string[];
+    },
     @Req() req: AuthenticatedRequest,
   ) {
     const { dbClient, orgId } = this.context(req);
