@@ -73,9 +73,11 @@ export class MapNodesController {
     @Query('limit') limit?: string,
   ) {
     const { dbClient, orgId } = this.context(req);
+    // Порожній запит — це не «нічого не знайдено», а «меню щойно відкрилось».
+    // Саме так його бачить `[[`: підказка з'являється до першої букви, і
+    // порожній список у цю мить читається як «нод тут не буває».
+    // Тому віддаємо найсвіжіші — те саме робить пошук карток поруч.
     const query = (q ?? '').trim();
-    // Порожній запит — це не помилка, а «ще нічого не ввели».
-    if (query.length === 0) return [];
 
     return this.mapNodesService.search(
       dbClient,

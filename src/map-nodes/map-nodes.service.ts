@@ -282,6 +282,10 @@ export class MapNodesService {
   /**
    * Пошук по вузлах організації.
    *
+   * Порожній запит віддає найсвіжіші вузли, а не порожній список: у меню
+   * `[[` підказка з'являється до першої букви, і порожнеча в цю мить читається
+   * як «нод тут не буває».
+   *
    * `ILIKE`, а не повнотекстовий запит: людина шукає по шматку слова
    * («канб» → «канбан»), а `to_tsquery` шукає по цілих лексемах і такого не
    * знайде. GIN-індекс по `content_text` лишається для того дня, коли з'явиться
@@ -304,10 +308,10 @@ export class MapNodesService {
             AND organization_id = $2::uuid
             AND deleted_at IS NULL
             AND kind <> 'mapcard'
-            AND (title ILIKE $3 OR content_text ILIKE $3)
+            AND ($5::boolean OR title ILIKE $3 OR content_text ILIKE $3)
           ORDER BY updated_at DESC
           LIMIT $4::int`,
-        [userId, orgId, pattern, limit],
+        [userId, orgId, pattern, limit, query.length === 0],
       );
       return result.rows;
     } catch (error: any) {
