@@ -43,6 +43,7 @@ import { PermissionsModule } from './capabilities/permissions/permissions.module
 import { RuntimeModule } from './runtime/runtime.module';
 import { MapCanvasNodesModule } from './map-canvas-nodes/map-canvas-nodes.module';
 import { MapNodesModule } from './map-nodes/map-nodes.module';
+import { LabModule } from './lab/lab.module';
 import { MapSmartTableRowsModule } from './map-smart-table-rows/map-smart-table-rows.module';
 import { ArchitectureModule } from './architecture/architecture.module';
 @Module({
@@ -124,6 +125,7 @@ import { ArchitectureModule } from './architecture/architecture.module';
     RuntimeModule,
     MapCanvasNodesModule,
     MapNodesModule,
+    LabModule,
     MapSmartTableRowsModule,
     ArchitectureModule,
   ],
