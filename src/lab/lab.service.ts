@@ -244,7 +244,15 @@ export class LabService {
       values.push(dto.rotation);
     }
     if (dto.props !== undefined) {
-      sets.push(`props = $${i++}::jsonb`);
+      /**
+       * Властивості дописуються, а не замінюються.
+       *
+       * Клієнт шле саме зміну — `{ value: 9 }`, — і в себе теж зливає її з
+       * наявними. Заміна цілим об'єктом означала б, що зміна одного значення
+       * стирає решту: у деталі-порту так зникали б `portId` та ім'я, а разом з
+       * ними й сам порт — «не всі порти стоять на схемі».
+       */
+      sets.push(`props = COALESCE(props, '{}'::jsonb) || $${i++}::jsonb`);
       values.push(JSON.stringify(dto.props));
     }
     if (sets.length === 0) return null;
