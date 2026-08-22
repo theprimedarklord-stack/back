@@ -21,8 +21,80 @@ import { PRIMITIVE_SEEDS, STANDARD_LIBRARY } from './standard-library';
  * переписувати документ, а «де застосований цей чіп» — це запит по зовнішньому
  * ключу, якого в блобі немає (LAB_ARCHITECTURE.md).
  */
+/** Порт — маленький объект; интерфейс из сотни портов это не чип, а мусор. */
+const MAX_PORTS = 64;
+
+/**
+ * Предел на швидку модель.
+ *
+ * Таблиця на 12 входів — 4096 рядків, це близько сотні кілобайт. Мегабайт з
+ * запасом покриває будь-яку чесну таблицю і не дає покласти в один рядок
+ * стільки, скільки заманеться.
+ */
+const MAX_BEHAVIOR_BYTES = 1_000_000;
+
 @Injectable()
 export class LabService {
+  /**
+   * Чи належить чіп тому, хто просить.
+   *
+   * RLS ізолює самі рядки, але зовнішній ключ перевіряється в обхід політик —
+   * системою, а не роллю. Тобто вставити свою деталь у чужий чіп база не
+   * завадить: рядок буде мій, батько чужий. Показати таку деталь власнику
+   * чіпа `getSchematic` не покаже (він фільтрує за користувачем), але
+   * відповідь «вставилось» чи «немає такого» вже сама по собі відповідь на
+   * питання, чи існує такий чіп. Тому батька перевіряємо явно.
+   */
+  private async assertChipOwned(
+    dbClient: PoolClient,
+    chipId: string,
+    userId: string,
+    orgId: string,
+  ): Promise<void> {
+    const result = await dbClient.query(
+      `SELECT 1 FROM lab_chips
+        WHERE id = $1 AND user_id = $2::uuid AND organization_id = $3::uuid
+          AND deleted_at IS NULL
+        LIMIT 1`,
+      [chipId, userId, orgId],
+    );
+    if (result.rows.length === 0) throw new NotFoundException('Chip not found');
+  }
+
+  /** Те саме про ноду: чіп заводиться лише для своєї. */
+  private async assertNodeOwned(
+    dbClient: PoolClient,
+    nodeId: string,
+    userId: string,
+    orgId: string,
+  ): Promise<void> {
+    const result = await dbClient.query(
+      `SELECT 1 FROM map_nodes
+        WHERE id = $1 AND user_id = $2::uuid AND organization_id = $3::uuid
+          AND deleted_at IS NULL
+        LIMIT 1`,
+      [nodeId, userId, orgId],
+    );
+    if (result.rows.length === 0) throw new NotFoundException('Node not found');
+  }
+
+  /** Розмір того, що приїхало ззовні і лягає в рядок цілком. */
+  private assertChipShape(dto: { ports?: any[]; behavior?: any }): void {
+    if (dto.ports !== undefined) {
+      if (!Array.isArray(dto.ports)) throw new BadRequestException('ports має бути масивом');
+      if (dto.ports.length > MAX_PORTS) {
+        throw new BadRequestException(`Портів більше ${MAX_PORTS}: це не інтерфейс чіпа`);
+      }
+    }
+
+    if (dto.behavior !== undefined) {
+      const size = Buffer.byteLength(JSON.stringify(dto.behavior ?? {}), 'utf8');
+      if (size > MAX_BEHAVIOR_BYTES) {
+        throw new BadRequestException('Швидка модель завелика для одного рядка');
+      }
+    }
+  }
+
   /** Чіп за нодою. Порожньо — схему для цієї ноди ще не заводили. */
   async findChipByNode(dbClient: PoolClient, nodeId: string, userId: string, orgId: string) {
     try {
@@ -71,6 +143,9 @@ export class LabService {
     userId: string,
     orgId: string,
   ) {
+    this.assertChipShape(dto);
+    await this.assertNodeOwned(dbClient, dto.node_id, userId, orgId);
+
     try {
       const result = await dbClient.query(
         `INSERT INTO lab_chips (id, organization_id, user_id, node_id, ports, behavior)
@@ -110,6 +185,8 @@ export class LabService {
     userId: string,
     orgId: string,
   ) {
+    this.assertChipShape(dto);
+
     const sets: string[] = [];
     const values: any[] = [];
     let i = 1;
@@ -194,6 +271,13 @@ export class LabService {
     userId: string,
     orgId: string,
   ) {
+    await this.assertChipOwned(dbClient, chipId, userId, orgId);
+    // Тип деталі — теж чіп: посилання на чужий дало б схему, яка не
+    // розгортається, і ту саму відповідь про існування чужого рядка.
+    if (dto.type_chip_id) {
+      await this.assertChipOwned(dbClient, dto.type_chip_id, userId, orgId);
+    }
+
     try {
       const result = await dbClient.query(
         `INSERT INTO lab_parts (id, organization_id, user_id, chip_id, type_chip_id, role, x, y, props)
@@ -307,6 +391,8 @@ export class LabService {
     userId: string,
     orgId: string,
   ) {
+    await this.assertChipOwned(dbClient, chipId, userId, orgId);
+
     try {
       const result = await dbClient.query(
         `INSERT INTO lab_wires
