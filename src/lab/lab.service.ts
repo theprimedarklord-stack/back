@@ -398,16 +398,41 @@ export class LabService {
         [userId, orgId],
       );
 
+      let clusterId: string;
+
       if (existing.rows.length > 0) {
-        return { seeded: false, clusterId: existing.rows[0].id };
+        clusterId = existing.rows[0].id;
+      } else {
+        clusterId = `cluster-${randomUUID()}`;
+        await dbClient.query(
+          `INSERT INTO map_nodes (id, organization_id, user_id, kind, parent_id, root_id, depth, path, position, title, props)
+           VALUES ($1, $2::uuid, $3::uuid, 'cluster', NULL, $1, 0, '{}'::text[], 0, 'Standard Library', '{}'::jsonb)`,
+          [clusterId, orgId, userId],
+        );
       }
 
-      const clusterId = `cluster-${randomUUID()}`;
-      await dbClient.query(
-        `INSERT INTO map_nodes (id, organization_id, user_id, kind, parent_id, root_id, depth, path, position, title, props)
-         VALUES ($1, $2::uuid, $3::uuid, 'cluster', NULL, $1, 0, '{}'::text[], 0, 'Standard Library', '{}'::jsonb)`,
-        [clusterId, orgId, userId],
+      // Що вже є. Засипка добудовує бібліотеку, а не створює її заново:
+      // інакше перша ж нова деталь у наборі означала б для людини або другу
+      // копію всієї бібліотеки, або нічого. Примітив упізнається за
+      // `behavior.name`, зібраний чіп — за назвою ноди.
+      const present = await dbClient.query(
+        `SELECT c.id, c.is_primitive, c.behavior->>'name' AS prim, n.title
+           FROM lab_chips c
+           JOIN map_nodes n ON n.id = c.node_id
+          WHERE c.user_id = $1::uuid AND c.organization_id = $2::uuid
+            AND n.deleted_at IS NULL`,
+        [userId, orgId],
       );
+
+      const existingPrimitives = new Map<string, string>();
+      const existingByTitle = new Map<string, string>();
+
+      for (const row of present.rows) {
+        if (row.is_primitive && row.prim) existingPrimitives.set(row.prim, row.id);
+        else if (row.title) existingByTitle.set(row.title, row.id);
+      }
+
+      const added: string[] = [];
 
       /** Створює ноду-чіп і сам чіп; повертає id чіпа. */
       const makeChip = async (title: string, ports: any[], behavior: any, isPrimitive: boolean) => {
@@ -430,8 +455,10 @@ export class LabService {
       };
 
       // Примітиви: схеми всередині немає, поведінку рахує рушій.
-      const byName = new Map<string, string>();
+      const byName = new Map<string, string>(existingPrimitives);
       for (const primitive of PRIMITIVE_SEEDS) {
+        if (byName.has(primitive.name)) continue;
+
         const chipId = await makeChip(
           primitive.title,
           primitive.ports,
@@ -439,6 +466,7 @@ export class LabService {
           true,
         );
         byName.set(primitive.name, chipId);
+        added.push(primitive.name);
       }
 
       // Чіпи-схеми. Порядок у списку — порядок залежностей: `XOR` не зібрати,
@@ -446,8 +474,18 @@ export class LabService {
       const byKey = new Map<string, string>();
 
       for (const def of STANDARD_LIBRARY) {
+        const already = existingByTitle.get(def.title);
+        if (already) {
+          // Чіп із такою назвою вже є — його схему не чіпаємо: людина могла
+          // зібрати свій `XOR`, і переписати його засипкою було б крадіжкою
+          // роботи.
+          byKey.set(def.key, already);
+          continue;
+        }
+
         const chipId = await makeChip(def.title, def.ports, { kind: 'none' }, false);
         byKey.set(def.key, chipId);
+        added.push(def.key);
 
         const partIds = new Map<string, string>();
 
@@ -498,8 +536,9 @@ export class LabService {
       }
 
       return {
-        seeded: true,
+        seeded: added.length > 0,
         clusterId,
+        added,
         chips: [...byName.keys(), ...byKey.keys()],
       };
     } catch (error: any) {
