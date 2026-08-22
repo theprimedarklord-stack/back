@@ -569,6 +569,19 @@ export const PRIMITIVE_SEEDS: Array<{ name: string; title: string; ports: SeedPo
   { name: 'led', title: 'LED', ports: [p('in', 'IN', 'in', 0)] },
   { name: 'probe', title: 'Probe', ports: [p('in', 'IN', 'in', 0)] },
   { name: 'digit', title: 'Display', ports: [p('in', 'IN', 'in', 0, 4)] },
+  {
+    name: 'seg7',
+    title: '7 Segment',
+    ports: [
+      p('a', 'A', 'in', 0),
+      p('b', 'B', 'in', 1),
+      p('c', 'C', 'in', 2),
+      p('d', 'D', 'in', 3),
+      p('e', 'E', 'in', 4),
+      p('f', 'F', 'in', 5),
+      p('g', 'G', 'in', 6),
+    ],
+  },
   { name: 'in', title: 'Input', ports: [p('out', 'OUT', 'out', 0)] },
   { name: 'out', title: 'Output', ports: [p('in', 'IN', 'in', 0)] },
   {
