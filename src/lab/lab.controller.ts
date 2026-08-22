@@ -142,6 +142,16 @@ export class LabController {
     return this.labService.deletePart(dbClient, id, req.user.userId, orgId);
   }
 
+  @Patch('wires/:id')
+  async updateWire(
+    @Param('id') id: string,
+    @Body() dto: any,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const { dbClient, orgId } = this.context(req);
+    return this.labService.updateWire(dbClient, id, dto, req.user.userId, orgId);
+  }
+
   @Delete('wires/:id')
   async deleteWire(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const { dbClient, orgId } = this.context(req);

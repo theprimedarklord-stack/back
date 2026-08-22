@@ -329,6 +329,37 @@ export class LabService {
     }
   }
 
+  /**
+   * Злам дроту.
+   *
+   * Змінюється лише геометрія: кінці провід бере від портів, і зберігати їх
+   * означало б замкнути його на місце, звідки деталь уже поїхала.
+   */
+  async updateWire(
+    dbClient: PoolClient,
+    id: string,
+    dto: { path?: any },
+    userId: string,
+    orgId: string,
+  ) {
+    if (dto.path === undefined) return null;
+
+    try {
+      const result = await dbClient.query(
+        `UPDATE lab_wires SET path = $1::jsonb
+          WHERE id = $2 AND user_id = $3::uuid AND organization_id = $4::uuid
+         RETURNING *`,
+        [JSON.stringify(dto.path), id, userId, orgId],
+      );
+      if (result.rows.length === 0) throw new NotFoundException('Wire not found');
+      return result.rows[0];
+    } catch (error: any) {
+      if (error instanceof NotFoundException) throw error;
+      if (error.code === '42501') throw new ForbiddenException('Відмовлено в доступі RLS');
+      throw new InternalServerErrorException(`DB Update Error: ${error.message}`);
+    }
+  }
+
   async deleteWire(dbClient: PoolClient, id: string, userId: string, orgId: string) {
     try {
       const result = await dbClient.query(
