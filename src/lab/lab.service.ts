@@ -528,45 +528,62 @@ export class LabService {
 
       const added: string[] = [];
 
-      /** Створює ноду-чіп і сам чіп; повертає id чіпа. */
-      const makeChip = async (title: string, ports: any[], behavior: any, isPrimitive: boolean) => {
-        const nodeId = `circuit-${randomUUID()}`;
-        const chipId = `chip-${randomUUID()}`;
+      /**
+       * Спочатку план, потім запити.
+       *
+       * Ідентифікатори наші, тому весь набір відомий до першого запиту — і
+       * рядки їдуть пачками, а не по одному. Різниця не косметична: рядок за
+       * рядком це понад триста звернень до бази поспіль, тобто десятки секунд
+       * на віддаленій базі і обрив по таймауту замість бібліотеки. Пачками —
+       * менше тридцяти.
+       */
+      interface Planned {
+        nodeId: string;
+        chipId: string;
+        title: string;
+        ports: any[];
+        behavior: any;
+        isPrimitive: boolean;
+        def?: (typeof STANDARD_LIBRARY)[number];
+      }
 
-        await dbClient.query(
-          `INSERT INTO map_nodes (id, organization_id, user_id, kind, parent_id, root_id, depth, path, position, title, props)
-           VALUES ($1, $2::uuid, $3::uuid, 'circuit', $4, $1, 1, ARRAY[$4]::text[], 0, $5, '{}'::jsonb)`,
-          [nodeId, orgId, userId, clusterId, title],
-        );
+      const planned: Planned[] = [];
+      const byName = new Map<string, string>(existingPrimitives);
+      const byKey = new Map<string, string>();
 
-        await dbClient.query(
-          `INSERT INTO lab_chips (id, organization_id, user_id, node_id, ports, behavior, is_primitive)
-           VALUES ($1, $2::uuid, $3::uuid, $4, $5::jsonb, $6::jsonb, $7)`,
-          [chipId, orgId, userId, nodeId, JSON.stringify(ports), JSON.stringify(behavior), isPrimitive],
-        );
-
-        return chipId;
+      const plan = (
+        title: string,
+        ports: any[],
+        behavior: any,
+        isPrimitive: boolean,
+        def?: (typeof STANDARD_LIBRARY)[number],
+      ): string => {
+        const item: Planned = {
+          nodeId: `circuit-${randomUUID()}`,
+          chipId: `chip-${randomUUID()}`,
+          title,
+          ports,
+          behavior,
+          isPrimitive,
+          def,
+        };
+        planned.push(item);
+        return item.chipId;
       };
 
       // Примітиви: схеми всередині немає, поведінку рахує рушій.
-      const byName = new Map<string, string>(existingPrimitives);
       for (const primitive of PRIMITIVE_SEEDS) {
         if (byName.has(primitive.name)) continue;
 
-        const chipId = await makeChip(
-          primitive.title,
-          primitive.ports,
-          { kind: 'builtin', name: primitive.name },
-          true,
+        byName.set(
+          primitive.name,
+          plan(primitive.title, primitive.ports, { kind: 'builtin', name: primitive.name }, true),
         );
-        byName.set(primitive.name, chipId);
         added.push(primitive.name);
       }
 
       // Чіпи-схеми. Порядок у списку — порядок залежностей: `XOR` не зібрати,
       // поки немає NAND, а `Full Adder` — поки немає `Half Adder`.
-      const byKey = new Map<string, string>();
-
       for (const def of STANDARD_LIBRARY) {
         const already = existingByTitle.get(def.title);
         if (already) {
@@ -577,14 +594,55 @@ export class LabService {
           continue;
         }
 
-        const chipId = await makeChip(def.title, def.ports, { kind: 'none' }, false);
-        byKey.set(def.key, chipId);
+        byKey.set(def.key, plan(def.title, def.ports, { kind: 'none' }, false, def));
         added.push(def.key);
+      }
+
+      if (planned.length > 0) {
+        await dbClient.query(
+          `INSERT INTO map_nodes (id, organization_id, user_id, kind, parent_id, root_id, depth, path, position, title, props)
+           SELECT x.id, $1::uuid, $2::uuid, 'circuit', $3, x.id, 1, ARRAY[$3]::text[], 0, x.title, '{}'::jsonb
+             FROM unnest($4::text[], $5::text[]) AS x(id, title)`,
+          [
+            orgId,
+            userId,
+            clusterId,
+            planned.map((item) => item.nodeId),
+            planned.map((item) => item.title),
+          ],
+        );
+
+        await dbClient.query(
+          `INSERT INTO lab_chips (id, organization_id, user_id, node_id, ports, behavior, is_primitive)
+           SELECT x.id, $1::uuid, $2::uuid, x.node_id, x.ports::jsonb, x.behavior::jsonb, x.is_primitive
+             FROM unnest($3::text[], $4::text[], $5::text[], $6::text[], $7::bool[])
+               AS x(id, node_id, ports, behavior, is_primitive)`,
+          [
+            orgId,
+            userId,
+            planned.map((item) => item.chipId),
+            planned.map((item) => item.nodeId),
+            planned.map((item) => JSON.stringify(item.ports)),
+            planned.map((item) => JSON.stringify(item.behavior)),
+            planned.map((item) => item.isPrimitive),
+          ],
+        );
+      }
+
+      /**
+       * Схеми: по одному запиту на деталі та на дроти кожного чіпа.
+       *
+       * Не однією пачкою на всю бібліотеку: тригер, що ловить чіп усередині
+       * самого себе, у межах одного оператора не бачить рядків, які цей же
+       * оператор вставляє. По чіпу — і швидко, і перевірка на місці.
+       */
+      for (const item of planned) {
+        const def = item.def;
+        if (!def) continue;
 
         const partIds = new Map<string, string>();
 
-        for (const part of def.parts) {
-          const partId = `part-${randomUUID()}`;
+        const parts = def.parts.map((part) => {
           const typeChipId = byName.get(part.type) ?? byKey.get(part.type);
           if (!typeChipId) {
             throw new InternalServerErrorException(
@@ -592,38 +650,54 @@ export class LabService {
             );
           }
 
+          const id = `part-${randomUUID()}`;
+          partIds.set(part.ref, id);
+
+          return {
+            id,
+            typeChipId,
+            role: part.role ?? 'part',
+            x: part.x,
+            y: part.y,
+            props: JSON.stringify(part.props ?? {}),
+          };
+        });
+
+        if (parts.length > 0) {
           await dbClient.query(
             `INSERT INTO lab_parts (id, organization_id, user_id, chip_id, type_chip_id, role, x, y, props)
-             VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7::int, $8::int, $9::jsonb)`,
+             SELECT p.id, $1::uuid, $2::uuid, $3, p.type_chip_id, p.role, p.x, p.y, p.props::jsonb
+               FROM unnest($4::text[], $5::text[], $6::text[], $7::int[], $8::int[], $9::text[])
+                 AS p(id, type_chip_id, role, x, y, props)`,
             [
-              partId,
               orgId,
               userId,
-              chipId,
-              typeChipId,
-              part.role ?? 'part',
-              part.x,
-              part.y,
-              JSON.stringify(part.props ?? {}),
+              item.chipId,
+              parts.map((part) => part.id),
+              parts.map((part) => part.typeChipId),
+              parts.map((part) => part.role),
+              parts.map((part) => part.x),
+              parts.map((part) => part.y),
+              parts.map((part) => part.props),
             ],
           );
-
-          partIds.set(part.ref, partId);
         }
 
-        for (const [fromRef, fromPort, toRef, toPort] of def.wires) {
+        if (def.wires.length > 0) {
           await dbClient.query(
             `INSERT INTO lab_wires (id, organization_id, user_id, chip_id, from_part, from_port, to_part, to_port)
-             VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7, $8)`,
+             SELECT w.id, $1::uuid, $2::uuid, $3, w.from_part, w.from_port, w.to_part, w.to_port
+               FROM unnest($4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
+                 AS w(id, from_part, from_port, to_part, to_port)`,
             [
-              `wire-${randomUUID()}`,
               orgId,
               userId,
-              chipId,
-              partIds.get(fromRef),
-              fromPort,
-              partIds.get(toRef),
-              toPort,
+              item.chipId,
+              def.wires.map(() => `wire-${randomUUID()}`),
+              def.wires.map(([fromRef]) => partIds.get(fromRef)),
+              def.wires.map(([, fromPort]) => fromPort),
+              def.wires.map(([, , toRef]) => partIds.get(toRef)),
+              def.wires.map(([, , , toPort]) => toPort),
             ],
           );
         }
